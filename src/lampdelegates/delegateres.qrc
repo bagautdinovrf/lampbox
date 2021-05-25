@@ -1,0 +1,10 @@
+<RCC>
+    <qresource prefix="/ico">
+        <file>res/onepoint.png</file>
+        <file>res/period.png</file>
+        <file>res/accept.png</file>
+        <file>res/cancel.png</file>
+        <file>res/plus.png</file>
+        <file>res/attention.png</file>
+    </qresource>
+</RCC>

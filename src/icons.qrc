@@ -1,0 +1,40 @@
+<RCC>
+    <qresource prefix="/player">
+        <file>icons/direction_down.png</file>
+        <file>icons/direction_left.png</file>
+        <file>icons/direction_right.png</file>
+        <file>icons/direction_up.png</file>
+        <file>icons/file_add.png</file>
+        <file>icons/file_delete.png</file>
+        <file>icons/folder_add.png</file>
+        <file>icons/folder_delete.png</file>
+        <file>icons/notification_add.png</file>
+        <file>icons/notification_remove.png</file>
+        <file>icons/player_fastforward.png</file>
+        <file alias="pause.png">icons/player_pause.png</file>
+        <file>icons/player_rewind.png</file>
+        <file alias="stop.png">icons/player_stop.png</file>
+        <file>icons/volume.png</file>
+        <file alias="play.png">icons/player_play.png</file>
+        <file>icons/application.png</file>
+        <file alias="calendar.png">icons/calendar.png</file>
+        <file alias="clock.png">icons/clock.png</file>
+        <file>icons/computer.png</file>
+        <file alias="refresh_b.png">icons/refresh_blue.png</file>
+        <file alias="refresh_g.png">icons/refresh_green.png</file>
+        <file alias="refresh_y.png">icons/refresh_yellow.png</file>
+        <file>icons/delete.png</file>
+        <file>icons/eye_closed_pyramid.png</file>
+        <file>icons/eye_open_pyramid.png</file>
+        <file alias="settings.png">icons/application_x_desktop.png</file>
+        <file>icons/eye_closed.png</file>
+        <file>icons/eye_open.png</file>
+        <file>icons/settings.png</file>
+        <file>icons/get_info.png</file>
+        <file alias="advert.png">icons/5_isight.png</file>
+        <file alias="music.png">icons/22_itunes.png</file>
+        <file>icons/39_globe.png</file>
+        <file alias="video.png">icons/42_movies.png</file>
+        <file alias="refresh.png">icons/refresh.png</file>
+    </qresource>
+</RCC>

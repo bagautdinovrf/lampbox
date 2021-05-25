@@ -1,0 +1,9 @@
+lampbox.pro.user
+*.exe
+*.stackdump
+*.2-pre1
+build-lampbox*
+Installer/package
+Installer/bin/
+src/lampbox.pro.user.3.3-pre1
+src/lampbox.pro.user.cac5ded.4.8-pre1

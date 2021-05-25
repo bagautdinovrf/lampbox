@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>DelegateMonthWidget</class>
+ <widget class="QWidget" name="DelegateMonthWidget">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>145</width>
+    <height>70</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout_2">
+   <property name="margin">
+    <number>0</number>
+   </property>
+   <property name="spacing">
+    <number>0</number>
+   </property>
+   <item row="0" column="0">
+    <layout class="QGridLayout" name="gridLayout">
+     <property name="spacing">
+      <number>0</number>
+     </property>
+     <item row="1" column="0">
+      <widget class="QCheckBox" name="cbApr">
+       <property name="text">
+        <string>Апр.</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="0">
+      <widget class="QCheckBox" name="cbJan">
+       <property name="text">
+        <string>Янв.</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="0">
+      <widget class="QCheckBox" name="cbJui">
+       <property name="text">
+        <string>Июл.</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="0">
+      <widget class="QCheckBox" name="cbOkt">
+       <property name="text">
+        <string>Окт.</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="1">
+      <widget class="QCheckBox" name="cbNov">
+       <property name="text">
+        <string>Ноя.</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="1">
+      <widget class="QCheckBox" name="cbAug">
+       <property name="text">
+        <string>Авг.</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <widget class="QCheckBox" name="cbMay">
+       <property name="text">
+        <string>Май</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QCheckBox" name="cbFeb">
+       <property name="text">
+        <string>Фев.</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="2">
+      <widget class="QCheckBox" name="cbMar">
+       <property name="text">
+        <string>Мар.</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="2">
+      <widget class="QCheckBox" name="cbJun">
+       <property name="text">
+        <string>Инь.</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="2">
+      <widget class="QCheckBox" name="cbSen">
+       <property name="text">
+        <string>Сен.</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="2">
+      <widget class="QCheckBox" name="cbDec">
+       <property name="text">
+        <string>Дек.</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <tabstops>
+  <tabstop>cbJan</tabstop>
+  <tabstop>cbFeb</tabstop>
+  <tabstop>cbMar</tabstop>
+  <tabstop>cbApr</tabstop>
+  <tabstop>cbMay</tabstop>
+  <tabstop>cbJun</tabstop>
+  <tabstop>cbJui</tabstop>
+  <tabstop>cbAug</tabstop>
+  <tabstop>cbSen</tabstop>
+  <tabstop>cbOkt</tabstop>
+  <tabstop>cbNov</tabstop>
+  <tabstop>cbDec</tabstop>
+ </tabstops>
+ <resources/>
+ <connections/>
+</ui>

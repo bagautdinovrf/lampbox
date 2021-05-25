@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/">
+        <file>img/volumeslider-gradient.png</file>
+        <file>img/volumeslider-handle.png</file>
+        <file>img/volumeslider-handle_glow.png</file>
+        <file>img/volumeslider-inset.png</file>
+    </qresource>
+</RCC>
