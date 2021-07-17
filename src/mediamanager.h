@@ -132,7 +132,7 @@ private:
     /// Общая длина всех треков
     uint                            mTotalLength;
 
-    const CHANNEL_TYPE              mType;
+    CHANNEL_TYPE              mType;
 
     QString                         mChannelDir;
 };

@@ -12,7 +12,7 @@ class AboutLampbox : public QDialog
     Q_OBJECT
 
 public:
-    explicit AboutLampbox(QWidget *parent = 0, Qt::WindowFlags f = 0);
+    explicit AboutLampbox(QWidget *parent = nullptr, Qt::WindowFlags f = Qt::WindowFlags() );
     ~AboutLampbox();
 
 private:

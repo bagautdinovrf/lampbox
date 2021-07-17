@@ -253,11 +253,18 @@ void ChannelManager::setChannelModel( ChannelModel * model )
 
 bool ChannelManager::containsChannel(const QString &name)
 {
-    for( QList<ChannelData>::Iterator it = mChannelList.begin(); it != mChannelList.end(); ++it ) {
-        if( name == it->channelName() )
+    for( const auto & item : mChannelList ) {
+        if( name == item.channelName() )
             return true;
     }
+
     return false;
+
+//    for( QList<ChannelData>::Iterator it = mChannelList.begin(); it != mChannelList.end(); ++it ) {
+//        if( name == it->channelName() )
+//            return true;
+//    }
+//    return false;
 }
 
 
