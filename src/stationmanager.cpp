@@ -1,4 +1,5 @@
 #include <QSettings>
+#include <QCoreApplication>
 #include <QFileInfo>
 #include <QStandardPaths>
 #include "stationmanager.h"
@@ -63,11 +64,28 @@ bool StationManager::loadConfiguration(const QString &stationPath, TypeStation s
     return true;
 }
 
+QString StationManager::standaloneDataPath(const QString &appLocalDataPath, const QDir &homeDirectory)
+{
+    const bool renamedApplication = QCoreApplication::applicationName() == QStringLiteral("MediaBoxManager");
+    QString dataPath = appLocalDataPath;
+    if (dataPath.isEmpty())
+        dataPath = homeDirectory.absoluteFilePath(renamedApplication ? ".mediaboxmanager" : ".lampbox");
+
+    if (renamedApplication && !QFileInfo::exists(dataPath)) {
+        const QDir legacyDirectory(appLocalDataPath.isEmpty()
+                ? homeDirectory.absoluteFilePath(".lampbox")
+                : QFileInfo(dataPath).dir().absoluteFilePath("lampbox"));
+        if (QFileInfo::exists(legacyDirectory.absoluteFilePath("timetable"))
+                || QFileInfo::exists(legacyDirectory.absoluteFilePath("mediabox.conf")))
+            return legacyDirectory.absolutePath();
+    }
+    return QDir::cleanPath(dataPath);
+}
+
 bool StationManager::initializeStandaloneConfiguration()
 {
-    QString dataPath = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-    if (dataPath.isEmpty())
-        dataPath = QDir::home().absoluteFilePath(".lampbox");
+    const QString dataPath = standaloneDataPath(
+            QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation), QDir::home());
 
     pathToStation.setPath(QDir::cleanPath(dataPath));
     pathToMedia.setPath(pathToStation.absoluteFilePath("media"));

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>MediaBoxManager · Studio — интерактивный прототип</title>
+<link rel="stylesheet" href="app.css">
+<script src="layouts-a.js" defer></script>
+<script src="layouts-b.js" defer></script>
+<script src="app.js" defer></script>
+</head>
+<body data-variant="studio">
+<div id="app"></div>
+<dialog id="modal" class="modal" aria-labelledby="modal-title"></dialog>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<input id="file-import" type="file" accept="audio/*,.mp3,.flac,.wav,.ogg,.m4a,.aac" multiple hidden>
+<noscript><p>Для интерактивного прототипа включите JavaScript в браузере.</p><a href="index.html">Все варианты</a></noscript>
+</body>
+</html>

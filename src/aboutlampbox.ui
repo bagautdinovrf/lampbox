@@ -37,7 +37,7 @@
    </font>
   </property>
   <property name="windowTitle">
-   <string>О LampBox</string>
+   <string>О MediaBoxManager</string>
   </property>
   <property name="windowIcon">
    <iconset resource="icons.qrc">

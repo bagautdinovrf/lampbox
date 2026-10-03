@@ -24,7 +24,11 @@ int main(int argc, char *argv[])
     }
 
     QApplication a(argc, argv);
+    QCoreApplication::setApplicationName(QStringLiteral("MediaBoxManager"));
+    QCoreApplication::setApplicationVersion(QStringLiteral(VERSION));
+    QApplication::setApplicationDisplayName(QStringLiteral("MediaBoxManager"));
 
+    // Keep the legacy key to prevent concurrent access by an older LampBox.
     QSharedMemory mem("LampBoxMemory");
     if( mem.attach() ) {
         QMessageBox msgBox;

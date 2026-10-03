@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
 
-project(lampbox VERSION 1.1.1 LANGUAGES C CXX)
+project(MediaBoxManager VERSION 1.1.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -17,7 +17,7 @@ include(GNUInstallDirs)
 include(cmake/TagLib.cmake)
 
 # An object library keeps resources linked into both the application and tests.
-add_library(lampbox_core OBJECT
+add_library(MediaBoxManagerCore OBJECT
     src/aboutlampbox.cpp
     src/aboutlampbox.h
     src/advertdata.cpp
@@ -138,45 +138,47 @@ add_library(lampbox_core OBJECT
     src/lampdelegates/delegateres.qrc
     src/lampdelegates/widgets/volumeslider.qrc
 )
-set_target_properties(lampbox_core PROPERTIES AUTORCC ON)
-target_compile_features(lampbox_core PUBLIC cxx_std_23)
-target_include_directories(lampbox_core PUBLIC
+set_target_properties(MediaBoxManagerCore PROPERTIES AUTORCC ON)
+target_compile_features(MediaBoxManagerCore PUBLIC cxx_std_23)
+target_include_directories(MediaBoxManagerCore PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/lampcontrollers"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/lampdelegates"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/lampdelegates/widgets"
 )
-target_compile_definitions(lampbox_core PUBLIC
+target_compile_definitions(MediaBoxManagerCore PUBLIC
     VERSION="${PROJECT_VERSION}"
     LMCONTROLLERS LMDELEGATES LMEXWIDGETS
     "$<$<CONFIG:Debug>:SHOW_DEBUG_OUTPUT>"
 )
-target_link_libraries(lampbox_core PUBLIC
+target_link_libraries(MediaBoxManagerCore PUBLIC
     Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Xml LampBox::TagLib
 )
 if(MSVC)
-    target_compile_options(lampbox_core PUBLIC /utf-8 /permissive- /Zc:__cplusplus)
-    target_compile_options(lampbox_core PRIVATE /W4)
+    target_compile_options(MediaBoxManagerCore PUBLIC /utf-8 /permissive- /Zc:__cplusplus)
+    target_compile_options(MediaBoxManagerCore PRIVATE /W4)
 else()
-    target_compile_options(lampbox_core PRIVATE -Wall -Wextra)
+    target_compile_options(MediaBoxManagerCore PRIVATE -Wall -Wextra)
 endif()
 
-qt_add_executable(lampbox WIN32 MACOSX_BUNDLE src/main.cpp)
-target_link_libraries(lampbox PRIVATE lampbox_core)
+qt_add_executable(MediaBoxManager WIN32 MACOSX_BUNDLE src/main.cpp)
+target_link_libraries(MediaBoxManager PRIVATE MediaBoxManagerCore)
 if(WIN32)
-    target_sources(lampbox PRIVATE src/app.rc)
+    target_sources(MediaBoxManager PRIVATE src/app.rc)
 endif()
 
-install(TARGETS lampbox
+install(TARGETS MediaBoxManager
     BUNDLE DESTINATION .
     RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
 )
 qt_generate_deploy_app_script(
-    TARGET lampbox
-    OUTPUT_SCRIPT lampbox_deploy_script
+    TARGET MediaBoxManager
+    OUTPUT_SCRIPT mediaboxmanager_deploy_script
     NO_UNSUPPORTED_PLATFORM_ERROR
 )
-install(SCRIPT "${lampbox_deploy_script}")
+install(SCRIPT "${mediaboxmanager_deploy_script}")
+
+add_subdirectory(MediaBoxPlayer)
 
 if(BUILD_TESTING)
     add_subdirectory(tests)

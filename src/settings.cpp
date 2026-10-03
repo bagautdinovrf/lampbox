@@ -6,6 +6,7 @@
 #include <QSettings>
 #include <QApplication>
 #include <QDir>
+#include <QFileInfo>
 #include <QDebug>
 
 
@@ -15,8 +16,22 @@ Settings::Settings(QObject *parent) :
     mFormatsAudioGroup("AudioFormats"),
     mFormatsVideoGroup("VideoFormats")
 {
-    mConfigFile = qApp->applicationDirPath() + QDir::separator() + qApp->applicationName() + ".conf";
+    mConfigFile = configurationFilePath(qApp->applicationDirPath());
     readSettings();
+}
+
+QString Settings::configurationFilePath(const QString &applicationDirectory)
+{
+    const QDir directory(applicationDirectory);
+    const QString applicationName = QCoreApplication::applicationName();
+    const QString preferredFile = directory.absoluteFilePath(applicationName + ".conf");
+    if (applicationName == QStringLiteral("MediaBoxManager")
+            && !QFileInfo::exists(preferredFile)) {
+        const QString legacyFile = directory.absoluteFilePath("lampbox.conf");
+        if (QFileInfo::exists(legacyFile))
+            return legacyFile;
+    }
+    return preferredFile;
 }
 
 
@@ -150,7 +165,7 @@ const QStringList Settings::availablelVideoFileFormats()
 QStringList Settings::allFormats()
 {
     QStringList list;
-    QSettings settings(qApp->applicationDirPath() + QDir::separator() + qApp->applicationName()+".conf", QSettings::IniFormat );
+    QSettings settings(configurationFilePath(qApp->applicationDirPath()), QSettings::IniFormat);
     // Форматы файлов
     settings.beginGroup("FileFormats");
     QStringList keys = settings.allKeys();
@@ -170,7 +185,7 @@ QStringList Settings::allFormats()
 QStringList Settings::allAudioFormats()
 {
     QStringList list;
-    QSettings settings(qApp->applicationDirPath() + QDir::separator() + qApp->applicationName()+".conf", QSettings::IniFormat );
+    QSettings settings(configurationFilePath(qApp->applicationDirPath()), QSettings::IniFormat);
     // Форматы файлов
     settings.beginGroup("FileFormats");
     settings.beginGroup("AudioFormats");
@@ -192,7 +207,7 @@ QStringList Settings::allAudioFormats()
 QStringList Settings::allVideoFormats()
 {
     QStringList list;
-    QSettings settings(qApp->applicationDirPath() + QDir::separator() + qApp->applicationName()+".conf", QSettings::IniFormat );
+    QSettings settings(configurationFilePath(qApp->applicationDirPath()), QSettings::IniFormat);
     // Форматы файлов
     settings.beginGroup("FileFormats");
     settings.beginGroup("VideoFormats");

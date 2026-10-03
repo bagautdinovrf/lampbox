@@ -1,5 +1,7 @@
 #include <QCoreApplication>
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QSettings>
 #include <QScopeGuard>
 #include <QStandardPaths>
@@ -17,6 +19,8 @@ private slots:
     void initTestCase()
     {
         mOriginalWorkingDirectory = QDir::currentPath();
+        mOriginalApplicationName = QCoreApplication::applicationName();
+        mOriginalTestMode = QStandardPaths::isTestModeEnabled();
         QStandardPaths::setTestModeEnabled(true);
         QCoreApplication::setApplicationName("lampbox_station_test_"
                 + QUuid::createUuid().toString(QUuid::Id128));
@@ -34,6 +38,10 @@ private slots:
 
     void cleanupTestCase()
     {
+        const auto restoreApplication = qScopeGuard([this] {
+            QCoreApplication::setApplicationName(mOriginalApplicationName);
+            QStandardPaths::setTestModeEnabled(mOriginalTestMode);
+        });
         if (!mMayCleanStandalonePath)
             return;
         QVERIFY(QDir::isAbsolutePath(mStandalonePath));
@@ -41,6 +49,74 @@ private slots:
         QCOMPARE(mStandalonePath,
                  QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation));
         QVERIFY(QDir(mStandalonePath).removeRecursively());
+    }
+
+    void standaloneDataCompatibility_data()
+    {
+        QTest::addColumn<QString>("applicationName");
+        QTest::addColumn<bool>("emptyStandardPath");
+        QTest::addColumn<int>("legacyMarker");
+        QTest::addColumn<bool>("preferredExists");
+        QTest::addColumn<bool>("usesLegacy");
+
+        QTest::newRow("new-install") << QString("MediaBoxManager") << false << 0 << false << false;
+        QTest::newRow("legacy-timetable") << QString("MediaBoxManager") << false << 1 << false << true;
+        QTest::newRow("legacy-config") << QString("MediaBoxManager") << false << 2 << false << true;
+        QTest::newRow("new-directory-preferred") << QString("MediaBoxManager") << false << 2 << true << false;
+        QTest::newRow("other-application") << QString("StationTestApplication") << false << 2 << false << false;
+        QTest::newRow("fallback-new-install") << QString("MediaBoxManager") << true << 0 << false << false;
+        QTest::newRow("fallback-legacy-timetable") << QString("MediaBoxManager") << true << 1 << false << true;
+        QTest::newRow("fallback-legacy-config") << QString("MediaBoxManager") << true << 2 << false << true;
+        QTest::newRow("fallback-new-directory-preferred") << QString("MediaBoxManager") << true << 2 << true << false;
+    }
+
+    void standaloneDataCompatibility()
+    {
+        QFETCH(QString, applicationName);
+        QFETCH(bool, emptyStandardPath);
+        QFETCH(int, legacyMarker);
+        QFETCH(bool, preferredExists);
+        QFETCH(bool, usesLegacy);
+
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString originalApplicationName = QCoreApplication::applicationName();
+        const auto restoreApplication = qScopeGuard([&] {
+            QCoreApplication::setApplicationName(originalApplicationName);
+        });
+        QCoreApplication::setApplicationName(applicationName);
+
+        const QDir home(directory.path());
+        const QString preferredPath = home.absoluteFilePath(emptyStandardPath
+                ? ".mediaboxmanager" : applicationName);
+        const QString legacyPath = home.absoluteFilePath(emptyStandardPath ? ".lampbox" : "lampbox");
+        QVERIFY(home.mkpath(legacyPath));
+        if (preferredExists)
+            QVERIFY(home.mkpath(preferredPath));
+
+        const QByteArray legacyContents("[mediastation]\nmediabox_id=42\n");
+        const QString legacyConfig = QDir(legacyPath).absoluteFilePath("mediabox.conf");
+        if (legacyMarker == 1)
+            QVERIFY(QDir(legacyPath).mkpath("timetable"));
+        else if (legacyMarker == 2) {
+            QFile file(legacyConfig);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write(legacyContents), qint64(legacyContents.size()));
+        }
+        const QStringList legacyEntries = QDir(legacyPath).entryList();
+        const QStringList preferredEntries = QDir(preferredPath).entryList();
+
+        const QString selectedPath = StationManager::standaloneDataPath(
+                emptyStandardPath ? QString() : preferredPath, home);
+        QCOMPARE(selectedPath, usesLegacy ? legacyPath : preferredPath);
+        QCOMPARE(QDir(preferredPath).exists(), preferredExists);
+        QCOMPARE(QDir(preferredPath).entryList(), preferredEntries);
+        QCOMPARE(QDir(legacyPath).entryList(), legacyEntries);
+        if (legacyMarker == 2) {
+            QFile file(legacyConfig);
+            QVERIFY(file.open(QIODevice::ReadOnly));
+            QCOMPARE(file.readAll(), legacyContents);
+        }
     }
 
     void standalonePathsRemainStable()
@@ -153,7 +229,9 @@ private slots:
 
 private:
     QString mOriginalWorkingDirectory;
+    QString mOriginalApplicationName;
     QString mStandalonePath;
+    bool mOriginalTestMode = false;
     bool mMayCleanStandalonePath = false;
 };
 

@@ -1,0 +1,10 @@
+{
+  "format": "mediabox.active",
+  "schemaVersion": 1,
+  "scheduleId": "00000000-0000-4000-8000-000000000001",
+  "stationId": "00000000-0000-4000-8000-000000000003",
+  "publicationId": "00000000-0000-4000-8000-000000000002",
+  "revision": 7,
+  "snapshotPath": "snapshots/00000000-0000-4000-8000-000000000002.json",
+  "sha256": "35bbac653fd955c7f74ef1da351a89fd45e3dcb4c8e839245673def3859c2ecd"
+}

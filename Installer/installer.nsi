@@ -8,7 +8,7 @@
 !include Library.nsh
 !include LogicLib.nsh
 
-Name "LampBox"
+Name "MediaBoxManager"
 !addplugindir ".\plugins"
 SetCompressor /SOLID lzma
 # General Symbol Definitions
@@ -19,8 +19,8 @@ SetCompressor /SOLID lzma
 !define COMPANY "Руслан Багаутдинов"
 !define URL "mailto:bagautdinovrf@ya.ru"
 
-!define PRODUCT_NAME "LampBox"
-!define COMPANY_NAME "LampBox"
+!define PRODUCT_NAME "MediaBoxManager"
+!define COMPANY_NAME "MediaBoxManager"
 !define PACKAGE_DIR "package"
 
 # MUI Symbol Definitions
@@ -31,8 +31,8 @@ SetCompressor /SOLID lzma
 !define MUI_STARTMENUPAGE_NODISABLE
 !define MUI_STARTMENUPAGE_REGISTRY_KEY ${REGKEY}
 #!define MUI_STARTMENUPAGE_REGISTRY_VALUENAME StartMenuGroup
-!define MUI_STARTMENUPAGE_DEFAULTFOLDER LampBox
-!define MUI_FINISHPAGE_RUN "$INSTDIR\lampbox.exe"
+!define MUI_STARTMENUPAGE_DEFAULTFOLDER MediaBoxManager
+!define MUI_FINISHPAGE_RUN "$INSTDIR\MediaBoxManager.exe"
 
 !define MUI_UNFINISHPAGE_NOAUTOCLOSE
 
@@ -58,23 +58,23 @@ CRCCheck on
 XPStyle on
 ShowInstDetails show
 VIProductVersion ${VERSION}.0
-VIAddVersionKey ProductName "LampBox"
+VIAddVersionKey ProductName "MediaBoxManager"
 VIAddVersionKey ProductVersion "${VERSION}"
 VIAddVersionKey CompanyName "${COMPANY}"
 VIAddVersionKey CompanyWebsite "${URL}"
 VIAddVersionKey FileVersion "${VERSION}"
-VIAddVersionKey FileDescription "Установщик LampBox"
+VIAddVersionKey FileDescription "Установщик MediaBoxManager"
 VIAddVersionKey LegalCopyright ""
 InstallDirRegKey HKLM "${REGKEY}" Path
 ShowUninstDetails show
 
 InstallDir "$PROGRAMFILES\${PRODUCT_NAME}"
 
-!define /file LAMPBOX_VERSION "${PACKAGE_DIR}\version"
+!define /file MEDIABOXMANAGER_VERSION "${PACKAGE_DIR}\version"
 
-OutFile LampBox_trial-${LAMPBOX_VERSION}.exe
+OutFile MediaBoxManager_trial-${MEDIABOXMANAGER_VERSION}.exe
 !ifndef TRIAL
-OutFile LampBox-${LAMPBOX_VERSION}.exe
+OutFile MediaBoxManager-${MEDIABOXMANAGER_VERSION}.exe
 !define TRIAL "false"
 !endif
 
@@ -113,7 +113,7 @@ Section "Установка"
 
     # Запись значений в реестр
     WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" DisplayName "${PRODUCT_NAME}"
-    WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" DisplayVersion "${LAMPBOX_VERSION}"
+    WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" DisplayVersion "${MEDIABOXMANAGER_VERSION}"
     WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" Publisher "${COMPANY}"
     WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" URLInfoAbout "${URL}"
     WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" DisplayIcon "$INSTDIR\uninstall.exe"

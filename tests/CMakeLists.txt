@@ -1,36 +1,44 @@
 find_package(Qt6 REQUIRED COMPONENTS Test)
 
-qt_add_executable(lampbox_tests tst_migration.cpp)
-target_link_libraries(lampbox_tests PRIVATE lampbox_core Qt6::Test)
-set_target_properties(lampbox_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+qt_add_executable(MediaBoxManagerTests tst_migration.cpp)
+target_link_libraries(MediaBoxManagerTests PRIVATE MediaBoxManagerCore Qt6::Test)
+set_target_properties(MediaBoxManagerTests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
-add_test(NAME lampbox_migration COMMAND "${CMAKE_COMMAND}"
-    "-DTEST_EXECUTABLE=$<TARGET_FILE:lampbox_tests>"
+add_test(NAME MediaBoxManager_migration COMMAND "${CMAKE_COMMAND}"
+    "-DTEST_EXECUTABLE=$<TARGET_FILE:MediaBoxManagerTests>"
     "-DTEST_REPORT=${CMAKE_CURRENT_BINARY_DIR}/migration-results.txt"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/run_qt_test.cmake")
-set_tests_properties(lampbox_migration PROPERTIES
+set_tests_properties(MediaBoxManager_migration PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     TIMEOUT 30
 )
 
-qt_add_executable(lampbox_distribution_tests tst_distribution.cpp)
-target_link_libraries(lampbox_distribution_tests PRIVATE lampbox_core Qt6::Test)
-add_test(NAME lampbox_distribution COMMAND "${CMAKE_COMMAND}"
-    "-DTEST_EXECUTABLE=$<TARGET_FILE:lampbox_distribution_tests>"
+qt_add_executable(MediaBoxManagerDistributionTests tst_distribution.cpp)
+target_link_libraries(MediaBoxManagerDistributionTests PRIVATE MediaBoxManagerCore Qt6::Test)
+add_test(NAME MediaBoxManager_distribution COMMAND "${CMAKE_COMMAND}"
+    "-DTEST_EXECUTABLE=$<TARGET_FILE:MediaBoxManagerDistributionTests>"
     "-DTEST_REPORT=${CMAKE_CURRENT_BINARY_DIR}/distribution-results.txt"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/run_qt_test.cmake")
-set_tests_properties(lampbox_distribution PROPERTIES TIMEOUT 30)
+set_tests_properties(MediaBoxManager_distribution PROPERTIES TIMEOUT 30)
 
-qt_add_executable(lampbox_stationmanager_tests tst_stationmanager.cpp)
-target_link_libraries(lampbox_stationmanager_tests PRIVATE lampbox_core Qt6::Test)
-add_test(NAME lampbox_stationmanager COMMAND "${CMAKE_COMMAND}"
-    "-DTEST_EXECUTABLE=$<TARGET_FILE:lampbox_stationmanager_tests>"
+qt_add_executable(MediaBoxManagerStationTests tst_stationmanager.cpp)
+target_link_libraries(MediaBoxManagerStationTests PRIVATE MediaBoxManagerCore Qt6::Test)
+add_test(NAME MediaBoxManager_stationmanager COMMAND "${CMAKE_COMMAND}"
+    "-DTEST_EXECUTABLE=$<TARGET_FILE:MediaBoxManagerStationTests>"
     "-DTEST_REPORT=${CMAKE_CURRENT_BINARY_DIR}/stationmanager-results.txt"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/run_qt_test.cmake")
-set_tests_properties(lampbox_stationmanager PROPERTIES TIMEOUT 30)
+set_tests_properties(MediaBoxManager_stationmanager PROPERTIES TIMEOUT 30)
 
-add_test(NAME lampbox_version COMMAND lampbox version)
-set_tests_properties(lampbox_version PROPERTIES
+qt_add_executable(MediaBoxManagerSettingsTests tst_settings.cpp)
+target_link_libraries(MediaBoxManagerSettingsTests PRIVATE MediaBoxManagerCore Qt6::Test)
+add_test(NAME MediaBoxManager_settings COMMAND "${CMAKE_COMMAND}"
+    "-DTEST_EXECUTABLE=$<TARGET_FILE:MediaBoxManagerSettingsTests>"
+    "-DTEST_REPORT=${CMAKE_CURRENT_BINARY_DIR}/settings-results.txt"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/run_qt_test.cmake")
+set_tests_properties(MediaBoxManager_settings PROPERTIES TIMEOUT 30)
+
+add_test(NAME MediaBoxManager_version COMMAND MediaBoxManager version)
+set_tests_properties(MediaBoxManager_version PROPERTIES
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     PASS_REGULAR_EXPRESSION "${PROJECT_VERSION}"
     TIMEOUT 10
@@ -39,6 +47,6 @@ set_tests_properties(lampbox_version PROPERTIES
 if(WIN32)
     get_target_property(_qt_qmake Qt6::qmake IMPORTED_LOCATION)
     get_filename_component(_qt_bin "${_qt_qmake}" DIRECTORY)
-    set_property(TEST lampbox_migration lampbox_distribution lampbox_stationmanager lampbox_version APPEND PROPERTY
+    set_property(TEST MediaBoxManager_migration MediaBoxManager_distribution MediaBoxManager_stationmanager MediaBoxManager_settings MediaBoxManager_version APPEND PROPERTY
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${_qt_bin}")
 endif()

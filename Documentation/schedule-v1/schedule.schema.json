@@ -1,0 +1,808 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mediabox:schedule:v1",
+  "title": "MediaBoxManager and MediaBoxPlayer schedule version 1",
+  "description": "Предложение формата v1. Семантические ограничения описаны в README.md.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "const": "urn:mediabox:schedule:v1"
+    },
+    "format": {
+      "const": "mediabox.schedule"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "scheduleId": {
+      "$ref": "#/$defs/id"
+    },
+    "publicationId": {
+      "$ref": "#/$defs/id"
+    },
+    "revision": {
+      "$ref": "#/$defs/revision"
+    },
+    "stationId": {
+      "$ref": "#/$defs/id"
+    },
+    "publishedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"
+    },
+    "timeZone": {
+      "type": "string",
+      "minLength": 1
+    },
+    "validity": {
+      "$ref": "#/$defs/range"
+    },
+    "requiredCapabilities": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "calendar.v1",
+          "rotation.strict.v1",
+          "events.fixed.v1"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "musicTransition": {
+      "const": "finish_track"
+    },
+    "timeResolution": {
+      "type": "object",
+      "properties": {
+        "gap": {
+          "const": "skip"
+        },
+        "overlap": {
+          "const": "first"
+        }
+      },
+      "required": [
+        "gap",
+        "overlap"
+      ],
+      "additionalProperties": false
+    },
+    "fallback": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/baseSource"
+        },
+        "volumePercent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "source",
+        "volumePercent"
+      ],
+      "additionalProperties": false
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/asset"
+      }
+    },
+    "playlists": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/playlist"
+      }
+    },
+    "calendars": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/calendar"
+      }
+    },
+    "dayTemplates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/template"
+      }
+    },
+    "baseRules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/baseRule"
+      }
+    },
+    "mixRules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/mixRule"
+      }
+    },
+    "eventRules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/eventRule"
+      }
+    }
+  },
+  "required": [
+    "format",
+    "schemaVersion",
+    "scheduleId",
+    "publicationId",
+    "revision",
+    "stationId",
+    "publishedAt",
+    "timeZone",
+    "validity",
+    "requiredCapabilities",
+    "musicTransition",
+    "timeResolution",
+    "fallback",
+    "assets",
+    "playlists",
+    "calendars",
+    "dayTemplates",
+    "baseRules",
+    "mixRules",
+    "eventRules"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"
+    },
+    "time": {
+      "type": "string",
+      "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
+    },
+    "range": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/date"
+        },
+        "until": {
+          "$ref": "#/$defs/date"
+        }
+      },
+      "required": [
+        "from",
+        "until"
+      ],
+      "additionalProperties": false
+    },
+    "window": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/time"
+        },
+        "until": {
+          "$ref": "#/$defs/time"
+        },
+        "untilDayOffset": {
+          "type": "integer",
+          "enum": [
+            0,
+            1
+          ]
+        }
+      },
+      "required": [
+        "from",
+        "until",
+        "untilDayOffset"
+      ],
+      "additionalProperties": false
+    },
+    "selector": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "all"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "weekdays"
+            },
+            "days": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 7
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "type",
+            "days"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "dates"
+            },
+            "dates": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/date"
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "type",
+            "dates"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "calendar"
+            },
+            "calendarId": {
+              "$ref": "#/$defs/id"
+            }
+          },
+          "required": [
+            "type",
+            "calendarId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "annual_filter"
+            },
+            "months": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 12
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "monthDays": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 31
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "weekdays": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 7
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "type",
+            "months",
+            "monthDays",
+            "weekdays"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "condition": {
+      "type": "object",
+      "properties": {
+        "select": {
+          "$ref": "#/$defs/selector"
+        },
+        "range": {
+          "$ref": "#/$defs/range"
+        },
+        "excludeDates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/date"
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "select",
+        "excludeDates"
+      ],
+      "additionalProperties": false
+    },
+    "asset": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^/\\\\:]([^\\\\:]*[^/\\\\:])?$"
+        },
+        "mediaType": {
+          "const": "audio"
+        }
+      },
+      "required": [
+        "id",
+        "path",
+        "mediaType"
+      ],
+      "additionalProperties": false
+    },
+    "entry": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "assetId": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "id",
+        "assetId"
+      ],
+      "additionalProperties": false
+    },
+    "playlist": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "revision": {
+          "$ref": "#/$defs/revision"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "order": {
+          "enum": [
+            "sequential",
+            "shuffle_cycle"
+          ]
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/entry"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "name",
+        "order",
+        "entries"
+      ],
+      "additionalProperties": false
+    },
+    "calendar": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "revision": {
+          "$ref": "#/$defs/revision"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "coverage": {
+          "$ref": "#/$defs/range"
+        },
+        "dates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/date"
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "name",
+        "coverage",
+        "dates"
+      ],
+      "additionalProperties": false
+    },
+    "baseSource": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "playlist"
+            },
+            "playlistId": {
+              "$ref": "#/$defs/id"
+            }
+          },
+          "required": [
+            "type",
+            "playlistId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "silence"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "mixSource": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "active_base"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "playlist"
+            },
+            "playlistId": {
+              "$ref": "#/$defs/id"
+            }
+          },
+          "required": [
+            "type",
+            "playlistId"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "slot": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "window": {
+          "$ref": "#/$defs/window"
+        },
+        "source": {
+          "$ref": "#/$defs/baseSource"
+        },
+        "volumePercent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "id",
+        "window",
+        "source",
+        "volumePercent"
+      ],
+      "additionalProperties": false
+    },
+    "template": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "slots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/slot"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "slots"
+      ],
+      "additionalProperties": false
+    },
+    "baseRule": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 1000000
+        },
+        "when": {
+          "$ref": "#/$defs/condition"
+        },
+        "templateId": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "enabled",
+        "priority",
+        "when",
+        "templateId"
+      ],
+      "additionalProperties": false
+    },
+    "mixRule": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 1000000
+        },
+        "when": {
+          "$ref": "#/$defs/condition"
+        },
+        "windows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/window"
+          },
+          "minItems": 1
+        },
+        "pattern": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mixSource"
+          },
+          "minItems": 2,
+          "maxItems": 64,
+          "allOf": [
+            {
+              "contains": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "const": "active_base"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "additionalProperties": false
+              },
+              "minContains": 1
+            },
+            {
+              "contains": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "const": "playlist"
+                  },
+                  "playlistId": {
+                    "$ref": "#/$defs/id"
+                  }
+                },
+                "required": [
+                  "type",
+                  "playlistId"
+                ],
+                "additionalProperties": false
+              },
+              "minContains": 1
+            }
+          ],
+          "prefixItems": [
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "active_base"
+                }
+              },
+              "required": [
+                "type"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "emptyAdditionalSource": {
+          "const": "use_base"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "enabled",
+        "priority",
+        "when",
+        "windows",
+        "pattern",
+        "emptyAdditionalSource"
+      ],
+      "additionalProperties": false
+    },
+    "eventRule": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": -1000000,
+          "maximum": 1000000
+        },
+        "when": {
+          "$ref": "#/$defs/condition"
+        },
+        "times": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/time"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "action": {
+          "type": "object",
+          "properties": {
+            "assetId": {
+              "$ref": "#/$defs/id"
+            },
+            "volumePercent": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            }
+          },
+          "required": [
+            "assetId",
+            "volumePercent"
+          ],
+          "additionalProperties": false
+        },
+        "delivery": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "enum": [
+                "after_track",
+                "interrupt"
+              ]
+            },
+            "maxLateSeconds": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3600
+            },
+            "expired": {
+              "const": "skip"
+            },
+            "after": {
+              "const": "resume_music"
+            }
+          },
+          "required": [
+            "start",
+            "maxLateSeconds",
+            "expired",
+            "after"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "enabled",
+        "priority",
+        "when",
+        "times",
+        "action",
+        "delivery"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

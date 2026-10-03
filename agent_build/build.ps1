@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-Configure, build and test Lampbox with the newest installed Qt 6 MSVC kit.
+Configure, build and test MediaBoxManager and MediaBoxPlayer with the newest installed Qt 6 MSVC kit.
 .EXAMPLE
 powershell -ExecutionPolicy Bypass -File .\agent_build\build.ps1
 .EXAMPLE
@@ -291,9 +291,11 @@ try {
         if ($Deploy) {
             Invoke-LoggedCommand 'deploy' $cmake @('--install', $buildDirectory, '--config', $Configuration, '--prefix', $deployDirectory)
             $runInformation.DeployDirectory = $deployDirectory
-            Write-Host "Deployed application: $(Join-Path $deployDirectory 'bin\lampbox.exe')"
+            Write-Host "Deployed manager: $(Join-Path $deployDirectory 'bin\MediaBoxManager.exe')"
+            Write-Host "Deployed player: $(Join-Path $deployDirectory 'bin\MediaBoxPlayer.exe')"
         }
-        Write-Host "Built application: $(Join-Path $buildDirectory 'bin\lampbox.exe')"
+        Write-Host "Built manager: $(Join-Path $buildDirectory 'bin\MediaBoxManager.exe')"
+        Write-Host "Built player: $(Join-Path $buildDirectory 'bin\MediaBoxPlayer.exe')"
     }
     $runInformation.Status = 'Succeeded'
     Write-Host "`nCompleted successfully. Logs: $logDirectory"

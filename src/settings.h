@@ -62,6 +62,9 @@ public:
     static QStringList allVideoFormats();
 
 private:
+    friend class SettingsTest;
+
+    static QString configurationFilePath(const QString &applicationDirectory);
 
     /**
      * @brief readSettings              - Считывание настроек из конфигурационного файла

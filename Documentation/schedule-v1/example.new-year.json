@@ -1,0 +1,318 @@
+{
+  "$schema": "urn:mediabox:schedule:v1",
+  "format": "mediabox.schedule",
+  "schemaVersion": 1,
+  "scheduleId": "00000000-0000-4000-8000-000000000001",
+  "publicationId": "00000000-0000-4000-8000-000000000002",
+  "revision": 7,
+  "stationId": "00000000-0000-4000-8000-000000000003",
+  "publishedAt": "2026-10-03T09:00:00Z",
+  "timeZone": "Europe/Moscow",
+  "validity": {
+    "from": "2026-10-03",
+    "until": "2027-02-01"
+  },
+  "requiredCapabilities": [
+    "calendar.v1",
+    "rotation.strict.v1",
+    "events.fixed.v1"
+  ],
+  "musicTransition": "finish_track",
+  "timeResolution": {
+    "gap": "skip",
+    "overlap": "first"
+  },
+  "fallback": {
+    "source": {
+      "type": "silence"
+    },
+    "volumePercent": 0
+  },
+  "assets": [
+    {
+      "id": "00000000-0000-4000-8000-000000000101",
+      "path": "music/morning/Утро 1.mp3",
+      "mediaType": "audio"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000102",
+      "path": "music/morning/Утро 2.mp3",
+      "mediaType": "audio"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000103",
+      "path": "music/day/День 1.mp3",
+      "mediaType": "audio"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000104",
+      "path": "music/day/День 2.mp3",
+      "mediaType": "audio"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000105",
+      "path": "music/holiday/Праздник 1.mp3",
+      "mediaType": "audio"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000106",
+      "path": "music/holiday/Праздник 2.mp3",
+      "mediaType": "audio"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000107",
+      "path": "ads/Объявление.mp3",
+      "mediaType": "audio"
+    }
+  ],
+  "playlists": [
+    {
+      "id": "00000000-0000-4000-8000-000000000201",
+      "revision": 1,
+      "name": "Утренний",
+      "order": "sequential",
+      "entries": [
+        {
+          "id": "00000000-0000-4000-8000-000000000211",
+          "assetId": "00000000-0000-4000-8000-000000000101"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000212",
+          "assetId": "00000000-0000-4000-8000-000000000102"
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000202",
+      "revision": 1,
+      "name": "Дневной",
+      "order": "sequential",
+      "entries": [
+        {
+          "id": "00000000-0000-4000-8000-000000000213",
+          "assetId": "00000000-0000-4000-8000-000000000103"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000214",
+          "assetId": "00000000-0000-4000-8000-000000000104"
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000203",
+      "revision": 1,
+      "name": "Новогодний",
+      "order": "shuffle_cycle",
+      "entries": [
+        {
+          "id": "00000000-0000-4000-8000-000000000215",
+          "assetId": "00000000-0000-4000-8000-000000000105"
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000216",
+          "assetId": "00000000-0000-4000-8000-000000000106"
+        }
+      ]
+    }
+  ],
+  "calendars": [
+    {
+      "id": "00000000-0000-4000-8000-000000000301",
+      "revision": 1,
+      "name": "Особые даты клиента",
+      "coverage": {
+        "from": "2026-10-03",
+        "until": "2027-02-01"
+      },
+      "dates": [
+        "2026-12-31",
+        "2027-01-01"
+      ]
+    }
+  ],
+  "dayTemplates": [
+    {
+      "id": "00000000-0000-4000-8000-000000000401",
+      "name": "Обычный день",
+      "slots": [
+        {
+          "id": "00000000-0000-4000-8000-000000000411",
+          "window": {
+            "from": "00:00:00",
+            "until": "12:00:00",
+            "untilDayOffset": 0
+          },
+          "source": {
+            "type": "playlist",
+            "playlistId": "00000000-0000-4000-8000-000000000201"
+          },
+          "volumePercent": 70
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000412",
+          "window": {
+            "from": "12:00:00",
+            "until": "00:00:00",
+            "untilDayOffset": 1
+          },
+          "source": {
+            "type": "playlist",
+            "playlistId": "00000000-0000-4000-8000-000000000202"
+          },
+          "volumePercent": 70
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000402",
+      "name": "Выходной",
+      "slots": [
+        {
+          "id": "00000000-0000-4000-8000-000000000413",
+          "window": {
+            "from": "00:00:00",
+            "until": "00:00:00",
+            "untilDayOffset": 1
+          },
+          "source": {
+            "type": "playlist",
+            "playlistId": "00000000-0000-4000-8000-000000000202"
+          },
+          "volumePercent": 60
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000403",
+      "name": "Закрыто",
+      "slots": [
+        {
+          "id": "00000000-0000-4000-8000-000000000414",
+          "window": {
+            "from": "00:00:00",
+            "until": "00:00:00",
+            "untilDayOffset": 1
+          },
+          "source": {
+            "type": "silence"
+          },
+          "volumePercent": 0
+        }
+      ]
+    }
+  ],
+  "baseRules": [
+    {
+      "id": "00000000-0000-4000-8000-000000000501",
+      "name": "Обычная программа",
+      "enabled": true,
+      "priority": 10,
+      "when": {
+        "select": {
+          "type": "all"
+        },
+        "excludeDates": []
+      },
+      "templateId": "00000000-0000-4000-8000-000000000401"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000502",
+      "name": "Выходные",
+      "enabled": true,
+      "priority": 20,
+      "when": {
+        "select": {
+          "type": "weekdays",
+          "days": [
+            6,
+            7
+          ]
+        },
+        "excludeDates": []
+      },
+      "templateId": "00000000-0000-4000-8000-000000000402"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000503",
+      "name": "Закрытие на одну дату",
+      "enabled": true,
+      "priority": 100,
+      "when": {
+        "select": {
+          "type": "dates",
+          "dates": [
+            "2027-01-07"
+          ]
+        },
+        "excludeDates": []
+      },
+      "templateId": "00000000-0000-4000-8000-000000000403"
+    }
+  ],
+  "mixRules": [
+    {
+      "id": "00000000-0000-4000-8000-000000000601",
+      "name": "Новогоднее подмешивание через один",
+      "enabled": true,
+      "priority": 100,
+      "when": {
+        "select": {
+          "type": "all"
+        },
+        "range": {
+          "from": "2026-12-15",
+          "until": "2027-01-16"
+        },
+        "excludeDates": [
+          "2027-01-07"
+        ]
+      },
+      "windows": [
+        {
+          "from": "00:00:00",
+          "until": "00:00:00",
+          "untilDayOffset": 1
+        }
+      ],
+      "pattern": [
+        {
+          "type": "active_base"
+        },
+        {
+          "type": "playlist",
+          "playlistId": "00000000-0000-4000-8000-000000000203"
+        }
+      ],
+      "emptyAdditionalSource": "use_base"
+    }
+  ],
+  "eventRules": [
+    {
+      "id": "00000000-0000-4000-8000-000000000701",
+      "name": "Объявление в особые даты",
+      "enabled": true,
+      "priority": 10,
+      "when": {
+        "select": {
+          "type": "calendar",
+          "calendarId": "00000000-0000-4000-8000-000000000301"
+        },
+        "excludeDates": []
+      },
+      "times": [
+        "12:00:00",
+        "18:00:00"
+      ],
+      "action": {
+        "assetId": "00000000-0000-4000-8000-000000000107",
+        "volumePercent": 80
+      },
+      "delivery": {
+        "start": "after_track",
+        "maxLateSeconds": 300,
+        "expired": "skip",
+        "after": "resume_music"
+      }
+    }
+  ]
+}

@@ -25,7 +25,7 @@ function(lampbox_add_taglib)
         file(STRINGS "${LAMPBOX_TAGLIB_SOURCE_DIR}/taglib/toolkit/taglib.h"
             taglib_version REGEX "^#define TAGLIB_(MAJOR|MINOR|PATCH)_VERSION")
         if(NOT taglib_version MATCHES "TAGLIB_MAJOR_VERSION 1;#define TAGLIB_MINOR_VERSION 13;#define TAGLIB_PATCH_VERSION 1$")
-            message(FATAL_ERROR "LampBox requires the pinned TagLib 1.13.1 sources")
+            message(FATAL_ERROR "MediaBoxManager requires the pinned TagLib 1.13.1 sources")
         endif()
         set(FETCHCONTENT_SOURCE_DIR_TAGLIB "${LAMPBOX_TAGLIB_SOURCE_DIR}")
     endif()

@@ -57,7 +57,8 @@ BoxLog::~BoxLog()
 void BoxLog::init()
 {
     if( mLogFile )
-      mLogFile->setFileName( qApp->applicationDirPath() +QDir::separator()+ "lampbox.log");
+      mLogFile->setFileName(qApp->applicationDirPath() + QDir::separator()
+                            + qApp->applicationName() + ".log");
 }
 
 
