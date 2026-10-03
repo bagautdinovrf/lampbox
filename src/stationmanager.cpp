@@ -7,6 +7,18 @@
 
 bool StationManager::update()
 {
+    // The dedicated GUI verification executable supplies a temporary station.
+    // Fail closed so a broken fixture can never fall back to a real station.
+    const QString previewStation = QCoreApplication::instance()
+            ? QCoreApplication::instance()->property("restylePreviewStation").toString()
+            : QString();
+    if (!previewStation.isEmpty()) {
+        if (!QStandardPaths::isTestModeEnabled()
+                || !QDir::isAbsolutePath(previewStation)
+                || !loadConfiguration(previewStation, STATION_LOCAL, false))
+            qFatal("Invalid isolated preview station");
+        return true;
+    }
 #ifdef Q_OS_WIN
     QSettings settings("HKEY_LOCAL_MACHINE\\SOFTWARE\\LampBox\\Station", QSettings::NativeFormat);
     const QString configuredPath = settings.value("Path").toString();

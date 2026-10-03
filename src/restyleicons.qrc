@@ -1,0 +1,30 @@
+<RCC>
+  <qresource prefix="/restyle/icons">
+    <file alias="ads.svg">restyleicons/ads.svg</file>
+    <file alias="arrow.svg">restyleicons/arrow.svg</file>
+    <file alias="calendar.svg">restyleicons/calendar.svg</file>
+    <file alias="check.svg">restyleicons/check.svg</file>
+    <file alias="chevron.svg">restyleicons/chevron.svg</file>
+    <file alias="close.svg">restyleicons/close.svg</file>
+    <file alias="edit.svg">restyleicons/edit.svg</file>
+    <file alias="exit.svg">restyleicons/exit.svg</file>
+    <file alias="eye.svg">restyleicons/eye.svg</file>
+    <file alias="folder.svg">restyleicons/folder.svg</file>
+    <file alias="grid.svg">restyleicons/grid.svg</file>
+    <file alias="info.svg">restyleicons/info.svg</file>
+    <file alias="more.svg">restyleicons/more.svg</file>
+    <file alias="music.svg">restyleicons/music.svg</file>
+    <file alias="note.svg">restyleicons/note.svg</file>
+    <file alias="play.svg">restyleicons/play.svg</file>
+    <file alias="plus.svg">restyleicons/plus.svg</file>
+    <file alias="refresh.svg">restyleicons/refresh.svg</file>
+    <file alias="report.svg">restyleicons/report.svg</file>
+    <file alias="search.svg">restyleicons/search.svg</file>
+    <file alias="settings.svg">restyleicons/settings.svg</file>
+    <file alias="stop.svg">restyleicons/stop.svg</file>
+    <file alias="trash.svg">restyleicons/trash.svg</file>
+    <file alias="upload.svg">restyleicons/upload.svg</file>
+    <file alias="video.svg">restyleicons/video.svg</file>
+    <file alias="volume.svg">restyleicons/volume.svg</file>
+  </qresource>
+</RCC>

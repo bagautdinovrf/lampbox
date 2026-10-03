@@ -61,6 +61,12 @@ public:
 
     static QStringList allVideoFormats();
 
+    // Presentation settings are independent of schedules, station and player.
+    QString appearanceId() const;
+    QString themeId() const;
+    void setAppearanceId(const QString &id);
+    void setThemeId(const QString &id);
+
 private:
     friend class SettingsTest;
 

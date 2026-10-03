@@ -8,6 +8,8 @@
 #include "mainwindow.h"
 #include "stationmanager.h"
 #include "trialmessagebox.h"
+#include "settings.h"
+#include "restyletheme.h"
 
 
 int main(int argc, char *argv[])
@@ -30,6 +32,9 @@ int main(int argc, char *argv[])
     QApplication::setApplicationDisplayName(QStringLiteral("MediaBoxManager"));
     QApplication::setWindowIcon(QIcon(QStringLiteral(":/player/icons/app.ico")));
 
+    Settings settings;
+    Restyle::install(a, settings.appearanceId(), settings.themeId());
+
     // Keep the legacy key to prevent concurrent access by an older LampBox.
     QSharedMemory mem("LampBoxMemory");
     if( mem.attach() ) {
@@ -40,7 +45,6 @@ int main(int argc, char *argv[])
     } else {
         mem.create(1);
     }
-    QApplication::setStyle(QStyleFactory::create("Fusion"));
 
     if( StationManager::Instance().trial() )
         TrialMessageBox();

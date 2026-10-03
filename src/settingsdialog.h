@@ -15,6 +15,7 @@ class SettingsDialog : public QDialog
     Q_OBJECT
 public:
     explicit SettingsDialog(QWidget *parent, Qt::WindowFlags f = {});
+    ~SettingsDialog() override;
 
 private:
     /**
@@ -60,6 +61,7 @@ private slots:
     void slot_changePage(int page);
 
 signals:
+    void doneRequested();
     /**
      * @brief fileFormats
      */
@@ -69,6 +71,8 @@ signals:
 
 private:
     Ui::SettingsDialog *ui;
+    class QListWidget *mAudioFormats = nullptr;
+    class QListWidget *mVideoFormats = nullptr;
 
 };
 

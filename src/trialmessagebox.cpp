@@ -1,4 +1,5 @@
 #include "trialmessagebox.h"
+#include "restyletheme.h"
 
 
 TrialMessageBox::TrialMessageBox(QString text, QWidget *parent) :
@@ -9,11 +10,17 @@ TrialMessageBox::TrialMessageBox(QString text, QWidget *parent) :
     if( !text.isEmpty() )
         message = text +"\n\n"+ message;
 
-    QMessageBox::information(parent, "Триальная версия",  message);
+    setWindowTitle(tr("Пробная версия MediaBoxManager"));
+    setText(message);
+    setTextFormat(Qt::PlainText);
+    setIcon(QMessageBox::Information);
+    setStandardButtons(QMessageBox::Ok);
+    setFont(Restyle::font());
+    Restyle::surface(this, QStringLiteral("dialog"));
+    exec();
 }
 
 TrialMessageBox::~TrialMessageBox()
 {
     //
 }
-

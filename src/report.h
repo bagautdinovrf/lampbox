@@ -7,6 +7,11 @@
 namespace Ui {
 class Report;
 }
+class QComboBox;
+class QDateEdit;
+class QLabel;
+class QTableView;
+class QStackedWidget;
 
 class Report : public QWidget
 {
@@ -15,11 +20,19 @@ class Report : public QWidget
 public:
     explicit Report(QWidget *parent = nullptr, Qt::WindowFlags f = {});
     ~Report();
-   	CompositionsList *mCompositionsList; 
+    CompositionsList *mCompositionsList = nullptr;
+    void setReportDirectory(const QString &directory);
 public slots:
 	void Generate();
 private:
     Ui::Report *ui;
+    QComboBox *mMonth = nullptr;
+    QDateEdit *mYear = nullptr;
+    QTableView *mTable = nullptr;
+    QStackedWidget *mResults = nullptr;
+    QLabel *mEmptyTitle = nullptr;
+    QLabel *mEmptyDescription = nullptr;
+    QString mReportDirectory = QStringLiteral("/home/mediabox/mbstatus");
 };
 
 #endif // REPORT_H

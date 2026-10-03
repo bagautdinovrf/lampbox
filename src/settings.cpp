@@ -92,6 +92,12 @@ Settings::Settings(const QString &configurationFile, QObject *parent) :
 
 QString Settings::configurationFilePath(const QString &applicationDirectory)
 {
+    // The dedicated preview harness supplies an owned temporary path before
+    // any singleton is constructed. Normal application startup never sets it.
+    const QString previewFile = QCoreApplication::instance()->property("restylePreviewSettings").toString();
+    if (QStandardPaths::isTestModeEnabled() && !previewFile.isEmpty()
+            && QDir::isAbsolutePath(previewFile))
+        return previewFile;
     return configurationFilePath(applicationDirectory,
                                  QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation));
 }
@@ -225,6 +231,36 @@ void Settings::writeStringSettings(QString key, QString value)
     QSettings settings(mConfigFile, QSettings::IniFormat );
     settings.setValue(key, value);
     syncSettings(settings);
+}
+
+QString Settings::appearanceId() const
+{
+    QSettings settings(mConfigFile, QSettings::IniFormat);
+    const QString id = settings.value("Appearance/style", "tide-relief").toString();
+    return id == "tide" ? id : QStringLiteral("tide-relief");
+}
+
+QString Settings::themeId() const
+{
+    QSettings settings(mConfigFile, QSettings::IniFormat);
+    const QString id = settings.value("Appearance/theme", "denim").toString();
+    static const QStringList supported = {"denim", "slate", "pine", "berry",
+                                           "graphite", "pearl", "dark"};
+    return supported.contains(id) ? id : QStringLiteral("denim");
+}
+
+void Settings::setAppearanceId(const QString &id)
+{
+    if (id == "tide" || id == "tide-relief")
+        writeStringSettings("Appearance/style", id);
+}
+
+void Settings::setThemeId(const QString &id)
+{
+    static const QStringList supported = {"denim", "slate", "pine", "berry",
+                                           "graphite", "pearl", "dark"};
+    if (supported.contains(id))
+        writeStringSettings("Appearance/theme", id);
 }
 
 const QMap<QString, bool> &Settings::fileFormats()

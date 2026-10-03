@@ -45,6 +45,17 @@ add_library(MediaBoxManagerCore OBJECT
     src/lampdata.h
     src/maininformwidget.cpp
     src/maininformwidget.h
+    src/restyletheme.cpp
+    src/restyletheme.h
+    src/restylewidgets.cpp
+    src/restylewidgets.h
+    src/restyleicons.qrc
+    src/schedulepreview.cpp
+    src/schedulepreview.h
+    src/ruleeditors.cpp
+    src/ruleeditors.h
+    src/medialibrarydelegate.cpp
+    src/medialibrarydelegate.h
     src/mainwindow.cpp
     src/mainwindow.h
     src/mediacontroller.cpp
@@ -126,7 +137,6 @@ add_library(MediaBoxManagerCore OBJECT
     src/lampdelegates/widgets/switch.hpp
     src/aboutlampbox.ui
     src/maininformwidget.ui
-    src/mainwindow.ui
     src/report.ui
     src/settingsdialog.ui
     src/lampdelegates/TimePeriodEditDelegate.ui

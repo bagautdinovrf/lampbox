@@ -20,6 +20,29 @@ class MediaModel : public QAbstractTableModel
 {
     Q_OBJECT
 public:
+    enum Column {
+        FileNameColumn = 0,
+        TitleColumn,
+        ArtistColumn,
+        AlbumColumn,
+        DurationColumn,
+        FormatColumn,
+        ColumnCount
+    };
+
+    enum Role {
+        FileNameRole = Qt::UserRole + 1,
+        TitleRole,
+        ArtistRole,
+        AlbumRole,
+        GenreRole,
+        YearRole,
+        DurationSecondsRole,
+        FormatRole,
+        FileSizeRole,
+        MediaTypeRole,
+        SortRole
+    };
 
     explicit MediaModel(MediaManager *mediaManager, CHANNEL_TYPE type, QObject *parent = nullptr);
     ~MediaModel() override;
