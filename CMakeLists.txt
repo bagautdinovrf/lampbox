@@ -154,6 +154,9 @@ target_compile_definitions(MediaBoxManagerCore PUBLIC
 target_link_libraries(MediaBoxManagerCore PUBLIC
     Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Xml LampBox::TagLib
 )
+if(WIN32)
+    target_link_libraries(MediaBoxManagerCore PUBLIC shell32)
+endif()
 if(MSVC)
     target_compile_options(MediaBoxManagerCore PUBLIC /utf-8 /permissive- /Zc:__cplusplus)
     target_compile_options(MediaBoxManagerCore PRIVATE /W4)
@@ -165,6 +168,8 @@ qt_add_executable(MediaBoxManager WIN32 MACOSX_BUNDLE src/main.cpp)
 target_link_libraries(MediaBoxManager PRIVATE MediaBoxManagerCore)
 if(WIN32)
     target_sources(MediaBoxManager PRIVATE src/app.rc)
+    set_source_files_properties(src/app.rc PROPERTIES
+        OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/icons/app.ico")
 endif()
 
 install(TARGETS MediaBoxManager

@@ -1,0 +1,63 @@
+{
+  "startedAt": "2026-10-03T20:27:37.582Z",
+  "scope": "Independent operator workflow checks in an isolated browser context; demo fixtures only.",
+  "checks": [
+    {
+      "name": "All six Tide variants: 10:24 resolves morning, next 12:00, precise advert 10:30",
+      "status": "passed",
+      "durationMs": 4461
+    },
+    {
+      "name": "Clearing date or time restores the active plan context",
+      "status": "passed",
+      "durationMs": 414
+    },
+    {
+      "name": "13:00 recalculates the plan independently of selected morning channel",
+      "status": "passed",
+      "durationMs": 305
+    },
+    {
+      "name": "Date input and weekday selection agree across a week and month boundary",
+      "status": "passed",
+      "durationMs": 457
+    },
+    {
+      "name": "Editing weekday, month, and day-number conditions updates the why inspector",
+      "status": "passed",
+      "durationMs": 873
+    },
+    {
+      "name": "Selecting a different channel only changes the editor and library context",
+      "status": "passed",
+      "durationMs": 271
+    },
+    {
+      "name": "22:00 respects exclusive interval end and shows tomorrow as next date",
+      "status": "passed",
+      "durationMs": 254
+    },
+    {
+      "name": "Music, video, advertising and service pages keep correct independent context",
+      "status": "passed",
+      "durationMs": 910
+    },
+    {
+      "name": "Review fix: station header follows network and offline modes",
+      "status": "passed",
+      "durationMs": 393
+    },
+    {
+      "name": "Review fix: advertising details show selected advert rules and exact current minute",
+      "status": "passed",
+      "durationMs": 355
+    }
+  ],
+  "pageErrors": [],
+  "completedAt": "2026-10-03T20:27:47.513Z",
+  "summary": {
+    "passed": 10,
+    "failed": 0,
+    "pageErrors": 0
+  }
+}

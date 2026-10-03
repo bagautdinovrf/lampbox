@@ -1,0 +1,297 @@
+{
+  "startedAt": "2026-10-03T20:28:07.225Z",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "scope": "Isolated browser contexts and demo data; no real media or application data changed.",
+  "checks": [
+    {
+      "design": "tide",
+      "name": "Main viewport, font load, all six navigation destinations",
+      "status": "passed",
+      "durationMs": 3876
+    },
+    {
+      "design": "tide",
+      "name": "Channel dialog controls screenshot and cancel preserve all fields",
+      "status": "passed",
+      "durationMs": 841
+    },
+    {
+      "design": "tide",
+      "name": "Channel time, weekday, month, day numbers and volume save together",
+      "status": "passed",
+      "durationMs": 845
+    },
+    {
+      "design": "tide",
+      "name": "Settings checkboxes, select all and clear all persist",
+      "status": "passed",
+      "durationMs": 608
+    },
+    {
+      "design": "tide",
+      "name": "Advertising frequency edit supports cancel and save",
+      "status": "passed",
+      "durationMs": 658
+    },
+    {
+      "design": "tide",
+      "name": "Preview and scheduled play/stop remain reachable",
+      "status": "passed",
+      "durationMs": 498
+    },
+    {
+      "design": "tide",
+      "name": "Blank date and time restore previous valid inputs",
+      "status": "passed",
+      "durationMs": 254
+    },
+    {
+      "design": "tide-relief",
+      "name": "Main viewport, font load, all six navigation destinations",
+      "status": "passed",
+      "durationMs": 3282
+    },
+    {
+      "design": "tide-relief",
+      "name": "Channel dialog controls screenshot and cancel preserve all fields",
+      "status": "passed",
+      "durationMs": 912
+    },
+    {
+      "design": "tide-relief",
+      "name": "Channel time, weekday, month, day numbers and volume save together",
+      "status": "passed",
+      "durationMs": 669
+    },
+    {
+      "design": "tide-relief",
+      "name": "Settings checkboxes, select all and clear all persist",
+      "status": "passed",
+      "durationMs": 843
+    },
+    {
+      "design": "tide-relief",
+      "name": "Advertising frequency edit supports cancel and save",
+      "status": "passed",
+      "durationMs": 1433
+    },
+    {
+      "design": "tide-relief",
+      "name": "Preview and scheduled play/stop remain reachable",
+      "status": "passed",
+      "durationMs": 686
+    },
+    {
+      "design": "tide-relief",
+      "name": "Blank date and time restore previous valid inputs",
+      "status": "passed",
+      "durationMs": 237
+    },
+    {
+      "design": "tide-glass",
+      "name": "Main viewport, font load, all six navigation destinations",
+      "status": "passed",
+      "durationMs": 2507
+    },
+    {
+      "design": "tide-glass",
+      "name": "Channel dialog controls screenshot and cancel preserve all fields",
+      "status": "passed",
+      "durationMs": 1178
+    },
+    {
+      "design": "tide-glass",
+      "name": "Channel time, weekday, month, day numbers and volume save together",
+      "status": "passed",
+      "durationMs": 1091
+    },
+    {
+      "design": "tide-glass",
+      "name": "Settings checkboxes, select all and clear all persist",
+      "status": "passed",
+      "durationMs": 834
+    },
+    {
+      "design": "tide-glass",
+      "name": "Advertising frequency edit supports cancel and save",
+      "status": "passed",
+      "durationMs": 702
+    },
+    {
+      "design": "tide-glass",
+      "name": "Preview and scheduled play/stop remain reachable",
+      "status": "passed",
+      "durationMs": 654
+    },
+    {
+      "design": "tide-glass",
+      "name": "Blank date and time restore previous valid inputs",
+      "status": "passed",
+      "durationMs": 382
+    },
+    {
+      "design": "tide-signal",
+      "name": "Main viewport, font load, all six navigation destinations",
+      "status": "passed",
+      "durationMs": 2567
+    },
+    {
+      "design": "tide-signal",
+      "name": "Channel dialog controls screenshot and cancel preserve all fields",
+      "status": "passed",
+      "durationMs": 1409
+    },
+    {
+      "design": "tide-signal",
+      "name": "Channel time, weekday, month, day numbers and volume save together",
+      "status": "passed",
+      "durationMs": 1760
+    },
+    {
+      "design": "tide-signal",
+      "name": "Settings checkboxes, select all and clear all persist",
+      "status": "passed",
+      "durationMs": 735
+    },
+    {
+      "design": "tide-signal",
+      "name": "Advertising frequency edit supports cancel and save",
+      "status": "passed",
+      "durationMs": 570
+    },
+    {
+      "design": "tide-signal",
+      "name": "Preview and scheduled play/stop remain reachable",
+      "status": "passed",
+      "durationMs": 940
+    },
+    {
+      "design": "tide-signal",
+      "name": "Blank date and time restore previous valid inputs",
+      "status": "passed",
+      "durationMs": 317
+    },
+    {
+      "design": "tide-console",
+      "name": "Main viewport, font load, all six navigation destinations",
+      "status": "passed",
+      "durationMs": 2163
+    },
+    {
+      "design": "tide-console",
+      "name": "Channel dialog controls screenshot and cancel preserve all fields",
+      "status": "passed",
+      "durationMs": 1284
+    },
+    {
+      "design": "tide-console",
+      "name": "Channel time, weekday, month, day numbers and volume save together",
+      "status": "passed",
+      "durationMs": 1006
+    },
+    {
+      "design": "tide-console",
+      "name": "Settings checkboxes, select all and clear all persist",
+      "status": "passed",
+      "durationMs": 653
+    },
+    {
+      "design": "tide-console",
+      "name": "Advertising frequency edit supports cancel and save",
+      "status": "passed",
+      "durationMs": 486
+    },
+    {
+      "design": "tide-console",
+      "name": "Preview and scheduled play/stop remain reachable",
+      "status": "passed",
+      "durationMs": 622
+    },
+    {
+      "design": "tide-console",
+      "name": "Blank date and time restore previous valid inputs",
+      "status": "passed",
+      "durationMs": 251
+    },
+    {
+      "design": "tide-satin",
+      "name": "Main viewport, font load, all six navigation destinations",
+      "status": "passed",
+      "durationMs": 1607
+    },
+    {
+      "design": "tide-satin",
+      "name": "Channel dialog controls screenshot and cancel preserve all fields",
+      "status": "passed",
+      "durationMs": 1609
+    },
+    {
+      "design": "tide-satin",
+      "name": "Channel time, weekday, month, day numbers and volume save together",
+      "status": "passed",
+      "durationMs": 974
+    },
+    {
+      "design": "tide-satin",
+      "name": "Settings checkboxes, select all and clear all persist",
+      "status": "passed",
+      "durationMs": 562
+    },
+    {
+      "design": "tide-satin",
+      "name": "Advertising frequency edit supports cancel and save",
+      "status": "passed",
+      "durationMs": 546
+    },
+    {
+      "design": "tide-satin",
+      "name": "Preview and scheduled play/stop remain reachable",
+      "status": "passed",
+      "durationMs": 648
+    },
+    {
+      "design": "tide-satin",
+      "name": "Blank date and time restore previous valid inputs",
+      "status": "passed",
+      "durationMs": 387
+    }
+  ],
+  "errors": [],
+  "screenshots": [
+    "previews/tide-check-main.png",
+    "previews/tide-controls.png",
+    "previews/tide-relief-check-main.png",
+    "previews/tide-relief-controls.png",
+    "previews/tide-glass-check-main.png",
+    "previews/tide-glass-controls.png",
+    "previews/tide-signal-check-main.png",
+    "previews/tide-signal-controls.png",
+    "previews/tide-console-check-main.png",
+    "previews/tide-console-controls.png",
+    "previews/tide-satin-check-main.png",
+    "previews/tide-satin-controls.png"
+  ],
+  "fonts": [
+    {
+      "path": "C:/Windows/Fonts/segoeui.ttf",
+      "missing": []
+    },
+    {
+      "path": "C:/Windows/Fonts/seguisb.ttf",
+      "missing": []
+    },
+    {
+      "path": "C:/Windows/Fonts/segoeuib.ttf",
+      "missing": []
+    }
+  ],
+  "completedAt": "2026-10-03T20:28:55.571Z",
+  "summary": {
+    "passed": 42,
+    "failed": 0,
+    "pageErrors": 0
+  }
+}

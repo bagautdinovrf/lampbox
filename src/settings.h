@@ -65,6 +65,9 @@ private:
     friend class SettingsTest;
 
     static QString configurationFilePath(const QString &applicationDirectory);
+    static QString configurationFilePath(const QString &applicationDirectory,
+                                         const QString &previousUserConfigurationDirectory);
+    Settings(const QString &configurationFile, QObject *parent);
 
     /**
      * @brief readSettings              - Считывание настроек из конфигурационного файла

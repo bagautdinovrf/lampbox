@@ -7,7 +7,6 @@ MediaBoxPlayer.pro.user*
 build-lampbox*
 build-MediaBoxManager*
 build-MediaBoxPlayer*
-Installer/package
 Installer/bin/
 /agent_build/build/
 /agent_build/install/

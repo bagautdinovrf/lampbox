@@ -1,0 +1,479 @@
+{
+  "schemaVersion": 1,
+  "reference": "Tide / Relief — Denim canonical, Slate/Pine/Berry/Graphite/Pearl additional light themes",
+  "targetUrl": "http://127.0.0.1:62253/design-concepts/atmosphere-six/tide-relief.html?palette=denim",
+  "capturedAt": "2026-10-03T20:54:54.927Z",
+  "browser": {
+    "version": "154.0.4258.53",
+    "platformFonts": [
+      {
+        "selector": ".page-heading h1",
+        "fonts": [
+          {
+            "familyName": "Segoe UI Semibold",
+            "postScriptName": "SegoeUI-Semibold",
+            "isCustomFont": false,
+            "glyphCount": 6
+          }
+        ],
+        "cssWeight": "600"
+      },
+      {
+        "selector": ".nav-item.active span",
+        "fonts": [
+          {
+            "familyName": "Segoe UI Semibold",
+            "postScriptName": "SegoeUI-Semibold",
+            "isCustomFont": false,
+            "glyphCount": 6
+          }
+        ],
+        "cssWeight": "600"
+      },
+      {
+        "selector": ".nav-item:not(.active) span",
+        "fonts": [
+          {
+            "familyName": "Segoe UI",
+            "postScriptName": "SegoeUI",
+            "isCustomFont": false,
+            "glyphCount": 5
+          }
+        ],
+        "cssWeight": "500"
+      },
+      {
+        "selector": ".file-name strong",
+        "fonts": [
+          {
+            "familyName": "Segoe UI",
+            "postScriptName": "SegoeUI",
+            "isCustomFont": false,
+            "glyphCount": 6
+          }
+        ],
+        "cssWeight": "500"
+      },
+      {
+        "selector": ".file-name small",
+        "fonts": [
+          {
+            "familyName": "Segoe UI",
+            "postScriptName": "SegoeUI",
+            "isCustomFont": false,
+            "glyphCount": 5
+          }
+        ],
+        "cssWeight": "400"
+      }
+    ]
+  },
+  "lightThemes": [
+    "denim",
+    "slate",
+    "pine",
+    "berry",
+    "graphite",
+    "pearl"
+  ],
+  "viewports": [
+    {
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "width": 1600,
+      "height": 1000
+    }
+  ],
+  "sourceFiles": [
+    {
+      "path": "source/tide-relief.html",
+      "original": "../atmosphere-six/tide-relief.html"
+    },
+    {
+      "path": "source/base.css",
+      "original": "../atmosphere-six/base.css"
+    },
+    {
+      "path": "source/tide.css",
+      "original": "../atmosphere-six/tide.css"
+    },
+    {
+      "path": "source/palettes.css",
+      "original": "../atmosphere-six/palettes.css"
+    },
+    {
+      "path": "source/extra-palettes.css",
+      "original": "../atmosphere-six/extra-palettes.css"
+    },
+    {
+      "path": "source/usability.css",
+      "original": "../atmosphere-six/usability.css"
+    },
+    {
+      "path": "source/operator.css",
+      "original": "../atmosphere-six/operator.css"
+    },
+    {
+      "path": "source/tide-family.css",
+      "original": "../atmosphere-six/tide-family.css"
+    },
+    {
+      "path": "source/tide-relief.css",
+      "original": "../atmosphere-six/tide-relief.css"
+    },
+    {
+      "path": "source/catalog.js",
+      "original": "../atmosphere-six/catalog.js"
+    },
+    {
+      "path": "source/schedule-model.js",
+      "original": "../atmosphere-six/schedule-model.js"
+    },
+    {
+      "path": "source/app.js",
+      "original": "../atmosphere-six/app.js"
+    }
+  ],
+  "additionalGuidance": "source/DESIGN.md",
+  "notes": [
+    "Six selected light palettes are captured; no dark UI existed in the source.",
+    "Source files are byte-for-byte snapshots and are served to an isolated browser using request interception.",
+    "Palette/variant selectors in the original prototype are preserved in the source and screenshots; a Relief-only Qt implementation with selected themes is specified separately.",
+    "Screenshot pixels are CSS pixels at deviceScaleFactor=1. Font files were verified locally but are not redistributed.",
+    "Native input decorations and glyph rasterization may differ across browser/Qt/OS backends."
+  ],
+  "files": [
+    {
+      "path": "capture.mjs",
+      "bytes": 20529,
+      "sha256": "c8fdfb09d0936af346e91c301bd3fb59297576e48b9579d1258c45fb708c60cd"
+    },
+    {
+      "path": "computed-metrics.json",
+      "bytes": 18034930,
+      "sha256": "7265030e6b9997ab4d8339a4a7638ad1fff93b1618ebb9db1c0612c5d383cd1e"
+    },
+    {
+      "path": "visible-labels.json",
+      "bytes": 674060,
+      "sha256": "fdb7e0940776548e3ca23a17e3c4f738d556ca3300a26ec9c6dc39f04d96dfb0"
+    },
+    {
+      "path": "theme-tokens.json",
+      "bytes": 28798,
+      "sha256": "d82ab37883650e49ee1a19068ba76169f2f28f7a342e72e852bf4ccd31123075"
+    },
+    {
+      "path": "source/tide-relief.html",
+      "bytes": 800,
+      "sha256": "db0c8b0bc7985b05207d44e691db93f9700be5805d4861b68a1124b259e0cde4"
+    },
+    {
+      "path": "source/base.css",
+      "bytes": 18118,
+      "sha256": "429ba46f8ca3c5bcf0a9e11991d02adac8c4a178e5721a8a573e89f2c02ab352"
+    },
+    {
+      "path": "source/tide.css",
+      "bytes": 12938,
+      "sha256": "45b89cd818478f917c208d21711d38508f3e055188c063ca44f439228781901c"
+    },
+    {
+      "path": "source/palettes.css",
+      "bytes": 26913,
+      "sha256": "77641f1a5fe9bcebe9f4f56d32cb0752b7402ee1e350a2656664ff1f11ca71b3"
+    },
+    {
+      "path": "source/extra-palettes.css",
+      "bytes": 4565,
+      "sha256": "0ee9542e6c8f58be269150f7342771df79606dfe30f3bb86cad80c70727fff93"
+    },
+    {
+      "path": "source/usability.css",
+      "bytes": 3852,
+      "sha256": "94895882cdfe8ffcd6c62b0f280e2e213200cc286a5d1f8ec2d09787ebbd2ed4"
+    },
+    {
+      "path": "source/operator.css",
+      "bytes": 63854,
+      "sha256": "852d508b4878a4b0f132de86c78f092d0488e27dca0fb3ea8ab50a49077a3c08"
+    },
+    {
+      "path": "source/tide-family.css",
+      "bytes": 2002,
+      "sha256": "536f27e2daf3c379fc41039f62988bdd45600d0e80390373566b9f0a1de932f2"
+    },
+    {
+      "path": "source/tide-relief.css",
+      "bytes": 7998,
+      "sha256": "e26fd4e83dee9385929d9c3f78acc48820b9175b1b5b0fa841ad4b676d71f968"
+    },
+    {
+      "path": "source/catalog.js",
+      "bytes": 2772,
+      "sha256": "438e9d93b87916a4b4d63449503a785a5202d107f341b1ceb6a2596857c2e411"
+    },
+    {
+      "path": "source/schedule-model.js",
+      "bytes": 10586,
+      "sha256": "9737892f84c399f54ff0cf8d8e1c1c040456be265b610fda4da2deb1630fce49"
+    },
+    {
+      "path": "source/app.js",
+      "bytes": 59885,
+      "sha256": "ba6611e8973537f359951759dc2584b898d1c9b35076d7defd8e94a6596a3388"
+    },
+    {
+      "path": "source/DESIGN.md",
+      "bytes": 5918,
+      "sha256": "0e494e511f18044e960fb624ce21856928281ed86de31fcce196c93b8e90fea9"
+    },
+    {
+      "path": "icons/music.svg",
+      "bytes": 253,
+      "sha256": "51462914ea0f0bc1456650c51193425111308a0075e8459c560cf2018d9229f9"
+    },
+    {
+      "path": "icons/video.svg",
+      "bytes": 232,
+      "sha256": "7650bf612751abb299576aab20c93d1a347972386387c8580cbaf4be7f88d49e"
+    },
+    {
+      "path": "icons/ads.svg",
+      "bytes": 234,
+      "sha256": "3c038bae5d5513456a95d314026d35e276f813c4213de07da701f5697466527d"
+    },
+    {
+      "path": "icons/report.svg",
+      "bytes": 224,
+      "sha256": "4e460f3b3c930523559b3e2be29e8ed8d7772853def17dae35675bd6ecd10374"
+    },
+    {
+      "path": "icons/settings.svg",
+      "bytes": 274,
+      "sha256": "1ceaee4d551f26500460f2200574a0cc248d1a9ca456094abc37876622703105"
+    },
+    {
+      "path": "icons/info.svg",
+      "bytes": 229,
+      "sha256": "c3252e788ee2e285751a084a1b772ef82ac789c8675cf4b5c374880c65661726"
+    },
+    {
+      "path": "icons/plus.svg",
+      "bytes": 195,
+      "sha256": "891e0b40f5909d54daef4bd781dc54aa897dd367faad8f04f178f1786d196d30"
+    },
+    {
+      "path": "icons/search.svg",
+      "bytes": 223,
+      "sha256": "0534496823b653e0c61b5909affc510ab6abcbba113fa7499d2be5e8ff6b6ea5"
+    },
+    {
+      "path": "icons/play.svg",
+      "bytes": 194,
+      "sha256": "07d3914887b088a7bf543967152b0c540ac805af8bfe779e4044008a951f5daa"
+    },
+    {
+      "path": "icons/stop.svg",
+      "bytes": 192,
+      "sha256": "2609099ac68150b8136ba5d29e1f1f0f75ef59967cb18067e65e6f604446a68d"
+    },
+    {
+      "path": "icons/refresh.svg",
+      "bytes": 246,
+      "sha256": "d700e2c800cfef4f2f98dc9ba69f1ac5539159621a2cabf91b710de8eac051f0"
+    },
+    {
+      "path": "icons/edit.svg",
+      "bytes": 213,
+      "sha256": "2ce0508603cbae454d4fd75a06e1302a1e60e2081f297f427ebbf7ae11cf594f"
+    },
+    {
+      "path": "icons/trash.svg",
+      "bytes": 227,
+      "sha256": "2ea90f28927b2347c5cd4b0cc1d59f369cbe0888f631361cd455f6bc660453e9"
+    },
+    {
+      "path": "icons/folder.svg",
+      "bytes": 197,
+      "sha256": "893df67522f1910cdd522b8a86017c05c34cb732a4081446b97475dd1168deb6"
+    },
+    {
+      "path": "icons/upload.svg",
+      "bytes": 213,
+      "sha256": "42e112df14563495289f7637a20e914a7e45e5f7c8a4b7e073a74d4d9218843b"
+    },
+    {
+      "path": "icons/chevron.svg",
+      "bytes": 191,
+      "sha256": "9a3021db2846d7e881bb46950e391047209cf702a8df481a544f5e61f43b21a3"
+    },
+    {
+      "path": "icons/close.svg",
+      "bytes": 199,
+      "sha256": "d063da4e21c46e9f5be83c24aac849c6bc47adeb9cd61cfc3d960bc097318fdf"
+    },
+    {
+      "path": "icons/eye.svg",
+      "bytes": 255,
+      "sha256": "05a774cf411154878695f2ee67a1fd0e451b65cca06161c7e42efeb6e6ab3b87"
+    },
+    {
+      "path": "icons/calendar.svg",
+      "bytes": 212,
+      "sha256": "6866321dfe54e5ca3c9fa672347b31217eb06a94b984e6e2d9bfbdd30f0c8527"
+    },
+    {
+      "path": "icons/volume.svg",
+      "bytes": 236,
+      "sha256": "a77a03b30adaedcc4eb66d6ff16c4d8a3d5a2ecf175e322b2ca3a71afcbe1f43"
+    },
+    {
+      "path": "icons/grid.svg",
+      "bytes": 228,
+      "sha256": "d15a02e542faf228d13081038e726271f56ea79f8fa240994db75202f6ccd616"
+    },
+    {
+      "path": "icons/exit.svg",
+      "bytes": 212,
+      "sha256": "4dee02bb9f550f9764d9232eed2be83149c45616e27a336ca4dbd17821e8fa2d"
+    },
+    {
+      "path": "icons/check.svg",
+      "bytes": 193,
+      "sha256": "7580e03102c1d72530f44d8a3c3fa845eb5cd50df624dede11df066c660389b1"
+    },
+    {
+      "path": "icons/arrow.svg",
+      "bytes": 200,
+      "sha256": "b92646672ee0c0ef5ccdb2c0859550deefff4fe9e330c14694c0e897b46027dc"
+    },
+    {
+      "path": "icons/more.svg",
+      "bytes": 208,
+      "sha256": "589f519b96558aae35a71960683148f7981f4e470eb9d2d33899c255c4902ebd"
+    },
+    {
+      "path": "icons/note.svg",
+      "bytes": 205,
+      "sha256": "b039f22c5d193e6fbc923a82bef1e8a10e4fe3472132891f853dc78a763c3a9a"
+    },
+    {
+      "path": "icons/paths.json",
+      "bytes": 1628,
+      "sha256": "1c1dc0a20a2c00a4b081b889c9dca7fa0f0abf438bfe62aeb074b143d485455b"
+    },
+    {
+      "path": "screenshots/01-music-1440x900.png",
+      "bytes": 172246,
+      "sha256": "40192adf0afd75bf44aacdb79e7baf3652b9c712cbbbb7513053d9378fbb6859"
+    },
+    {
+      "path": "screenshots/02-music-1600x1000.png",
+      "bytes": 196605,
+      "sha256": "45fccc453e74eca685bde128898efd0c453cb33e94f8385a1e70af231430bc55"
+    },
+    {
+      "path": "screenshots/03-video-1440x900.png",
+      "bytes": 168349,
+      "sha256": "de73cef848089845064141cf4242f5ac24cc01ea488c68097c8555bde850e865"
+    },
+    {
+      "path": "screenshots/04-ads-1440x900.png",
+      "bytes": 152294,
+      "sha256": "508c170289be32c8857948dcf5d8e66513f2c9ce324010750b11f7d61742a3c1"
+    },
+    {
+      "path": "screenshots/05-report-1440x900.png",
+      "bytes": 69588,
+      "sha256": "3a8676f339061a4a5766ef0b4c31931ab74888aeb6095522e4d29d766b9aa9c0"
+    },
+    {
+      "path": "screenshots/06-settings-1440x900.png",
+      "bytes": 87925,
+      "sha256": "1d9f2f3cb4e9d068a549a9cb054f733c36e960f457c993ffc31bd7f8b15510fd"
+    },
+    {
+      "path": "screenshots/07-about-1440x900.png",
+      "bytes": 92897,
+      "sha256": "f2c78c311acdb80e29131afe72bbb76c47a9c37e51a50503f2709f55fb86de59"
+    },
+    {
+      "path": "screenshots/08-channel-editor-1440x900.png",
+      "bytes": 238714,
+      "sha256": "98f4af2ea6b01b2d992b03e4f28fb7d9733cc8a6f5b2405bc89e51fec05c05b0"
+    },
+    {
+      "path": "screenshots/09-all-schedules-1440x900.png",
+      "bytes": 232971,
+      "sha256": "91efb24741f46be2e2c665d3b9ea1f3de5b3a1ee3976038b81511d27f9181991"
+    },
+    {
+      "path": "screenshots/10-file-info-1440x900.png",
+      "bytes": 233066,
+      "sha256": "dacac057cfe3becfdad02786b990bdf4d2570ba4d711fc7baec792cd5726f2a7"
+    },
+    {
+      "path": "screenshots/11-station-1440x900.png",
+      "bytes": 232525,
+      "sha256": "3c2dbaf2c4ba8f808276c5241abdad10be5cc712d18a82d0e588d73edcdc9e22"
+    },
+    {
+      "path": "screenshots/12-delete-confirm-1440x900.png",
+      "bytes": 233057,
+      "sha256": "8189570a73c1fa95276c37ee01a5e5b92fa70b14d5ca9475c402a5905f233561"
+    },
+    {
+      "path": "screenshots/13-ad-exact-1440x900.png",
+      "bytes": 219259,
+      "sha256": "8a49ea674f01d3e19298239d0422be9d466198d56d99e8f182a49e273ec52348"
+    },
+    {
+      "path": "screenshots/14-ad-frequency-1440x900.png",
+      "bytes": 220257,
+      "sha256": "b23961afb042e16c284ed030db70f4539781cd5b99eb0acfd01dc0d05c1169a9"
+    },
+    {
+      "path": "screenshots/15-plan-details-1440x900.png",
+      "bytes": 242266,
+      "sha256": "694c3713ea93d0218f9bc3e8ea559084db00fa288fc2544705bf2f337edb3224"
+    },
+    {
+      "path": "screenshots/16-slate-music-1440x900.png",
+      "bytes": 171948,
+      "sha256": "6a92dc52a2c3c61665ec5cfda0430519f5e623e9f2f7ef2fb8c09236d3224e4b"
+    },
+    {
+      "path": "screenshots/17-slate-channel-editor-1440x900.png",
+      "bytes": 237197,
+      "sha256": "e40cb1e2eba8d7845eb012078586ec784eeab6aae24a414dfbb20a9b9690945d"
+    },
+    {
+      "path": "screenshots/18-slate-settings-1440x900.png",
+      "bytes": 87385,
+      "sha256": "44a452d1e141ee5a5b469ba12092ad92a19edcf08383e56963d9da8d21b9e3bc"
+    },
+    {
+      "path": "screenshots/19-pine-music-1440x900.png",
+      "bytes": 172238,
+      "sha256": "f0014b560330e0bde96e3bf6b35bd1b9a7b2e1c135ce0b54ff52f16dea414fc0"
+    },
+    {
+      "path": "screenshots/20-berry-music-1440x900.png",
+      "bytes": 172465,
+      "sha256": "a10c29bd8c5eea7685348ef8f0f2ee2fbc4aa6f6c9a80e808f76056dbdb501d7"
+    },
+    {
+      "path": "screenshots/21-graphite-music-1440x900.png",
+      "bytes": 171704,
+      "sha256": "320981ad19c9cb467471cbad5640e1bfc444711dec84c2682b8e9b3945f4624a"
+    },
+    {
+      "path": "screenshots/22-pearl-music-1440x900.png",
+      "bytes": 172762,
+      "sha256": "c1d4b69381f76da946118c28ead0ee3174dd02ae62fa26cfc9d8a718269b90c1"
+    }
+  ]
+}

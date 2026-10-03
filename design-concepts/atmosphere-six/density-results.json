@@ -1,0 +1,980 @@
+{
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "results": [
+    {
+      "design": "tide",
+      "section": "music",
+      "visibleMediaRows": 3,
+      "totalMediaRows": 6,
+      "requiredRows": 3,
+      "overlaps": [],
+      "panels": [
+        {
+          "selector": ".channel-panel",
+          "x": 22,
+          "y": 358.90625,
+          "right": 227,
+          "bottom": 611.03125,
+          "width": 205,
+          "height": 252.125
+        },
+        {
+          "selector": ".feature",
+          "x": 22,
+          "y": 262.21875,
+          "right": 227,
+          "bottom": 346.90625,
+          "width": 205,
+          "height": 84.6875
+        },
+        {
+          "selector": ".schedule-panel",
+          "x": 241,
+          "y": 262.21875,
+          "right": 1418,
+          "bottom": 611.03125,
+          "width": 1177,
+          "height": 348.8125
+        },
+        {
+          "selector": ".media-panel",
+          "x": 22,
+          "y": 623.03125,
+          "right": 1129,
+          "bottom": 970.53125,
+          "width": 1107,
+          "height": 347.5
+        },
+        {
+          "selector": ".inspector-panel",
+          "x": 1143,
+          "y": 623.03125,
+          "right": 1418,
+          "bottom": 1155.375,
+          "width": 275,
+          "height": 532.34375
+        }
+      ],
+      "horizontalOverflow": false,
+      "pass": true
+    },
+    {
+      "design": "tide",
+      "section": "video",
+      "visibleMediaRows": 3,
+      "totalMediaRows": 3,
+      "requiredRows": 3,
+      "overlaps": [],
+      "panels": [
+        {
+          "selector": ".channel-panel",
+          "x": 22,
+          "y": 378.90625,
+          "right": 227,
+          "bottom": 565.65625,
+          "width": 205,
+          "height": 186.75
+        },
+        {
+          "selector": ".feature",
+          "x": 22,
+          "y": 262.21875,
+          "right": 227,
+          "bottom": 366.90625,
+          "width": 205,
+          "height": 104.6875
+        },
+        {
+          "selector": ".schedule-panel",
+          "x": 241,
+          "y": 262.21875,
+          "right": 1418,
+          "bottom": 565.65625,
+          "width": 1177,
+          "height": 303.4375
+        },
+        {
+          "selector": ".media-panel",
+          "x": 22,
+          "y": 577.65625,
+          "right": 1129,
+          "bottom": 811.15625,
+          "width": 1107,
+          "height": 233.5
+        },
+        {
+          "selector": ".inspector-panel",
+          "x": 1143,
+          "y": 577.65625,
+          "right": 1418,
+          "bottom": 1074,
+          "width": 275,
+          "height": 496.34375
+        }
+      ],
+      "horizontalOverflow": false,
+      "pass": true
+    },
+    {
+      "design": "tide",
+      "section": "ads",
+      "visibleMediaRows": 3,
+      "totalMediaRows": 3,
+      "requiredRows": 3,
+      "overlaps": [],
+      "panels": [
+        {
+          "selector": ".channel-panel",
+          "x": 22,
+          "y": 262.21875,
+          "right": 227,
+          "bottom": 376.21875,
+          "width": 205,
+          "height": 114
+        },
+        {
+          "selector": ".ad-schedule",
+          "x": 241,
+          "y": 262.21875,
+          "right": 1418,
+          "bottom": 494.46875,
+          "width": 1177,
+          "height": 232.25
+        },
+        {
+          "selector": ".media-panel",
+          "x": 22,
+          "y": 506.46875,
+          "right": 1129,
+          "bottom": 739.96875,
+          "width": 1107,
+          "height": 233.5
+        },
+        {
+          "selector": ".inspector-panel",
+          "x": 1143,
+          "y": 506.46875,
+          "right": 1418,
+          "bottom": 1017.40625,
+          "width": 275,
+          "height": 510.9375
+        }
+      ],
+      "horizontalOverflow": false,
+      "pass": true
+    },
+    {
+      "design": "tide-relief",
+      "section": "music",
+      "visibleMediaRows": 3,
+      "totalMediaRows": 6,
+      "requiredRows": 3,
+      "overlaps": [],
+      "panels": [
+        {
+          "selector": ".channel-panel",
+          "x": 22,
+          "y": 358.90625,
+          "right": 227,
+          "bottom": 611.03125,
+          "width": 205,
+          "height": 252.125
+        },
+        {
+          "selector": ".feature",
+          "x": 22,
+          "y": 262.21875,
+          "right": 227,
+          "bottom": 346.90625,
+          "width": 205,
+          "height": 84.6875
+        },
+        {
+          "selector": ".schedule-panel",
+          "x": 241,
+          "y": 262.21875,
+          "right": 1418,
+          "bottom": 611.03125,
+          "width": 1177,
+          "height": 348.8125
+        },
+        {
+          "selector": ".media-panel",
+          "x": 22,
+          "y": 623.03125,
+          "right": 1129,
+          "bottom": 970.53125,
+          "width": 1107,
+          "height": 347.5
+        },
+        {
+          "selector": ".inspector-panel",
+          "x": 1143,
+          "y": 623.03125,
+          "right": 1418,
+          "bottom": 1155.375,
+          "width": 275,
+          "height": 532.34375
+        }
+      ],
+      "horizontalOverflow": false,
+      "pass": true
+    },
+    {
+      "design": "tide-relief",
+      "section": "video",
+      "visibleMediaRows": 3,
+      "totalMediaRows": 3,
+      "requiredRows": 3,
+      "overlaps": [],
+      "panels": [
+        {
+          "selector": ".channel-panel",
+          "x": 22,
+          "y": 378.90625,
+          "right": 227,
+          "bottom": 565.65625,
+          "width": 205,
+          "height": 186.75
+        },
+        {
+          "selector": ".feature",
+          "x": 22,
+          "y": 262.21875,
+          "right": 227,
+          "bottom": 366.90625,
+          "width": 205,
+          "height": 104.6875
+        },
+        {
+          "selector": ".schedule-panel",
+          "x": 241,
+          "y": 262.21875,
+          "right": 1418,
+          "bottom": 565.65625,
+          "width": 1177,
+          "height": 303.4375
+        },
+        {
+          "selector": ".media-panel",
+          "x": 22,
+          "y": 577.65625,
+          "right": 1129,
+          "bottom": 811.15625,
+          "width": 1107,
+          "height": 233.5
+        },
+        {
+          "selector": ".inspector-panel",
+          "x": 1143,
+          "y": 577.65625,
+          "right": 1418,
+          "bottom": 1074,
+          "width": 275,
+          "height": 496.34375
+        }
+      ],
+      "horizontalOverflow": false,
+      "pass": true
+    },
+    {
+      "design": "tide-relief",
+      "section": "ads",
+      "visibleMediaRows": 3,
+      "totalMediaRows": 3,
+      "requiredRows": 3,
+      "overlaps": [],
+      "panels": [
+        {
+          "selector": ".channel-panel",
+          "x": 22,
+          "y": 262.21875,
+          "right": 227,
+          "bottom": 376.21875,
+          "width": 205,
+          "height": 114
+        },
+        {
+          "selector": ".ad-schedule",
+          "x": 241,
+          "y": 262.21875,
+          "right": 1418,
+          "bottom": 494.46875,
+          "width": 1177,
+          "height": 232.25
+        },
+        {
+          "selector": ".media-panel",
+          "x": 22,
+          "y": 506.46875,
+          "right": 1129,
+          "bottom": 739.96875,
+          "width": 1107,
+          "height": 233.5
+        },
+        {
+          "selector": ".inspector-panel",
+          "x": 1143,
+          "y": 506.46875,
+          "right": 1418,
+          "bottom": 1017.40625,
+          "width": 275,
+          "height": 510.9375
+        }
+      ],
+      "horizontalOverflow": false,
+      "pass": true
+    },
+    {
+      "design": "tide-glass",
+      "section": "music",
+      "visibleMediaRows": 3,
+      "totalMediaRows": 6,
+      "requiredRows": 3,
+      "overlaps": [],
+      "panels": [
+        {
+          "selector": ".channel-panel",
+          "x": 22,
+          "y": 358.90625,
+          "right": 227,
+          "bottom": 611.03125,
+          "width": 205,
+          "height": 252.125
+        },
+        {
+          "selector": ".feature",
+          "x": 22,
+          "y": 262.21875,
+          "right": 227,
+          "bottom": 346.90625,
+          "width": 205,
+          "height": 84.6875
+        },
+        {
+          "selector": ".schedule-panel",
+          "x": 241,
+          "y": 262.21875,
+          "right": 1418,
+          "bottom": 611.03125,
+          "width": 1177,
+          "height": 348.8125
+        },
+        {
+          "selector": ".media-panel",
+          "x": 22,
+          "y": 623.03125,
+          "right": 1129,
+          "bottom": 970.53125,
+          "width": 1107,
+          "height": 347.5
+        },
+        {
+          "selector": ".inspector-panel",
+          "x": 1143,
+          "y": 623.03125,
+          "right": 1418,
+          "bottom": 1155.375,
+          "width": 275,
+          "height": 532.34375
+        }
+      ],
+      "horizontalOverflow": false,
+      "pass": true
+    },
+    {
+      "design": "tide-glass",
+      "section": "video",
+      "visibleMediaRows": 3,
+      "totalMediaRows": 3,
+      "requiredRows": 3,
+      "overlaps": [],
+      "panels": [
+        {
+          "selector": ".channel-panel",
+          "x": 22,
+          "y": 378.90625,
+          "right": 227,
+          "bottom": 565.65625,
+          "width": 205,
+          "height": 186.75
+        },
+        {
+          "selector": ".feature",
+          "x": 22,
+          "y": 262.21875,
+          "right": 227,
+          "bottom": 366.90625,
+          "width": 205,
+          "height": 104.6875
+        },
+        {
+          "selector": ".schedule-panel",
+          "x": 241,
+          "y": 262.21875,
+          "right": 1418,
+          "bottom": 565.65625,
+          "width": 1177,
+          "height": 303.4375
+        },
+        {
+          "selector": ".media-panel",
+          "x": 22,
+          "y": 577.65625,
+          "right": 1129,
+          "bottom": 811.15625,
+          "width": 1107,
+          "height": 233.5
+        },
+        {
+          "selector": ".inspector-panel",
+          "x": 1143,
+          "y": 577.65625,
+          "right": 1418,
+          "bottom": 1074,
+          "width": 275,
+          "height": 496.34375
+        }
+      ],
+      "horizontalOverflow": false,
+      "pass": true
+    },
+    {
+      "design": "tide-glass",
+      "section": "ads",
+      "visibleMediaRows": 3,
+      "totalMediaRows": 3,
+      "requiredRows": 3,
+      "overlaps": [],
+      "panels": [
+        {
+          "selector": ".channel-panel",
+          "x": 22,
+          "y": 262.21875,
+          "right": 227,
+          "bottom": 376.21875,
+          "width": 205,
+          "height": 114
+        },
+        {
+          "selector": ".ad-schedule",
+          "x": 241,
+          "y": 262.21875,
+          "right": 1418,
+          "bottom": 494.46875,
+          "width": 1177,
+          "height": 232.25
+        },
+        {
+          "selector": ".media-panel",
+          "x": 22,
+          "y": 506.46875,
+          "right": 1129,
+          "bottom": 739.96875,
+          "width": 1107,
+          "height": 233.5
+        },
+        {
+          "selector": ".inspector-panel",
+          "x": 1143,
+          "y": 506.46875,
+          "right": 1418,
+          "bottom": 1017.40625,
+          "width": 275,
+          "height": 510.9375
+        }
+      ],
+      "horizontalOverflow": false,
+      "pass": true
+    },
+    {
+      "design": "tide-signal",
+      "section": "music",
+      "visibleMediaRows": 3,
+      "totalMediaRows": 6,
+      "requiredRows": 3,
+      "overlaps": [],
+      "panels": [
+        {
+          "selector": ".channel-panel",
+          "x": 22,
+          "y": 358.90625,
+          "right": 227,
+          "bottom": 611.03125,
+          "width": 205,
+          "height": 252.125
+        },
+        {
+          "selector": ".feature",
+          "x": 22,
+          "y": 262.21875,
+          "right": 227,
+          "bottom": 346.90625,
+          "width": 205,
+          "height": 84.6875
+        },
+        {
+          "selector": ".schedule-panel",
+          "x": 241,
+          "y": 262.21875,
+          "right": 1418,
+          "bottom": 611.03125,
+          "width": 1177,
+          "height": 348.8125
+        },
+        {
+          "selector": ".media-panel",
+          "x": 22,
+          "y": 623.03125,
+          "right": 1129,
+          "bottom": 970.53125,
+          "width": 1107,
+          "height": 347.5
+        },
+        {
+          "selector": ".inspector-panel",
+          "x": 1143,
+          "y": 623.03125,
+          "right": 1418,
+          "bottom": 1155.375,
+          "width": 275,
+          "height": 532.34375
+        }
+      ],
+      "horizontalOverflow": false,
+      "pass": true
+    },
+    {
+      "design": "tide-signal",
+      "section": "video",
+      "visibleMediaRows": 3,
+      "totalMediaRows": 3,
+      "requiredRows": 3,
+      "overlaps": [],
+      "panels": [
+        {
+          "selector": ".channel-panel",
+          "x": 22,
+          "y": 378.90625,
+          "right": 227,
+          "bottom": 565.65625,
+          "width": 205,
+          "height": 186.75
+        },
+        {
+          "selector": ".feature",
+          "x": 22,
+          "y": 262.21875,
+          "right": 227,
+          "bottom": 366.90625,
+          "width": 205,
+          "height": 104.6875
+        },
+        {
+          "selector": ".schedule-panel",
+          "x": 241,
+          "y": 262.21875,
+          "right": 1418,
+          "bottom": 565.65625,
+          "width": 1177,
+          "height": 303.4375
+        },
+        {
+          "selector": ".media-panel",
+          "x": 22,
+          "y": 577.65625,
+          "right": 1129,
+          "bottom": 811.15625,
+          "width": 1107,
+          "height": 233.5
+        },
+        {
+          "selector": ".inspector-panel",
+          "x": 1143,
+          "y": 577.65625,
+          "right": 1418,
+          "bottom": 1074,
+          "width": 275,
+          "height": 496.34375
+        }
+      ],
+      "horizontalOverflow": false,
+      "pass": true
+    },
+    {
+      "design": "tide-signal",
+      "section": "ads",
+      "visibleMediaRows": 3,
+      "totalMediaRows": 3,
+      "requiredRows": 3,
+      "overlaps": [],
+      "panels": [
+        {
+          "selector": ".channel-panel",
+          "x": 22,
+          "y": 262.21875,
+          "right": 227,
+          "bottom": 376.21875,
+          "width": 205,
+          "height": 114
+        },
+        {
+          "selector": ".ad-schedule",
+          "x": 241,
+          "y": 262.21875,
+          "right": 1418,
+          "bottom": 494.46875,
+          "width": 1177,
+          "height": 232.25
+        },
+        {
+          "selector": ".media-panel",
+          "x": 22,
+          "y": 506.46875,
+          "right": 1129,
+          "bottom": 739.96875,
+          "width": 1107,
+          "height": 233.5
+        },
+        {
+          "selector": ".inspector-panel",
+          "x": 1143,
+          "y": 506.46875,
+          "right": 1418,
+          "bottom": 1017.40625,
+          "width": 275,
+          "height": 510.9375
+        }
+      ],
+      "horizontalOverflow": false,
+      "pass": true
+    },
+    {
+      "design": "tide-console",
+      "section": "music",
+      "visibleMediaRows": 3,
+      "totalMediaRows": 6,
+      "requiredRows": 3,
+      "overlaps": [],
+      "panels": [
+        {
+          "selector": ".channel-panel",
+          "x": 22,
+          "y": 360.90625,
+          "right": 227,
+          "bottom": 613.03125,
+          "width": 205,
+          "height": 252.125
+        },
+        {
+          "selector": ".feature",
+          "x": 22,
+          "y": 262.21875,
+          "right": 227,
+          "bottom": 348.90625,
+          "width": 205,
+          "height": 86.6875
+        },
+        {
+          "selector": ".schedule-panel",
+          "x": 241,
+          "y": 262.21875,
+          "right": 1418,
+          "bottom": 613.03125,
+          "width": 1177,
+          "height": 350.8125
+        },
+        {
+          "selector": ".media-panel",
+          "x": 22,
+          "y": 625.03125,
+          "right": 1129,
+          "bottom": 972.53125,
+          "width": 1107,
+          "height": 347.5
+        },
+        {
+          "selector": ".inspector-panel",
+          "x": 1143,
+          "y": 625.03125,
+          "right": 1418,
+          "bottom": 1158.375,
+          "width": 275,
+          "height": 533.34375
+        }
+      ],
+      "horizontalOverflow": false,
+      "pass": true
+    },
+    {
+      "design": "tide-console",
+      "section": "video",
+      "visibleMediaRows": 3,
+      "totalMediaRows": 3,
+      "requiredRows": 3,
+      "overlaps": [],
+      "panels": [
+        {
+          "selector": ".channel-panel",
+          "x": 22,
+          "y": 380.90625,
+          "right": 227,
+          "bottom": 567.65625,
+          "width": 205,
+          "height": 186.75
+        },
+        {
+          "selector": ".feature",
+          "x": 22,
+          "y": 262.21875,
+          "right": 227,
+          "bottom": 368.90625,
+          "width": 205,
+          "height": 106.6875
+        },
+        {
+          "selector": ".schedule-panel",
+          "x": 241,
+          "y": 262.21875,
+          "right": 1418,
+          "bottom": 567.65625,
+          "width": 1177,
+          "height": 305.4375
+        },
+        {
+          "selector": ".media-panel",
+          "x": 22,
+          "y": 579.65625,
+          "right": 1129,
+          "bottom": 813.15625,
+          "width": 1107,
+          "height": 233.5
+        },
+        {
+          "selector": ".inspector-panel",
+          "x": 1143,
+          "y": 579.65625,
+          "right": 1418,
+          "bottom": 1077,
+          "width": 275,
+          "height": 497.34375
+        }
+      ],
+      "horizontalOverflow": false,
+      "pass": true
+    },
+    {
+      "design": "tide-console",
+      "section": "ads",
+      "visibleMediaRows": 3,
+      "totalMediaRows": 3,
+      "requiredRows": 3,
+      "overlaps": [],
+      "panels": [
+        {
+          "selector": ".channel-panel",
+          "x": 22,
+          "y": 262.21875,
+          "right": 227,
+          "bottom": 376.21875,
+          "width": 205,
+          "height": 114
+        },
+        {
+          "selector": ".ad-schedule",
+          "x": 241,
+          "y": 262.21875,
+          "right": 1418,
+          "bottom": 494.46875,
+          "width": 1177,
+          "height": 232.25
+        },
+        {
+          "selector": ".media-panel",
+          "x": 22,
+          "y": 506.46875,
+          "right": 1129,
+          "bottom": 739.96875,
+          "width": 1107,
+          "height": 233.5
+        },
+        {
+          "selector": ".inspector-panel",
+          "x": 1143,
+          "y": 506.46875,
+          "right": 1418,
+          "bottom": 1018.40625,
+          "width": 275,
+          "height": 511.9375
+        }
+      ],
+      "horizontalOverflow": false,
+      "pass": true
+    },
+    {
+      "design": "tide-satin",
+      "section": "music",
+      "visibleMediaRows": 3,
+      "totalMediaRows": 6,
+      "requiredRows": 3,
+      "overlaps": [],
+      "panels": [
+        {
+          "selector": ".channel-panel",
+          "x": 22,
+          "y": 360.90625,
+          "right": 227,
+          "bottom": 613.03125,
+          "width": 205,
+          "height": 252.125
+        },
+        {
+          "selector": ".feature",
+          "x": 22,
+          "y": 262.21875,
+          "right": 227,
+          "bottom": 348.90625,
+          "width": 205,
+          "height": 86.6875
+        },
+        {
+          "selector": ".schedule-panel",
+          "x": 241,
+          "y": 262.21875,
+          "right": 1418,
+          "bottom": 613.03125,
+          "width": 1177,
+          "height": 350.8125
+        },
+        {
+          "selector": ".media-panel",
+          "x": 22,
+          "y": 625.03125,
+          "right": 1129,
+          "bottom": 972.53125,
+          "width": 1107,
+          "height": 347.5
+        },
+        {
+          "selector": ".inspector-panel",
+          "x": 1143,
+          "y": 625.03125,
+          "right": 1418,
+          "bottom": 1158.375,
+          "width": 275,
+          "height": 533.34375
+        }
+      ],
+      "horizontalOverflow": false,
+      "pass": true
+    },
+    {
+      "design": "tide-satin",
+      "section": "video",
+      "visibleMediaRows": 3,
+      "totalMediaRows": 3,
+      "requiredRows": 3,
+      "overlaps": [],
+      "panels": [
+        {
+          "selector": ".channel-panel",
+          "x": 22,
+          "y": 380.90625,
+          "right": 227,
+          "bottom": 567.65625,
+          "width": 205,
+          "height": 186.75
+        },
+        {
+          "selector": ".feature",
+          "x": 22,
+          "y": 262.21875,
+          "right": 227,
+          "bottom": 368.90625,
+          "width": 205,
+          "height": 106.6875
+        },
+        {
+          "selector": ".schedule-panel",
+          "x": 241,
+          "y": 262.21875,
+          "right": 1418,
+          "bottom": 567.65625,
+          "width": 1177,
+          "height": 305.4375
+        },
+        {
+          "selector": ".media-panel",
+          "x": 22,
+          "y": 579.65625,
+          "right": 1129,
+          "bottom": 813.15625,
+          "width": 1107,
+          "height": 233.5
+        },
+        {
+          "selector": ".inspector-panel",
+          "x": 1143,
+          "y": 579.65625,
+          "right": 1418,
+          "bottom": 1077,
+          "width": 275,
+          "height": 497.34375
+        }
+      ],
+      "horizontalOverflow": false,
+      "pass": true
+    },
+    {
+      "design": "tide-satin",
+      "section": "ads",
+      "visibleMediaRows": 3,
+      "totalMediaRows": 3,
+      "requiredRows": 3,
+      "overlaps": [],
+      "panels": [
+        {
+          "selector": ".channel-panel",
+          "x": 22,
+          "y": 262.21875,
+          "right": 227,
+          "bottom": 376.21875,
+          "width": 205,
+          "height": 114
+        },
+        {
+          "selector": ".ad-schedule",
+          "x": 241,
+          "y": 262.21875,
+          "right": 1418,
+          "bottom": 494.46875,
+          "width": 1177,
+          "height": 232.25
+        },
+        {
+          "selector": ".media-panel",
+          "x": 22,
+          "y": 506.46875,
+          "right": 1129,
+          "bottom": 739.96875,
+          "width": 1107,
+          "height": 233.5
+        },
+        {
+          "selector": ".inspector-panel",
+          "x": 1143,
+          "y": 506.46875,
+          "right": 1418,
+          "bottom": 1018.40625,
+          "width": 275,
+          "height": 511.9375
+        }
+      ],
+      "horizontalOverflow": false,
+      "pass": true
+    }
+  ]
+}

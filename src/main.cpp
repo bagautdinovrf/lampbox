@@ -2,6 +2,7 @@
 #include <QSharedMemory>
 #include <QMessageBox>
 #include <QStyleFactory>
+#include <QIcon>
 
 #include <iostream>
 #include "mainwindow.h"
@@ -27,6 +28,7 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationName(QStringLiteral("MediaBoxManager"));
     QCoreApplication::setApplicationVersion(QStringLiteral(VERSION));
     QApplication::setApplicationDisplayName(QStringLiteral("MediaBoxManager"));
+    QApplication::setWindowIcon(QIcon(QStringLiteral(":/player/icons/app.ico")));
 
     // Keep the legacy key to prevent concurrent access by an older LampBox.
     QSharedMemory mem("LampBoxMemory");

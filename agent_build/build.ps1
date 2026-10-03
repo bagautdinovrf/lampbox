@@ -8,6 +8,8 @@ powershell -ExecutionPolicy Bypass -File .\agent_build\build.ps1
 .\agent_build\build.ps1 -Configuration Debug -Clean -Jobs 4
 .EXAMPLE
 .\agent_build\build.ps1 -Deploy
+.EXAMPLE
+.\agent_build\build.ps1 -Installer
 #>
 [CmdletBinding()]
 param(
@@ -30,7 +32,9 @@ param(
     [switch]$ConfigureOnly,
     [switch]$SkipTests,
     [switch]$Clean,
-    [switch]$Deploy
+    [switch]$Deploy,
+    [switch]$Installer,
+    [string]$InnoSetupCompiler
 )
 
 Set-StrictMode -Version Latest
@@ -59,6 +63,53 @@ function Assert-File {
         throw "$Description was not found: $Path"
     }
     return [IO.Path]::GetFullPath($Path)
+}
+
+function Get-InnoSetupCompiler {
+    if ($InnoSetupCompiler) {
+        return Assert-File $InnoSetupCompiler 'Inno Setup compiler (ISCC.exe)'
+    }
+    $command = Get-Command 'ISCC.exe' -CommandType Application -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($command) {
+        return $command.Source
+    }
+    foreach ($programFilesDirectory in @(${env:ProgramFiles(x86)}, $env:ProgramFiles)) {
+        if (-not [string]::IsNullOrWhiteSpace($programFilesDirectory)) {
+            $candidate = Join-Path $programFilesDirectory 'Inno Setup 6\ISCC.exe'
+            if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+                return [IO.Path]::GetFullPath($candidate)
+            }
+        }
+    }
+    throw 'ISCC.exe was not found. Install Inno Setup 6, add it to PATH or pass -InnoSetupCompiler "C:\path\to\ISCC.exe".'
+}
+
+function Add-AppLocalMsvcRuntime {
+    param([string]$VisualStudioPath, [string]$DestinationDirectory)
+    $redistRoot = Join-Path $VisualStudioPath 'VC\Redist\MSVC'
+    if (-not (Test-Path -LiteralPath $redistRoot -PathType Container)) {
+        throw "MSVC app-local runtime was not found: $redistRoot. Install the Visual Studio C++ x64 redistributable files."
+    }
+    $redistVersions = @(Get-ChildItem -LiteralPath $redistRoot -Directory |
+        Where-Object { $_.Name -match '^\d+(\.\d+){1,3}$' } |
+        Sort-Object { [Version]$_.Name } -Descending)
+    if ($redistVersions.Count -eq 0) {
+        throw "No versioned MSVC app-local runtime was found in $redistRoot. Install the Visual Studio C++ x64 redistributable files."
+    }
+    $runtimeDirectory = Join-Path $redistVersions[0].FullName 'x64\Microsoft.VC143.CRT'
+    foreach ($runtimeName in @('vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll')) {
+        $null = Assert-File (Join-Path $runtimeDirectory $runtimeName) 'Required MSVC app-local runtime DLL'
+    }
+    if (-not (Test-Path -LiteralPath $DestinationDirectory -PathType Container)) {
+        throw "Deployment bin directory was not found: $DestinationDirectory"
+    }
+    Get-ChildItem -LiteralPath $runtimeDirectory -Filter '*.dll' -File |
+        ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $DestinationDirectory -Force }
+    foreach ($runtimeName in @('vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll')) {
+        $null = Assert-File (Join-Path $DestinationDirectory $runtimeName) 'Deployed MSVC app-local runtime DLL'
+    }
+    return $runtimeDirectory
 }
 
 function Remove-BuildDirectory {
@@ -241,10 +292,31 @@ function Invoke-LoggedCommand {
 }
 
 try {
+    if ($ConfigureOnly -and $Installer) {
+        throw '-Installer requires a build and deployment and cannot be used with -ConfigureOnly.'
+    }
     if ($ConfigureOnly -and $Deploy) {
         throw '-Deploy requires a build and cannot be used with -ConfigureOnly.'
     }
-    $null = Assert-File (Join-Path $sourceDirectory 'CMakeLists.txt') 'Root CMakeLists.txt'
+    if ($InnoSetupCompiler -and -not $Installer) {
+        throw '-InnoSetupCompiler is used with -Installer.'
+    }
+    $rootCMakePath = Assert-File (Join-Path $sourceDirectory 'CMakeLists.txt') 'Root CMakeLists.txt'
+    if ($Installer) {
+        $Deploy = $true
+        $installerScript = Assert-File (Join-Path $sourceDirectory 'Installer\installer.iss') 'Inno Setup script'
+        $installerCompiler = Get-InnoSetupCompiler
+        $versionMatch = [regex]::Match((Get-Content -LiteralPath $rootCMakePath -Raw),
+            '(?im)^\s*project\s*\(\s*MediaBoxManager\s+VERSION\s+(\d+\.\d+\.\d+)\b')
+        if (-not $versionMatch.Success) {
+            throw 'MediaBoxManager project VERSION was not found in the root CMakeLists.txt.'
+        }
+        $appVersion = $versionMatch.Groups[1].Value
+        $installerOutputDirectory = Join-Path $sourceDirectory 'Installer\bin'
+        $installerOutputPath = Join-Path $installerOutputDirectory "MediaBoxManager-$appVersion-Setup.exe"
+        $runInformation.InnoSetupCompiler = $installerCompiler
+        $runInformation.AppVersion = $appVersion
+    }
     $qt = Get-QtInstallation
     $cmake = Assert-File (Join-Path $qt.ToolsPath 'CMake_64\bin\cmake.exe') 'Qt Tools CMake'
     $ctest = Assert-File (Join-Path $qt.ToolsPath 'CMake_64\bin\ctest.exe') 'Qt Tools CTest'
@@ -293,6 +365,22 @@ try {
             $runInformation.DeployDirectory = $deployDirectory
             Write-Host "Deployed manager: $(Join-Path $deployDirectory 'bin\MediaBoxManager.exe')"
             Write-Host "Deployed player: $(Join-Path $deployDirectory 'bin\MediaBoxPlayer.exe')"
+        }
+        if ($Installer) {
+            $null = Assert-File (Join-Path $deployDirectory 'bin\MediaBoxManager.exe') 'Deployed MediaBoxManager'
+            $null = Assert-File (Join-Path $deployDirectory 'bin\MediaBoxPlayer.exe') 'Deployed MediaBoxPlayer'
+            $runtimeSource = Add-AppLocalMsvcRuntime $msvc.VisualStudio (Join-Path $deployDirectory 'bin')
+            $runInformation.MsvcRuntimeDirectory = $runtimeSource
+            Write-Host "MSVC runtime: $runtimeSource"
+            Invoke-LoggedCommand 'installer' $installerCompiler @(
+                "/DAppVersion=$appVersion",
+                "/DPackageDir=$deployDirectory",
+                "/DOutputDir=$installerOutputDirectory",
+                $installerScript
+            )
+            $null = Assert-File $installerOutputPath 'MediaBoxManager installer'
+            $runInformation.InstallerPath = $installerOutputPath
+            Write-Host "Installer: $installerOutputPath"
         }
         Write-Host "Built manager: $(Join-Path $buildDirectory 'bin\MediaBoxManager.exe')"
         Write-Host "Built player: $(Join-Path $buildDirectory 'bin\MediaBoxPlayer.exe')"

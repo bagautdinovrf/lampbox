@@ -1,0 +1,155 @@
+{
+  "startedAt": "2026-10-03T20:29:21.102Z",
+  "scope": "Isolated browser context; demo data only; in-memory file payloads; no real media files changed.",
+  "checks": [
+    {
+      "name": "Channel cancel leaves data unchanged",
+      "status": "passed",
+      "durationMs": 1272
+    },
+    {
+      "name": "Rule cancel leaves data unchanged",
+      "status": "passed",
+      "durationMs": 658
+    },
+    {
+      "name": "Create, rename, guard deletion while playing, then delete channel",
+      "status": "passed",
+      "durationMs": 1136
+    },
+    {
+      "name": "All channels deleted produces usable empty state",
+      "status": "passed",
+      "durationMs": 1036
+    },
+    {
+      "name": "Audio and video can both be imported into advertising",
+      "status": "passed",
+      "durationMs": 928
+    },
+    {
+      "name": "Referenced advertising media cannot be deleted",
+      "status": "passed",
+      "durationMs": 574
+    },
+    {
+      "name": "Batch advertising rules cover both checked media files",
+      "status": "passed",
+      "durationMs": 659
+    },
+    {
+      "name": "Frequency range 1–20 and invalid date ordering",
+      "status": "passed",
+      "durationMs": 1506
+    },
+    {
+      "name": "Network mode blocks advertising changes",
+      "status": "passed",
+      "durationMs": 501
+    },
+    {
+      "name": "Preview identifies advertising asset rather than colliding music ID",
+      "status": "passed",
+      "durationMs": 339
+    },
+    {
+      "name": "Report has populated and empty period states",
+      "status": "passed",
+      "durationMs": 395
+    },
+    {
+      "name": "Format settings persist and select-all/clear-all work",
+      "status": "passed",
+      "durationMs": 611
+    },
+    {
+      "name": "Checkbox, row, and day retain keyboard focus after render",
+      "status": "passed",
+      "durationMs": 309
+    },
+    {
+      "name": "Escape during import preserves completed subset across reload",
+      "status": "passed",
+      "durationMs": 752
+    },
+    {
+      "name": "Empty advertising media and schedules stay usable",
+      "status": "passed",
+      "durationMs": 697
+    },
+    {
+      "name": "tide: all six sections, dialog cancellation, Cyrillic font ready",
+      "status": "passed",
+      "durationMs": 780
+    },
+    {
+      "name": "tide-relief: all six sections, dialog cancellation, Cyrillic font ready",
+      "status": "passed",
+      "durationMs": 1995
+    },
+    {
+      "name": "tide-glass: all six sections, dialog cancellation, Cyrillic font ready",
+      "status": "passed",
+      "durationMs": 1238
+    },
+    {
+      "name": "tide-signal: all six sections, dialog cancellation, Cyrillic font ready",
+      "status": "passed",
+      "durationMs": 784
+    },
+    {
+      "name": "tide-console: all six sections, dialog cancellation, Cyrillic font ready",
+      "status": "passed",
+      "durationMs": 823
+    },
+    {
+      "name": "tide-satin: all six sections, dialog cancellation, Cyrillic font ready",
+      "status": "passed",
+      "durationMs": 823
+    },
+    {
+      "name": "tide: sixteen palettes change appearance and persist",
+      "status": "passed",
+      "durationMs": 2226
+    },
+    {
+      "name": "tide-relief: sixteen palettes change appearance and persist",
+      "status": "passed",
+      "durationMs": 2443
+    },
+    {
+      "name": "tide-glass: sixteen palettes change appearance and persist",
+      "status": "passed",
+      "durationMs": 2342
+    },
+    {
+      "name": "tide-signal: sixteen palettes change appearance and persist",
+      "status": "passed",
+      "durationMs": 2513
+    },
+    {
+      "name": "tide-console: sixteen palettes change appearance and persist",
+      "status": "passed",
+      "durationMs": 2826
+    },
+    {
+      "name": "tide-satin: sixteen palettes change appearance and persist",
+      "status": "passed",
+      "durationMs": 2964
+    },
+    {
+      "name": "Variant selector navigates through all six Tide pages and preserves the palette",
+      "status": "passed",
+      "durationMs": 3038
+    }
+  ],
+  "pageErrors": [],
+  "previousRunAt": "2026-10-03T20:27:33.777Z",
+  "completedAt": "2026-10-03T20:29:25.082Z",
+  "summary": {
+    "passed": 28,
+    "failed": 0,
+    "pending": 0,
+    "pageErrors": 0
+  }
+}

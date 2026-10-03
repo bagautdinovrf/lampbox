@@ -32,6 +32,9 @@ CMake 3.28 или новее и Ninja; инструменты из `C:\Qt\Tools`
 # Сборка, тесты и готовая папка с Qt DLL и плагинами
 .\agent_build\build.ps1 -Deploy
 
+# Сборка, тесты и установщик Inno Setup 6
+.\agent_build\build.ps1 -Installer
+
 # Явный выбор комплекта Qt
 .\agent_build\build.ps1 -QtRoot C:\Qt -QtVersion 6.12.0 -QtKit msvc2022_64
 ```
@@ -88,9 +91,20 @@ MediaBoxManager запускается без проверки установк�
 в отдельном каталоге MediaBoxManager в локальных данных пользователя. При
 обновлении используется существующий каталог `lampbox` с `timetable` или
 `mediabox.conf`, если новый каталог ещё не создан. Новые настройки и данные
-имеют приоритет; существующие файлы не копируются и не перемещаются.
-Если рядом с исполняемым файлом нет `MediaBoxManager.conf`, приложение
-использует существующий `lampbox.conf`.
+имеют приоритет; данные расписаний не копируются и не перемещаются.
+
+При установке в Program Files настройки хранятся в общем файле
+`%PROGRAMDATA%\MediaBox\MediaBoxManager.conf`. Установщик создаёт каталог
+`%PROGRAMDATA%\MediaBox` с правом изменения для обычных пользователей;
+при удалении приложения каталог и настройки сохраняются. Первый запуск
+один раз копирует прежние настройки, сохраняя исходный файл и не перезаписывая
+существующий общий конфиг. Прежний `MediaBoxManager.conf` из
+`QStandardPaths::AppConfigLocation` имеет приоритет перед конфигурациями рядом
+с приложением: сначала `MediaBoxManager.conf`, затем `lampbox.conf`.
+Вне Program Files сохраняется переносимый режим с конфигурацией рядом
+с приложением: `MediaBoxManager.conf`, а при его отсутствии — существующий
+`lampbox.conf`. Журнал BoxLog находится в `QStandardPaths::AppLocalDataLocation`.
+
 Для воспроизведения нужен отдельно установленный LampPlayer и его данные.
 В Windows каталог его конфигурации задаётся значением `Path` в ключе
 `HKLM\SOFTWARE\LampBox\Station`; также поддерживается `C:\myplayer\mediabox.conf`.
@@ -103,5 +117,21 @@ MediaBoxManager запускается без проверки установк�
 LampPlayer. Подпроект MediaBoxPlayer пока не заменяет его в редакторе расписаний.
 
 `cmake --install` создает папку `bin` с обоими приложениями и необходимыми библиотеками Qt.
-Исторический NSIS-скрипт в `Installer` сохранен; новый скрипт сборки создает
-готовую папку приложения, а генерация NSIS-установщика в него не включена.
+Установщик создаётся через Inno Setup 6 командой `agent_build/build.ps1 -Installer`.
+Скрипт включает развёртывание файлов и запускает `Installer/installer.iss`; готовый
+файл находится в `Installer/bin/MediaBoxManager-<версия>-Setup.exe`. Версия берётся
+из корневого `CMakeLists.txt`. Компилятор `ISCC.exe` должен быть в `PATH` или
+стандартном каталоге Inno Setup 6; другой путь можно передать через
+`-InnoSetupCompiler`. Установщик использует `agent_build/deploy/<конфигурация>`,
+включает оба приложения и предлагает запустить MediaBoxManager на последней странице.
+Установка выполняется для всех пользователей в `C:\Program Files\MediaBox`
+с запросом прав администратора. DLL среды MSVC устанавливаются рядом с приложениями;
+дополнительный запуск системного `vc_redist.x64.exe` не требуется.
+Для пересборки установщика из уже проверенной папки deploy есть отдельная команда
+в [agent_build/README.md](agent_build/README.md); параметры и поведение установки
+описаны в [Installer/README.md](Installer/README.md).
+
+Единая эмблема лампочки используется установщиком и приложением.
+`python Installer/prepare-artwork.py` экспортирует изображения мастера и значок
+`src/icons/app.ico` для Windows EXE и Qt из `Installer/assets/emblem.png`
+(для экспорта нужен Pillow).

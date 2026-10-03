@@ -1,0 +1,72 @@
+/* Прилив · Пульт: compact hardware controls on a light operator surface.
+   The Tide grid and its dimensions belong to operator.css / tide-family.css. */
+body[data-design="tide"][data-variant="tide-console"][data-palette] {
+  --console-paper:#edf1f3;--console-well:#e3e9ed;--console-edge:#cbd4dc;
+  --console-raised:0 2px 1px #b5c1cb80,inset 0 1px #fff,inset 0 -1px #d0d9df;
+  --console-inset:inset 0 2px 3px #8496a72c,inset 0 -1px #ffffffc9;
+  --bg:#e9eef1;--surface:#f6f8f9;--surface-2:#e8eef2;--ink:#283944;--muted:#61717e;--line:#ced8df;
+  background:#e9eef1;color-scheme:light;
+}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .workspace {background:linear-gradient(135deg,#eef2f4,#e7edf1)}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .app-header {background:linear-gradient(180deg,#f7f9fa,#edf2f5);border-bottom:1px solid #cdd7de;box-shadow:inset 0 -1px #fff}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .brand-mark {border:1px solid #c7d2da;border-radius:5px;background:linear-gradient(145deg,#fff,#dce6ed);color:var(--accent);box-shadow:var(--console-raised)}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .primary-nav {background:#e2e9ee;border-bottom:1px solid #becbd4;box-shadow:inset 0 1px #fff,inset 0 -1px #ffffffbf;gap:5px}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .nav-item {border-radius:4px;border:1px solid #cdd8e0;background:linear-gradient(180deg,#f7fafc,#eaf0f4);box-shadow:0 1px 1px #bbc8d35e,inset 0 1px #fff;font-weight:600}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .nav-item.active {background:var(--accent-soft);border-color:var(--accent-line);box-shadow:inset 0 2px 3px color-mix(in srgb,var(--accent) 13%,transparent),inset 0 -1px #fff;color:var(--accent)}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .nav-item.active svg {filter:drop-shadow(0 1px white)}
+body[data-design="tide"][data-variant="tide-console"][data-palette] :is(.button,.icon-button,.feature-action) {border-radius:4px;border:1px solid #c9d4dc;background:linear-gradient(180deg,#fff 0%,#eff4f7 49%,#e8eef2 100%);box-shadow:var(--console-raised);font-weight:600;transition:box-shadow .12s,background .12s}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .button.primary {background:linear-gradient(180deg,var(--accent),color-mix(in srgb,var(--accent) 82%,black));border-color:color-mix(in srgb,var(--accent) 72%,black);box-shadow:0 2px 1px color-mix(in srgb,var(--accent) 35%,#b1bac1),inset 0 1px #ffffff69;color:#fff}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .button.quiet {background:transparent;border-color:transparent;box-shadow:none;color:var(--muted)}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .button.danger {background:#fff2f3;border-color:#edccd2;box-shadow:inset 0 1px #fff;color:#a33b4a}
+body[data-design="tide"][data-variant="tide-console"][data-palette] :is(.button,.icon-button,.nav-item,.feature-action):active:not(:disabled) {box-shadow:var(--console-inset);background:var(--console-well)}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .button.primary:active:not(:disabled) {background:var(--accent);color:#fff}
+body[data-design="tide"][data-variant="tide-console"][data-palette] :is(.palette-picker,.variant-picker,.ops-context input,.search,.field input:not([type=checkbox]):not([type=range]),.field select) {border:1px solid #c7d2dc;border-radius:4px;background:#e6edf2;box-shadow:var(--console-inset);color:var(--ink);font-variant-numeric:tabular-nums}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .search input {background:transparent}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .ops-overview {border:1px solid #c6d1d9;border-radius:5px;background:#f5f8fa;box-shadow:0 2px 3px #9bafbd17,inset 0 1px #fff}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .ops-overview > * {border-color:#d3dde4}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .ops-context {background:#eaf0f4;box-shadow:inset 0 1px #fff}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .ops-label {letter-spacing:.65px;font-size:9px}
+body[data-design="tide"][data-variant="tide-console"][data-palette] :is(.channel-panel,.schedule-panel,.media-panel,.inspector-panel,.service-card) {border:1px solid #ccd7df;border-radius:5px;background:#f5f8fa;box-shadow:0 2px 3px #a7b7c21a,inset 0 1px #fff}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .section-heading h3 {letter-spacing:.05px;font-weight:600}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .feature.ops-selection {border:1px solid #c6d2db;border-top:3px solid var(--accent);border-radius:5px;background:linear-gradient(135deg,var(--accent-soft),#f5f8fa 80%);box-shadow:0 2px 3px #99adbb1a,inset 0 1px #fff}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .rule-chips > span {border:1px solid #ccd7df;border-radius:3px;background:#e6eef3;box-shadow:var(--console-inset);font-variant-numeric:tabular-nums}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .channel-card {border-radius:4px;border:1px solid #d4dfe6;background:#f1f6f8;box-shadow:inset 0 1px #fff}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .channel-card.active {border:1px solid var(--accent-line);background:var(--accent-soft);box-shadow:inset 3px 0 var(--accent),inset 0 1px #fff}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .channel-card.active .channel-copy strong {color:var(--accent)}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .status-badge {border-radius:3px;box-shadow:inset 0 1px #ffffffa6}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .day-strip {border-radius:4px;border:1px solid #cad6df;background:#e2eaf0;box-shadow:var(--console-inset);gap:3px}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .day-button {border:1px solid transparent;border-radius:3px;font-variant-numeric:tabular-nums}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .day-button.active {background:linear-gradient(180deg,#fff,#edf4f7);border-color:#c7d3dc;box-shadow:0 1px 1px #9daebb61,inset 0 1px #fff;color:var(--accent)}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .timeline-track {border:1px solid #d1dce3;border-radius:3px;background:repeating-linear-gradient(to right,transparent 0,transparent calc(25% - 1px),#cbd8e0 calc(25% - 1px),#cbd8e0 25%),#e7eef3;box-shadow:var(--console-inset)}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .timeline-span {border-radius:2px;border-color:#c9d8e3;background:linear-gradient(180deg,#f3f8fb,#dbe6ee);box-shadow:inset 0 1px #ffffffd4,0 1px 1px #9dafbd40;color:#526a7b;font-variant-numeric:tabular-nums}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .timeline-row.selected .timeline-span {background:linear-gradient(180deg,var(--accent-soft),color-mix(in srgb,var(--accent) 15%,white));border-color:var(--accent-line);box-shadow:inset 0 1px #fff,0 1px 2px color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .timeline-row.selected .timeline-label {color:var(--accent);font-weight:600}
+body[data-design="tide"][data-variant="tide-console"][data-palette] :is(.media-table,.data-table) th {background:#e8eff4;border-color:#cedae2;color:#5b6f7e}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .media-table td {border-bottom-color:#dce5eb}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .media-table tr.selected td {background:var(--accent-soft)}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .file-thumb {border:1px solid #cddae3;border-radius:3px;background:#e5edf3;color:var(--accent);box-shadow:inset 0 1px #fff}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .type-pill {border-radius:3px;border:1px solid #d1dce4;background:#edf3f7;color:#586b79}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .inspector-rule {border:1px solid #cfdbe3;border-radius:4px;background:#e9f0f5;box-shadow:var(--console-inset)}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .transport {border-top:1px solid #c5d1db;background:linear-gradient(180deg,#f6f9fb,#e6edf2);box-shadow:inset 0 1px #fff,0 -2px 6px #b7c7d220}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .transport-controls {border:1px solid #c8d5df;border-radius:5px;background:#dfe8ef;box-shadow:var(--console-inset);padding:3px;gap:6px}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .transport-controls .play-button {border-radius:4px;border:1px solid color-mix(in srgb,var(--accent) 75%,black);background:linear-gradient(180deg,var(--accent),color-mix(in srgb,var(--accent) 84%,black));box-shadow:0 2px 1px #8cabb356,inset 0 1px #ffffff70;color:#fff}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .transport-controls .stop-button {border-radius:4px;border:1px solid #c1cfda;background:linear-gradient(180deg,#fff,#e4edf3);box-shadow:var(--console-raised)}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .mini-art {border:1px solid #c8d6e0;border-radius:4px;background:#e5edf3;box-shadow:var(--console-inset);color:var(--accent)}
+body[data-design="tide"][data-variant="tide-console"][data-palette] dialog {border:1px solid #c1ced8;border-radius:8px;background:#f2f6f8;box-shadow:0 17px 60px #4a637738,inset 0 1px #fff}
+body[data-design="tide"][data-variant="tide-console"][data-palette] dialog::backdrop {background:#5d748a38;backdrop-filter:blur(3px)}
+body[data-design="tide"][data-variant="tide-console"][data-palette] :is(.weekday-picker,.month-picker) label {border:1px solid #cbd8e1;border-radius:4px;background:linear-gradient(180deg,#fff,#eaf1f6);box-shadow:0 1px 1px #abbcca52,inset 0 1px #fff}
+body[data-design="tide"][data-variant="tide-console"][data-palette] :is(.weekday-picker,.month-picker) label:has(input:checked) {background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent);box-shadow:var(--console-inset)}
+body[data-design="tide"][data-variant="tide-console"][data-palette] input[type=checkbox] {accent-color:var(--accent);border-radius:2px;cursor:pointer}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .check-row {border-radius:5px;border-color:#cdd9e2;background:#edf3f7;box-shadow:inset 0 1px #fff}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .field output {font-variant-numeric:tabular-nums;font-weight:600;color:var(--accent)}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .field input[type=range] {appearance:none;height:9px;border-radius:3px;background:repeating-linear-gradient(to right,transparent 0,transparent calc(10% - 1px),#a1b3c1 calc(10% - 1px),#a1b3c1 10%),#d5e1e9;border:1px solid #bfced9;box-shadow:var(--console-inset);margin:8px 0;accent-color:var(--accent)}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .field input[type=range]::-webkit-slider-thumb {appearance:none;width:18px;height:24px;border:1px solid #b8cbd7;border-radius:3px;background:linear-gradient(to right,#eef4f8 0%,#fff 43%,var(--accent) 43%,var(--accent) 57%,#fff 57%,#dce8f0 100%);box-shadow:0 2px 3px #6b8a9d45,inset 0 1px #fff;cursor:ew-resize}
+body[data-design="tide"][data-variant="tide-console"][data-palette] .field input[type=range]::-moz-range-thumb {width:18px;height:24px;border:1px solid #b8cbd7;border-radius:3px;background:linear-gradient(to right,#eef4f8 0%,#fff 43%,var(--accent) 43%,var(--accent) 57%,#fff 57%,#dce8f0 100%);box-shadow:0 2px 3px #6b8a9d45;cursor:ew-resize}
+body[data-design="tide"][data-variant="tide-console"][data-palette] :is(button,a,input,select):focus-visible {outline:2px solid var(--accent);outline-offset:3px}
+@media(max-width:760px) {
+  body[data-design="tide"][data-variant="tide-console"][data-palette] .primary-nav {gap:4px}
+  body[data-design="tide"][data-variant="tide-console"][data-palette] .transport-controls {padding:2px;gap:3px}
+}
+@media(prefers-reduced-motion:reduce) {
+  body[data-design="tide"][data-variant="tide-console"][data-palette] :is(button,a,input,select) {transition:none}
+}

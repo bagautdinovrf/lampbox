@@ -1,0 +1,1175 @@
+{
+  "note": "Measured browser colors. Hex values are sRGB canvas conversions of computed CSS colors. Dark is a separate proposed target, not a captured original.",
+  "themes": {
+    "denim": {
+      "sourceState": "01-music-1440x900",
+      "tokens": {
+        "--glass-soft": "#fff",
+        "--muted": "#66707d",
+        "--status-warning": "#885816",
+        "--art-4": "color-mix(in srgb,#315ca8 75%,white)",
+        "--surface-2": "#f6f7f9",
+        "--art-alt": "color-mix(in srgb,#315ca8 30%,#d7e5ed)",
+        "--accent-ink": "#315ca8",
+        "--art-1": "color-mix(in srgb,#315ca8 10%,white)",
+        "--art-5": "#315ca8",
+        "--status-error-bg": "#fff0f0",
+        "--accent": "#315ca8",
+        "--status-ok": "#236747",
+        "--art-2": "color-mix(in srgb,#315ca8 25%,white)",
+        "--glow": "rgb(255 255 255 / .8)",
+        "--shadow": "none",
+        "--status-error": "#ad3740",
+        "--art-3": "color-mix(in srgb,#315ca8 45%,white)",
+        "--surface": "#fff",
+        "--accent-soft": "color-mix(in srgb,#315ca8 9%,white)",
+        "--status-warning-bg": "#fff5e3",
+        "--shadow-rgb": "63 76 94",
+        "--pressed-shadow": "inset 2px 3px 6px rgb(63 76 94 / .16),inset -2px -2px 5px #fff",
+        "--line": "#e1e5e9",
+        "--status-ok-bg": "#edf6f0",
+        "--ink": "#232830",
+        "--bg": "#f4f5f7",
+        "--glass": "#fff",
+        "--accent-line": "color-mix(in srgb,#315ca8 28%,white)"
+      },
+      "colors": {
+        "--bg": {
+          "css": "rgb(244, 245, 247)",
+          "hex": "#f4f5f7",
+          "rgba": [
+            244,
+            245,
+            247,
+            255
+          ]
+        },
+        "--surface": {
+          "css": "rgb(255, 255, 255)",
+          "hex": "#ffffff",
+          "rgba": [
+            255,
+            255,
+            255,
+            255
+          ]
+        },
+        "--surface-2": {
+          "css": "rgb(246, 247, 249)",
+          "hex": "#f6f7f9",
+          "rgba": [
+            246,
+            247,
+            249,
+            255
+          ]
+        },
+        "--ink": {
+          "css": "rgb(35, 40, 48)",
+          "hex": "#232830",
+          "rgba": [
+            35,
+            40,
+            48,
+            255
+          ]
+        },
+        "--muted": {
+          "css": "rgb(102, 112, 125)",
+          "hex": "#66707d",
+          "rgba": [
+            102,
+            112,
+            125,
+            255
+          ]
+        },
+        "--line": {
+          "css": "rgb(225, 229, 233)",
+          "hex": "#e1e5e9",
+          "rgba": [
+            225,
+            229,
+            233,
+            255
+          ]
+        },
+        "--accent": {
+          "css": "rgb(49, 92, 168)",
+          "hex": "#315ca8",
+          "rgba": [
+            49,
+            92,
+            168,
+            255
+          ]
+        },
+        "--accent-soft": {
+          "css": "color(srgb 0.927294 0.942471 0.969294)",
+          "hex": "#ecf0f7",
+          "rgba": [
+            236,
+            240,
+            247,
+            255
+          ]
+        },
+        "--accent-line": {
+          "css": "color(srgb 0.773804 0.82102 0.904471)",
+          "hex": "#c5d1e7",
+          "rgba": [
+            197,
+            209,
+            231,
+            255
+          ]
+        },
+        "--accent-ink": {
+          "css": "rgb(49, 92, 168)",
+          "hex": "#315ca8",
+          "rgba": [
+            49,
+            92,
+            168,
+            255
+          ]
+        },
+        "--status-ok": {
+          "css": "rgb(35, 103, 71)",
+          "hex": "#236747",
+          "rgba": [
+            35,
+            103,
+            71,
+            255
+          ]
+        },
+        "--status-ok-bg": {
+          "css": "rgb(237, 246, 240)",
+          "hex": "#edf6f0",
+          "rgba": [
+            237,
+            246,
+            240,
+            255
+          ]
+        },
+        "--status-warning": {
+          "css": "rgb(136, 88, 22)",
+          "hex": "#885816",
+          "rgba": [
+            136,
+            88,
+            22,
+            255
+          ]
+        },
+        "--status-warning-bg": {
+          "css": "rgb(255, 245, 227)",
+          "hex": "#fff5e3",
+          "rgba": [
+            255,
+            245,
+            227,
+            255
+          ]
+        },
+        "--status-error": {
+          "css": "rgb(173, 55, 64)",
+          "hex": "#ad3740",
+          "rgba": [
+            173,
+            55,
+            64,
+            255
+          ]
+        },
+        "--status-error-bg": {
+          "css": "rgb(255, 240, 240)",
+          "hex": "#fff0f0",
+          "rgba": [
+            255,
+            240,
+            240,
+            255
+          ]
+        }
+      }
+    },
+    "slate": {
+      "sourceState": "06-slate-music-1440x900",
+      "tokens": {
+        "--glass-soft": "#fff",
+        "--muted": "#66707d",
+        "--status-warning": "#885816",
+        "--art-4": "color-mix(in srgb,#54707b 75%,white)",
+        "--surface-2": "#f6f7f9",
+        "--art-alt": "color-mix(in srgb,#54707b 30%,#d7e5ed)",
+        "--accent-ink": "#54707b",
+        "--art-1": "color-mix(in srgb,#54707b 10%,white)",
+        "--art-5": "#54707b",
+        "--status-error-bg": "#fff0f0",
+        "--accent": "#54707b",
+        "--status-ok": "#236747",
+        "--art-2": "color-mix(in srgb,#54707b 25%,white)",
+        "--glow": "rgb(255 255 255 / .8)",
+        "--shadow": "none",
+        "--status-error": "#ad3740",
+        "--art-3": "color-mix(in srgb,#54707b 45%,white)",
+        "--surface": "#fff",
+        "--accent-soft": "color-mix(in srgb,#54707b 9%,white)",
+        "--status-warning-bg": "#fff5e3",
+        "--shadow-rgb": "63 76 94",
+        "--pressed-shadow": "inset 2px 3px 6px rgb(63 76 94 / .16),inset -2px -2px 5px #fff",
+        "--line": "#e1e5e9",
+        "--status-ok-bg": "#edf6f0",
+        "--ink": "#232830",
+        "--bg": "#f4f5f7",
+        "--glass": "#fff",
+        "--accent-line": "color-mix(in srgb,#54707b 28%,white)"
+      },
+      "colors": {
+        "--bg": {
+          "css": "rgb(244, 245, 247)",
+          "hex": "#f4f5f7",
+          "rgba": [
+            244,
+            245,
+            247,
+            255
+          ]
+        },
+        "--surface": {
+          "css": "rgb(255, 255, 255)",
+          "hex": "#ffffff",
+          "rgba": [
+            255,
+            255,
+            255,
+            255
+          ]
+        },
+        "--surface-2": {
+          "css": "rgb(246, 247, 249)",
+          "hex": "#f6f7f9",
+          "rgba": [
+            246,
+            247,
+            249,
+            255
+          ]
+        },
+        "--ink": {
+          "css": "rgb(35, 40, 48)",
+          "hex": "#232830",
+          "rgba": [
+            35,
+            40,
+            48,
+            255
+          ]
+        },
+        "--muted": {
+          "css": "rgb(102, 112, 125)",
+          "hex": "#66707d",
+          "rgba": [
+            102,
+            112,
+            125,
+            255
+          ]
+        },
+        "--line": {
+          "css": "rgb(225, 229, 233)",
+          "hex": "#e1e5e9",
+          "rgba": [
+            225,
+            229,
+            233,
+            255
+          ]
+        },
+        "--accent": {
+          "css": "rgb(84, 112, 123)",
+          "hex": "#54707b",
+          "rgba": [
+            84,
+            112,
+            123,
+            255
+          ]
+        },
+        "--accent-soft": {
+          "css": "color(srgb 0.939647 0.949529 0.953412)",
+          "hex": "#f0f2f3",
+          "rgba": [
+            240,
+            242,
+            243,
+            255
+          ]
+        },
+        "--accent-line": {
+          "css": "color(srgb 0.812235 0.84298 0.855059)",
+          "hex": "#cfd7da",
+          "rgba": [
+            207,
+            215,
+            218,
+            255
+          ]
+        },
+        "--accent-ink": {
+          "css": "rgb(84, 112, 123)",
+          "hex": "#54707b",
+          "rgba": [
+            84,
+            112,
+            123,
+            255
+          ]
+        },
+        "--status-ok": {
+          "css": "rgb(35, 103, 71)",
+          "hex": "#236747",
+          "rgba": [
+            35,
+            103,
+            71,
+            255
+          ]
+        },
+        "--status-ok-bg": {
+          "css": "rgb(237, 246, 240)",
+          "hex": "#edf6f0",
+          "rgba": [
+            237,
+            246,
+            240,
+            255
+          ]
+        },
+        "--status-warning": {
+          "css": "rgb(136, 88, 22)",
+          "hex": "#885816",
+          "rgba": [
+            136,
+            88,
+            22,
+            255
+          ]
+        },
+        "--status-warning-bg": {
+          "css": "rgb(255, 245, 227)",
+          "hex": "#fff5e3",
+          "rgba": [
+            255,
+            245,
+            227,
+            255
+          ]
+        },
+        "--status-error": {
+          "css": "rgb(173, 55, 64)",
+          "hex": "#ad3740",
+          "rgba": [
+            173,
+            55,
+            64,
+            255
+          ]
+        },
+        "--status-error-bg": {
+          "css": "rgb(255, 240, 240)",
+          "hex": "#fff0f0",
+          "rgba": [
+            255,
+            240,
+            240,
+            255
+          ]
+        }
+      }
+    },
+    "pine": {
+      "sourceState": "07-pine-music-1440x900",
+      "tokens": {
+        "--glass-soft": "#fff",
+        "--muted": "#66707d",
+        "--status-warning": "#885816",
+        "--art-4": "color-mix(in srgb,#2a6a58 75%,white)",
+        "--surface-2": "#f6f7f9",
+        "--art-alt": "color-mix(in srgb,#2a6a58 30%,#d7e5ed)",
+        "--accent-ink": "#2a6a58",
+        "--art-1": "color-mix(in srgb,#2a6a58 10%,white)",
+        "--art-5": "#2a6a58",
+        "--status-error-bg": "#fff0f0",
+        "--accent": "#2a6a58",
+        "--status-ok": "#236747",
+        "--art-2": "color-mix(in srgb,#2a6a58 25%,white)",
+        "--glow": "rgb(255 255 255 / .8)",
+        "--shadow": "none",
+        "--status-error": "#ad3740",
+        "--art-3": "color-mix(in srgb,#2a6a58 45%,white)",
+        "--surface": "#fff",
+        "--accent-soft": "color-mix(in srgb,#2a6a58 9%,white)",
+        "--status-warning-bg": "#fff5e3",
+        "--shadow-rgb": "63 76 94",
+        "--pressed-shadow": "inset 2px 3px 6px rgb(63 76 94 / .16),inset -2px -2px 5px #fff",
+        "--line": "#e1e5e9",
+        "--status-ok-bg": "#edf6f0",
+        "--ink": "#232830",
+        "--bg": "#f4f5f7",
+        "--glass": "#fff",
+        "--accent-line": "color-mix(in srgb,#2a6a58 28%,white)"
+      },
+      "colors": {
+        "--bg": {
+          "css": "rgb(244, 245, 247)",
+          "hex": "#f4f5f7",
+          "rgba": [
+            244,
+            245,
+            247,
+            255
+          ]
+        },
+        "--surface": {
+          "css": "rgb(255, 255, 255)",
+          "hex": "#ffffff",
+          "rgba": [
+            255,
+            255,
+            255,
+            255
+          ]
+        },
+        "--surface-2": {
+          "css": "rgb(246, 247, 249)",
+          "hex": "#f6f7f9",
+          "rgba": [
+            246,
+            247,
+            249,
+            255
+          ]
+        },
+        "--ink": {
+          "css": "rgb(35, 40, 48)",
+          "hex": "#232830",
+          "rgba": [
+            35,
+            40,
+            48,
+            255
+          ]
+        },
+        "--muted": {
+          "css": "rgb(102, 112, 125)",
+          "hex": "#66707d",
+          "rgba": [
+            102,
+            112,
+            125,
+            255
+          ]
+        },
+        "--line": {
+          "css": "rgb(225, 229, 233)",
+          "hex": "#e1e5e9",
+          "rgba": [
+            225,
+            229,
+            233,
+            255
+          ]
+        },
+        "--accent": {
+          "css": "rgb(42, 106, 88)",
+          "hex": "#2a6a58",
+          "rgba": [
+            42,
+            106,
+            88,
+            255
+          ]
+        },
+        "--accent-soft": {
+          "css": "color(srgb 0.924824 0.947412 0.941059)",
+          "hex": "#ecf2f0",
+          "rgba": [
+            236,
+            242,
+            240,
+            255
+          ]
+        },
+        "--accent-line": {
+          "css": "color(srgb 0.766118 0.836392 0.816628)",
+          "hex": "#c3d5d0",
+          "rgba": [
+            195,
+            213,
+            208,
+            255
+          ]
+        },
+        "--accent-ink": {
+          "css": "rgb(42, 106, 88)",
+          "hex": "#2a6a58",
+          "rgba": [
+            42,
+            106,
+            88,
+            255
+          ]
+        },
+        "--status-ok": {
+          "css": "rgb(35, 103, 71)",
+          "hex": "#236747",
+          "rgba": [
+            35,
+            103,
+            71,
+            255
+          ]
+        },
+        "--status-ok-bg": {
+          "css": "rgb(237, 246, 240)",
+          "hex": "#edf6f0",
+          "rgba": [
+            237,
+            246,
+            240,
+            255
+          ]
+        },
+        "--status-warning": {
+          "css": "rgb(136, 88, 22)",
+          "hex": "#885816",
+          "rgba": [
+            136,
+            88,
+            22,
+            255
+          ]
+        },
+        "--status-warning-bg": {
+          "css": "rgb(255, 245, 227)",
+          "hex": "#fff5e3",
+          "rgba": [
+            255,
+            245,
+            227,
+            255
+          ]
+        },
+        "--status-error": {
+          "css": "rgb(173, 55, 64)",
+          "hex": "#ad3740",
+          "rgba": [
+            173,
+            55,
+            64,
+            255
+          ]
+        },
+        "--status-error-bg": {
+          "css": "rgb(255, 240, 240)",
+          "hex": "#fff0f0",
+          "rgba": [
+            255,
+            240,
+            240,
+            255
+          ]
+        }
+      }
+    },
+    "berry": {
+      "sourceState": "08-berry-music-1440x900",
+      "tokens": {
+        "--glass-soft": "#fff",
+        "--muted": "#66707d",
+        "--status-warning": "#885816",
+        "--art-4": "color-mix(in srgb,#a3336a 75%,white)",
+        "--surface-2": "#f6f7f9",
+        "--art-alt": "color-mix(in srgb,#a3336a 30%,#d7e5ed)",
+        "--accent-ink": "#a3336a",
+        "--art-1": "color-mix(in srgb,#a3336a 10%,white)",
+        "--art-5": "#a3336a",
+        "--status-error-bg": "#fff0f0",
+        "--accent": "#a3336a",
+        "--status-ok": "#236747",
+        "--art-2": "color-mix(in srgb,#a3336a 25%,white)",
+        "--glow": "rgb(255 255 255 / .8)",
+        "--shadow": "none",
+        "--status-error": "#ad3740",
+        "--art-3": "color-mix(in srgb,#a3336a 45%,white)",
+        "--surface": "#fff",
+        "--accent-soft": "color-mix(in srgb,#a3336a 9%,white)",
+        "--status-warning-bg": "#fff5e3",
+        "--shadow-rgb": "63 76 94",
+        "--pressed-shadow": "inset 2px 3px 6px rgb(63 76 94 / .16),inset -2px -2px 5px #fff",
+        "--line": "#e1e5e9",
+        "--status-ok-bg": "#edf6f0",
+        "--ink": "#232830",
+        "--bg": "#f4f5f7",
+        "--glass": "#fff",
+        "--accent-line": "color-mix(in srgb,#a3336a 28%,white)"
+      },
+      "colors": {
+        "--bg": {
+          "css": "rgb(244, 245, 247)",
+          "hex": "#f4f5f7",
+          "rgba": [
+            244,
+            245,
+            247,
+            255
+          ]
+        },
+        "--surface": {
+          "css": "rgb(255, 255, 255)",
+          "hex": "#ffffff",
+          "rgba": [
+            255,
+            255,
+            255,
+            255
+          ]
+        },
+        "--surface-2": {
+          "css": "rgb(246, 247, 249)",
+          "hex": "#f6f7f9",
+          "rgba": [
+            246,
+            247,
+            249,
+            255
+          ]
+        },
+        "--ink": {
+          "css": "rgb(35, 40, 48)",
+          "hex": "#232830",
+          "rgba": [
+            35,
+            40,
+            48,
+            255
+          ]
+        },
+        "--muted": {
+          "css": "rgb(102, 112, 125)",
+          "hex": "#66707d",
+          "rgba": [
+            102,
+            112,
+            125,
+            255
+          ]
+        },
+        "--line": {
+          "css": "rgb(225, 229, 233)",
+          "hex": "#e1e5e9",
+          "rgba": [
+            225,
+            229,
+            233,
+            255
+          ]
+        },
+        "--accent": {
+          "css": "rgb(163, 51, 106)",
+          "hex": "#a3336a",
+          "rgba": [
+            163,
+            51,
+            106,
+            255
+          ]
+        },
+        "--accent-soft": {
+          "css": "color(srgb 0.967529 0.928 0.947412)",
+          "hex": "#f7edf2",
+          "rgba": [
+            247,
+            237,
+            242,
+            255
+          ]
+        },
+        "--accent-line": {
+          "css": "color(srgb 0.89898 0.776 0.836392)",
+          "hex": "#e5c6d5",
+          "rgba": [
+            229,
+            198,
+            213,
+            255
+          ]
+        },
+        "--accent-ink": {
+          "css": "rgb(163, 51, 106)",
+          "hex": "#a3336a",
+          "rgba": [
+            163,
+            51,
+            106,
+            255
+          ]
+        },
+        "--status-ok": {
+          "css": "rgb(35, 103, 71)",
+          "hex": "#236747",
+          "rgba": [
+            35,
+            103,
+            71,
+            255
+          ]
+        },
+        "--status-ok-bg": {
+          "css": "rgb(237, 246, 240)",
+          "hex": "#edf6f0",
+          "rgba": [
+            237,
+            246,
+            240,
+            255
+          ]
+        },
+        "--status-warning": {
+          "css": "rgb(136, 88, 22)",
+          "hex": "#885816",
+          "rgba": [
+            136,
+            88,
+            22,
+            255
+          ]
+        },
+        "--status-warning-bg": {
+          "css": "rgb(255, 245, 227)",
+          "hex": "#fff5e3",
+          "rgba": [
+            255,
+            245,
+            227,
+            255
+          ]
+        },
+        "--status-error": {
+          "css": "rgb(173, 55, 64)",
+          "hex": "#ad3740",
+          "rgba": [
+            173,
+            55,
+            64,
+            255
+          ]
+        },
+        "--status-error-bg": {
+          "css": "rgb(255, 240, 240)",
+          "hex": "#fff0f0",
+          "rgba": [
+            255,
+            240,
+            240,
+            255
+          ]
+        }
+      }
+    },
+    "graphite": {
+      "sourceState": "09-graphite-music-1440x900",
+      "tokens": {
+        "--glass-soft": "#fff",
+        "--muted": "#66707d",
+        "--status-warning": "#885816",
+        "--art-4": "color-mix(in srgb,#515963 75%,white)",
+        "--surface-2": "#f6f7f9",
+        "--art-alt": "color-mix(in srgb,#515963 30%,#d7e5ed)",
+        "--accent-ink": "#515963",
+        "--art-1": "color-mix(in srgb,#515963 10%,white)",
+        "--art-5": "#515963",
+        "--status-error-bg": "#fff0f0",
+        "--accent": "#515963",
+        "--status-ok": "#236747",
+        "--art-2": "color-mix(in srgb,#515963 25%,white)",
+        "--glow": "rgb(255 255 255 / .8)",
+        "--shadow": "none",
+        "--status-error": "#ad3740",
+        "--art-3": "color-mix(in srgb,#515963 45%,white)",
+        "--surface": "#fff",
+        "--accent-soft": "color-mix(in srgb,#515963 9%,white)",
+        "--status-warning-bg": "#fff5e3",
+        "--shadow-rgb": "63 76 94",
+        "--pressed-shadow": "inset 2px 3px 6px rgb(63 76 94 / .16),inset -2px -2px 5px #fff",
+        "--line": "#e1e5e9",
+        "--status-ok-bg": "#edf6f0",
+        "--ink": "#232830",
+        "--bg": "#f4f5f7",
+        "--glass": "#fff",
+        "--accent-line": "color-mix(in srgb,#515963 28%,white)"
+      },
+      "colors": {
+        "--bg": {
+          "css": "rgb(244, 245, 247)",
+          "hex": "#f4f5f7",
+          "rgba": [
+            244,
+            245,
+            247,
+            255
+          ]
+        },
+        "--surface": {
+          "css": "rgb(255, 255, 255)",
+          "hex": "#ffffff",
+          "rgba": [
+            255,
+            255,
+            255,
+            255
+          ]
+        },
+        "--surface-2": {
+          "css": "rgb(246, 247, 249)",
+          "hex": "#f6f7f9",
+          "rgba": [
+            246,
+            247,
+            249,
+            255
+          ]
+        },
+        "--ink": {
+          "css": "rgb(35, 40, 48)",
+          "hex": "#232830",
+          "rgba": [
+            35,
+            40,
+            48,
+            255
+          ]
+        },
+        "--muted": {
+          "css": "rgb(102, 112, 125)",
+          "hex": "#66707d",
+          "rgba": [
+            102,
+            112,
+            125,
+            255
+          ]
+        },
+        "--line": {
+          "css": "rgb(225, 229, 233)",
+          "hex": "#e1e5e9",
+          "rgba": [
+            225,
+            229,
+            233,
+            255
+          ]
+        },
+        "--accent": {
+          "css": "rgb(81, 89, 99)",
+          "hex": "#515963",
+          "rgba": [
+            81,
+            89,
+            99,
+            255
+          ]
+        },
+        "--accent-soft": {
+          "css": "color(srgb 0.938588 0.941412 0.944941)",
+          "hex": "#eff0f1",
+          "rgba": [
+            239,
+            240,
+            241,
+            255
+          ]
+        },
+        "--accent-line": {
+          "css": "color(srgb 0.808941 0.817725 0.828706)",
+          "hex": "#ced1d3",
+          "rgba": [
+            206,
+            209,
+            211,
+            255
+          ]
+        },
+        "--accent-ink": {
+          "css": "rgb(81, 89, 99)",
+          "hex": "#515963",
+          "rgba": [
+            81,
+            89,
+            99,
+            255
+          ]
+        },
+        "--status-ok": {
+          "css": "rgb(35, 103, 71)",
+          "hex": "#236747",
+          "rgba": [
+            35,
+            103,
+            71,
+            255
+          ]
+        },
+        "--status-ok-bg": {
+          "css": "rgb(237, 246, 240)",
+          "hex": "#edf6f0",
+          "rgba": [
+            237,
+            246,
+            240,
+            255
+          ]
+        },
+        "--status-warning": {
+          "css": "rgb(136, 88, 22)",
+          "hex": "#885816",
+          "rgba": [
+            136,
+            88,
+            22,
+            255
+          ]
+        },
+        "--status-warning-bg": {
+          "css": "rgb(255, 245, 227)",
+          "hex": "#fff5e3",
+          "rgba": [
+            255,
+            245,
+            227,
+            255
+          ]
+        },
+        "--status-error": {
+          "css": "rgb(173, 55, 64)",
+          "hex": "#ad3740",
+          "rgba": [
+            173,
+            55,
+            64,
+            255
+          ]
+        },
+        "--status-error-bg": {
+          "css": "rgb(255, 240, 240)",
+          "hex": "#fff0f0",
+          "rgba": [
+            255,
+            240,
+            240,
+            255
+          ]
+        }
+      }
+    },
+    "pearl": {
+      "sourceState": "10-pearl-music-1440x900",
+      "tokens": {
+        "--glass-soft": "#fff",
+        "--muted": "#66707d",
+        "--status-warning": "#885816",
+        "--art-4": "#4d9fa6",
+        "--surface-2": "#f6f7f9",
+        "--art-alt": "#c7d8ea",
+        "--accent-ink": "#087e89",
+        "--art-1": "#e4f5f4",
+        "--art-5": "#287c88",
+        "--status-error-bg": "#fff0f0",
+        "--accent": "#087e89",
+        "--status-ok": "#236747",
+        "--art-2": "#b8dcdf",
+        "--glow": "rgb(255 255 255 / .8)",
+        "--shadow": "none",
+        "--status-error": "#ad3740",
+        "--art-3": "#86c3c9",
+        "--surface": "#fff",
+        "--accent-soft": "color-mix(in srgb,#087e89 9%,white)",
+        "--status-warning-bg": "#fff5e3",
+        "--shadow-rgb": "37 81 91",
+        "--pressed-shadow": "inset 2px 3px 6px rgb(37 81 91 / .16),inset -2px -2px 5px #fff",
+        "--line": "#e1e5e9",
+        "--status-ok-bg": "#edf6f0",
+        "--ink": "#232830",
+        "--bg": "#f4f5f7",
+        "--glass": "#fff",
+        "--accent-line": "color-mix(in srgb,#087e89 28%,white)"
+      },
+      "colors": {
+        "--bg": {
+          "css": "rgb(244, 245, 247)",
+          "hex": "#f4f5f7",
+          "rgba": [
+            244,
+            245,
+            247,
+            255
+          ]
+        },
+        "--surface": {
+          "css": "rgb(255, 255, 255)",
+          "hex": "#ffffff",
+          "rgba": [
+            255,
+            255,
+            255,
+            255
+          ]
+        },
+        "--surface-2": {
+          "css": "rgb(246, 247, 249)",
+          "hex": "#f6f7f9",
+          "rgba": [
+            246,
+            247,
+            249,
+            255
+          ]
+        },
+        "--ink": {
+          "css": "rgb(35, 40, 48)",
+          "hex": "#232830",
+          "rgba": [
+            35,
+            40,
+            48,
+            255
+          ]
+        },
+        "--muted": {
+          "css": "rgb(102, 112, 125)",
+          "hex": "#66707d",
+          "rgba": [
+            102,
+            112,
+            125,
+            255
+          ]
+        },
+        "--line": {
+          "css": "rgb(225, 229, 233)",
+          "hex": "#e1e5e9",
+          "rgba": [
+            225,
+            229,
+            233,
+            255
+          ]
+        },
+        "--accent": {
+          "css": "rgb(8, 126, 137)",
+          "hex": "#087e89",
+          "rgba": [
+            8,
+            126,
+            137,
+            255
+          ]
+        },
+        "--accent-soft": {
+          "css": "color(srgb 0.912824 0.954471 0.958353)",
+          "hex": "#e9f3f4",
+          "rgba": [
+            233,
+            243,
+            244,
+            255
+          ]
+        },
+        "--accent-line": {
+          "css": "color(srgb 0.728784 0.858353 0.870431)",
+          "hex": "#badbde",
+          "rgba": [
+            186,
+            219,
+            222,
+            255
+          ]
+        },
+        "--accent-ink": {
+          "css": "rgb(8, 126, 137)",
+          "hex": "#087e89",
+          "rgba": [
+            8,
+            126,
+            137,
+            255
+          ]
+        },
+        "--status-ok": {
+          "css": "rgb(35, 103, 71)",
+          "hex": "#236747",
+          "rgba": [
+            35,
+            103,
+            71,
+            255
+          ]
+        },
+        "--status-ok-bg": {
+          "css": "rgb(237, 246, 240)",
+          "hex": "#edf6f0",
+          "rgba": [
+            237,
+            246,
+            240,
+            255
+          ]
+        },
+        "--status-warning": {
+          "css": "rgb(136, 88, 22)",
+          "hex": "#885816",
+          "rgba": [
+            136,
+            88,
+            22,
+            255
+          ]
+        },
+        "--status-warning-bg": {
+          "css": "rgb(255, 245, 227)",
+          "hex": "#fff5e3",
+          "rgba": [
+            255,
+            245,
+            227,
+            255
+          ]
+        },
+        "--status-error": {
+          "css": "rgb(173, 55, 64)",
+          "hex": "#ad3740",
+          "rgba": [
+            173,
+            55,
+            64,
+            255
+          ]
+        },
+        "--status-error-bg": {
+          "css": "rgb(255, 240, 240)",
+          "hex": "#fff0f0",
+          "rgba": [
+            255,
+            240,
+            240,
+            255
+          ]
+        }
+      }
+    }
+  }
+}

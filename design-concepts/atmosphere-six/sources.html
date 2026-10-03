@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Источники операторского интерфейса — MediaBoxManager</title>
+  <link rel="stylesheet" href="base.css">
+  <style>
+    body{color:#252e38;background:#f4f6f7;font-size:14px;line-height:1.6;color-scheme:light}
+    a{color:inherit;text-decoration:none}a:hover{text-decoration:underline;text-underline-offset:4px}a:focus-visible{outline:3px solid #496986;outline-offset:5px;border-radius:4px}
+    .source-page{width:min(1210px,calc(100% - 64px));margin:auto;padding:28px 0 35px}
+    .source-nav{display:flex;justify-content:space-between;align-items:center;gap:22px;padding-bottom:24px;border-bottom:1px solid #dce2e7}
+    .source-brand{font-size:16px;font-weight:600;display:flex;align-items:center;gap:10px;letter-spacing:-.3px}.source-mark{width:31px;height:31px;display:grid;place-items:center;border-radius:10px;background:#dce5ec;color:#455f77}
+    .source-links{display:flex;gap:23px;font-size:12px;color:#526473}.source-hero{padding:44px 0 32px;max-width:900px}.source-kicker{color:#5a7085;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:13px}
+    .source-hero h1{font:600 clamp(32px,4vw,47px)/1.1 'Lamp Sans','Segoe UI',sans-serif;letter-spacing:-1.7px;margin:0 0 18px}.source-hero p{max-width:790px;color:#566473;font-size:15px;line-height:1.75;margin:0}
+    .source-section{padding-top:30px;border-top:1px solid #dce2e7;margin-top:28px}.source-section h2{font-size:22px;line-height:1.3;letter-spacing:-.5px;margin:0 0 8px}.section-intro{color:#60707e;font-size:13px;margin:0 0 22px;max-width:890px}
+    .source-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.source-card{background:#fff;border:1px solid #e0e5e9;border-radius:16px;padding:23px;min-width:0}.source-index{display:inline-block;color:#59738a;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;margin-bottom:19px}.source-card h3{font-size:19px;letter-spacing:-.5px;margin:0 0 6px}.source-subtitle{font-size:11px;letter-spacing:.15px;color:#6d7b87;margin:0 0 17px}.source-card p{font-size:13px;line-height:1.7;margin:0 0 14px;color:#54616d}.source-card strong{color:#2a3946;font-weight:600}.source-reference{display:block;color:#365f80;font-size:12px;border-top:1px solid #e4e9ed;padding-top:15px;margin-top:20px}.source-reference+.source-reference{border:0;margin:6px 0 0;padding:0}
+    .source-hig{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:22px;margin-top:24px}.source-hig h3{font-size:14px;color:#355f7e;margin:0 0 9px}.source-hig p{font-size:12px;color:#566674;line-height:1.75;margin:0}
+    .patterns{margin-top:23px;display:grid;grid-template-columns:1fr 1fr;gap:0 32px}.pattern{display:flex;gap:15px;padding:18px 0;border-top:1px solid #dfe5e9}.pattern>span{font-size:11px;color:#6b8195;padding-top:3px}.pattern h3{margin:0 0 6px;font-size:14px}.pattern p{margin:0;font-size:13px;color:#5c6a77;line-height:1.7}
+    .source-note{margin-top:28px;padding:24px;border:1px solid #dce3e8;border-radius:16px;background:#eaf0f4;display:grid;grid-template-columns:190px 1fr;gap:24px}.source-note h2{font-size:15px;margin:0}.source-note p{font-size:13px;color:#4c606e;line-height:1.75;margin:0}.source-note p+p{margin-top:12px}.source-note a{text-decoration:underline;text-underline-offset:3px}
+    .source-footer{display:flex;justify-content:space-between;gap:22px;padding-top:26px;color:#637382;font-size:11px}.source-footer p{margin:0}.source-footer a{color:#345a76}
+    @media(max-width:950px){.source-grid{grid-template-columns:1fr}.source-hig{grid-template-columns:repeat(2,minmax(0,1fr))}.source-card{padding:22px}.source-index{margin-bottom:9px}.source-card p{max-width:760px}}
+    @media(max-width:600px){.source-page{width:calc(100% - 32px);padding-top:20px}.source-nav{align-items:flex-start}.source-brand{font-size:14px}.source-links{flex-direction:column;gap:7px;text-align:right;font-size:11px}.source-hero{padding:32px 0 8px}.source-hero h1{letter-spacing:-1px}.source-hero p{font-size:14px}.source-hig,.patterns,.source-note{grid-template-columns:1fr}.source-note{gap:12px}.source-footer{flex-direction:column;gap:9px}}
+  </style>
+</head>
+<body>
+  <main class="source-page">
+    <nav class="source-nav" aria-label="Навигация по концепциям">
+      <a class="source-brand" href="index.html"><span class="source-mark" aria-hidden="true">m</span>MediaBoxManager</a>
+      <div class="source-links"><a href="index.html">6 вариантов</a><a href="coverage.html">Карта функций</a><a href="../DESIGN.md">Памятка</a></div>
+    </nav>
+    <header class="source-hero">
+      <div class="source-kicker">Прилив · материалы и контролы · 03 октября 2026</div>
+      <h1>Ясность эфира.<br>Спокойствие рабочего места.</h1>
+      <p>Основа — светлый интерфейс Apple и организация данных в профессиональных программах вещания. Расписание, каналы и условия запуска образуют главный рабочий слой. Атмосферу создают мягкий свет, спокойные оттенки и точная типографика.</p>
+    </header>
+
+    <section class="source-section" aria-labelledby="professional-title">
+      <h2 id="professional-title">Три профессиональных ориентира</h2>
+      <p class="section-intro">Из официальной документации взяты принципы организации работы. Их применение к MediaBoxManager — наше проектное решение, ограниченное функциями текущей программы.</p>
+      <div class="source-grid">
+        <article class="source-card">
+          <span class="source-index">01 · РАСПИСАНИЕ</span>
+          <h3>RadioBOSS</h3>
+          <div class="source-subtitle">DJSoft · Scheduling playback / Event</div>
+          <p><strong>В источнике:</strong> отдельный список событий, понятные названия и группы; время, дни недели и календарные условия собраны в настройках события.</p>
+          <p><strong>В наших вариантах:</strong> каналы и рекламные назначения удобно просматривать строками. У выбранного назначения время и условия находятся рядом с редактированием.</p>
+          <a class="source-reference" href="https://manual.djsoft.net/radioboss/en/scheduling_playback.htm" target="_blank" rel="noreferrer">RadioBOSS · планировщик ↗</a>
+          <a class="source-reference" href="https://manual.djsoft.net/radioboss/en/scheduler_options.htm" target="_blank" rel="noreferrer">RadioBOSS · условия события ↗</a>
+        </article>
+        <article class="source-card">
+          <span class="source-index">02 · ЧИТАЕМОСТЬ</span>
+          <h3>mAirList</h3>
+          <div class="source-subtitle">User Manual · Playlist and Players</div>
+          <p><strong>В источнике:</strong> главный список использует колонки для времени, исполнителя, названия и длительности. Предполагаемое время выхода и фактическое время различаются.</p>
+          <p><strong>В наших вариантах:</strong> табличная структура облегчает сравнение каналов. Подпись «по расписанию» обозначает расчёт для выбранного момента, а выделение строки — объект редактирования.</p>
+          <a class="source-reference" href="https://mairlist.docs.mairlist.com/playout/playlist/" target="_blank" rel="noreferrer">mAirList · список и состояние ↗</a>
+          <a class="source-reference" href="https://mairlist.docs.mairlist.com/configuration/gui/" target="_blank" rel="noreferrer">mAirList · организация рабочего окна ↗</a>
+        </article>
+        <article class="source-card">
+          <span class="source-index">03 · КОНТЕКСТ</span>
+          <h3>PlayIt Live</h3>
+          <div class="source-subtitle">User Guide · Scheduling / Playout Log</div>
+          <p><strong>В источнике:</strong> расписание и список воспроизведения организованы по времени; реклама имеет отдельные настройки и представление.</p>
+          <p><strong>В наших вариантах:</strong> временная последовательность каналов читается сверху вниз или по шкале дня. Музыка, видео и реклама сохраняют собственные рабочие разделы.</p>
+          <a class="source-reference" href="https://docs.playitsoftware.com/PlayItLive/218/PlayItLive.html" target="_blank" rel="noreferrer">PlayIt Live · официальное руководство ↗</a>
+          <a class="source-reference" href="https://docs.playitsoftware.com/PlayItLive/218/en-US/scheduling/clocks/" target="_blank" rel="noreferrer">PlayIt Live · временная организация ↗</a>
+        </article>
+      </div>
+    </section>
+
+<section class="source-section"><h2>Пять оформлений по вашим референсам</h2><p class="section-intro">Использованы изображения из D:\Downloads\Дизайн. Заимствованы принципы материалов и органов управления; расписание, каналы, медиатека и команды остаются функциями MediaBoxManager.</p><div class="patterns"><div class="pattern"><span>01</span><div><h3>Рельеф</h3><p>Светлая интерпретация неоморфных панелей: мягкий объём, выпуклые кнопки, утопленные поля и дорожки громкости.</p></div></div><div class="pattern"><span>02</span><div><h3>Стекло</h3><p>Полупрозрачные слои, светлые кромки, капсульные элементы и сдержанное свечение из набора градиентных интерфейсов.</p></div></div><div class="pattern"><span>03</span><div><h3>Сигнал</h3><p>Графика технических UI-наборов: точные рамки, светлые шкалы, прямоугольные кнопки и ясные активные состояния.</p></div></div><div class="pattern"><span>04</span><div><h3>Пульт</h3><p>Аппаратный характер музыкальных контролов: клавиши с фаской, утопленные поля и прямоугольный бегунок реальной настройки громкости.</p></div></div><div class="pattern"><span>05</span><div><h3>Сатин</h3><p>Мягкие модульные панели из референсов дашбордов: белые поверхности, спокойные скругления и цветовая навигация.</p></div></div></div></section>
+    <section class="source-section" aria-labelledby="hig-title">
+      <h2 id="hig-title">Визуальная основа Apple</h2>
+      <p class="section-intro">HIG задаёт иерархию и поведение элементов. Эти принципы адаптированы для настольного оператора, который сравнивает строки, работает с мышью и клавиатурой.</p>
+      <div class="source-hig">
+        <div><h3><a href="https://developer.apple.com/design/human-interface-guidelines/layout" target="_blank" rel="noreferrer">Композиция ↗</a></h3><p>Важное располагается в начале чтения. Единые колонки и выравнивание помогают быстро находить время, канал и действие.</p></div>
+        <div><h3><a href="https://developer.apple.com/design/human-interface-guidelines/materials" target="_blank" rel="noreferrer">Материалы ↗</a></h3><p>Мягкая глубина разделяет навигацию и данные. Стеклянные эффекты используются сдержанно; рабочие таблицы получают спокойную поверхность.</p></div>
+        <div><h3><a href="https://developer.apple.com/design/human-interface-guidelines/color" target="_blank" rel="noreferrer">Цвет ↗</a></h3><p>Цвет сохраняет одно значение во всём интерфейсе. Светлые палитры меняют настроение, а текстовые состояния остаются понятными.</p></div>
+        <div><h3><a href="https://developer.apple.com/design/awards/" target="_blank" rel="noreferrer">Apple Design Awards ↗</a></h3><p>Tide Guide — ориентир ясной подачи временных данных и графиков. Для оператора этот подход превращается в шкалу расписания с читаемыми подписями.</p></div>
+      </div>
+    </section>
+
+    <section class="source-section" aria-labelledby="decisions-title">
+      <h2 id="decisions-title">Что помогает оператору</h2>
+      <p class="section-intro">Общая композиция — выбранный пользователем «Прилив». Оригинал и пять новых оформлений используют 16 взаимозаменяемых палитр: 8 прежних и 8 новых. Предоставленные локальные референсы из папки «Дизайн» переосмыслены в светлой теме, с сохранением плотности и рабочего порядка панелей.</p>
+      <div class="patterns">
+        <div class="pattern"><span>01</span><div><h3>Сначала время и канал</h3><p>Выбранные дата и время дают контекст всему экрану. Блок расписания объясняет, какой канал назначен на этот момент.</p></div></div>
+        <div class="pattern"><span>02</span><div><h3>Затем ближайшее изменение</h3><p>Следующее назначение канала читается рядом с текущим интервалом. Оно описывает план расписания, а не очередь отдельных треков.</p></div></div>
+        <div class="pattern"><span>03</span><div><h3>Условия доступны сразу</h3><p>Время, дни недели, числа, месяцы и громкость помогают понять причину назначения без поиска по разным экранам.</p></div></div>
+        <div class="pattern"><span>04</span><div><h3>Выбор и состояние различимы</h3><p>Выделение показывает выбранный канал. Подпись статуса показывает его отношение к расписанию; один цвет не служит единственной подсказкой.</p></div></div>
+      </div>
+    </section>
+
+    <aside class="source-note" aria-labelledby="scope-title">
+      <h2 id="scope-title">Границы концепций</h2>
+      <div><p>Основа интерфейса проверена по исходникам MediaBoxManager: каналы, медиафайлы, расписания, рекламные назначения, отчёты и настройки. Подробности — в <a href="coverage.html">карте функций</a>. Для этой редакции также изучены готовые концепции проекта с разрешения пользователя.</p><p>Все действия выполняются с демонстрационными данными. Прогноз по расписанию не подтверждает фактическое звучание. Профессиональные источники служат ориентиром композиции; их микшеры, аппаратные пульты, кроссфейды и очереди эфира не заявляются возможностями текущей программы.</p></div>
+    </aside>
+    <footer class="source-footer"><p>Первичные источники просмотрены 3 октября 2026. Пересказ принципов и собственные проектные решения.</p><a href="index.html">Открыть 6 вариантов →</a></footer>
+  </main>
+</body>
+</html>

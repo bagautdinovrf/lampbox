@@ -1,0 +1,722 @@
+[
+  {
+    "width": 1600,
+    "design": "tide",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 1600,
+    "workScroll": 1600,
+    "workClient": 1600
+  },
+  {
+    "width": 1600,
+    "design": "tide",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 1600,
+    "workScroll": 1600,
+    "workClient": 1600
+  },
+  {
+    "width": 1600,
+    "design": "tide",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 1600,
+    "workScroll": 1600,
+    "workClient": 1600
+  },
+  {
+    "width": 1600,
+    "design": "tide-relief",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 1600,
+    "workScroll": 1600,
+    "workClient": 1600
+  },
+  {
+    "width": 1600,
+    "design": "tide-relief",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 1600,
+    "workScroll": 1600,
+    "workClient": 1600
+  },
+  {
+    "width": 1600,
+    "design": "tide-relief",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 1600,
+    "workScroll": 1600,
+    "workClient": 1600
+  },
+  {
+    "width": 1600,
+    "design": "tide-glass",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 1600,
+    "workScroll": 1600,
+    "workClient": 1600
+  },
+  {
+    "width": 1600,
+    "design": "tide-glass",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 1600,
+    "workScroll": 1600,
+    "workClient": 1600
+  },
+  {
+    "width": 1600,
+    "design": "tide-glass",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 1600,
+    "workScroll": 1600,
+    "workClient": 1600
+  },
+  {
+    "width": 1600,
+    "design": "tide-signal",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 1600,
+    "workScroll": 1600,
+    "workClient": 1600
+  },
+  {
+    "width": 1600,
+    "design": "tide-signal",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 1600,
+    "workScroll": 1600,
+    "workClient": 1600
+  },
+  {
+    "width": 1600,
+    "design": "tide-signal",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 1600,
+    "workScroll": 1600,
+    "workClient": 1600
+  },
+  {
+    "width": 1600,
+    "design": "tide-console",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 1600,
+    "workScroll": 1600,
+    "workClient": 1600
+  },
+  {
+    "width": 1600,
+    "design": "tide-console",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 1600,
+    "workScroll": 1600,
+    "workClient": 1600
+  },
+  {
+    "width": 1600,
+    "design": "tide-console",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 1600,
+    "workScroll": 1600,
+    "workClient": 1600
+  },
+  {
+    "width": 1600,
+    "design": "tide-satin",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 1600,
+    "workScroll": 1600,
+    "workClient": 1600
+  },
+  {
+    "width": 1600,
+    "design": "tide-satin",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 1600,
+    "workScroll": 1600,
+    "workClient": 1600
+  },
+  {
+    "width": 1600,
+    "design": "tide-satin",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 1600,
+    "workScroll": 1600,
+    "workClient": 1600
+  },
+  {
+    "width": 1024,
+    "design": "tide",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 1024,
+    "workScroll": 1024,
+    "workClient": 1024
+  },
+  {
+    "width": 1024,
+    "design": "tide",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 1024,
+    "workScroll": 1024,
+    "workClient": 1024
+  },
+  {
+    "width": 1024,
+    "design": "tide",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 1024,
+    "workScroll": 1024,
+    "workClient": 1024
+  },
+  {
+    "width": 1024,
+    "design": "tide-relief",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 1024,
+    "workScroll": 1024,
+    "workClient": 1024
+  },
+  {
+    "width": 1024,
+    "design": "tide-relief",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 1024,
+    "workScroll": 1024,
+    "workClient": 1024
+  },
+  {
+    "width": 1024,
+    "design": "tide-relief",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 1024,
+    "workScroll": 1024,
+    "workClient": 1024
+  },
+  {
+    "width": 1024,
+    "design": "tide-glass",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 1024,
+    "workScroll": 1024,
+    "workClient": 1024
+  },
+  {
+    "width": 1024,
+    "design": "tide-glass",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 1024,
+    "workScroll": 1024,
+    "workClient": 1024
+  },
+  {
+    "width": 1024,
+    "design": "tide-glass",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 1024,
+    "workScroll": 1024,
+    "workClient": 1024
+  },
+  {
+    "width": 1024,
+    "design": "tide-signal",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 1024,
+    "workScroll": 1024,
+    "workClient": 1024
+  },
+  {
+    "width": 1024,
+    "design": "tide-signal",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 1024,
+    "workScroll": 1024,
+    "workClient": 1024
+  },
+  {
+    "width": 1024,
+    "design": "tide-signal",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 1024,
+    "workScroll": 1024,
+    "workClient": 1024
+  },
+  {
+    "width": 1024,
+    "design": "tide-console",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 1024,
+    "workScroll": 1024,
+    "workClient": 1024
+  },
+  {
+    "width": 1024,
+    "design": "tide-console",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 1024,
+    "workScroll": 1024,
+    "workClient": 1024
+  },
+  {
+    "width": 1024,
+    "design": "tide-console",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 1024,
+    "workScroll": 1024,
+    "workClient": 1024
+  },
+  {
+    "width": 1024,
+    "design": "tide-satin",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 1024,
+    "workScroll": 1024,
+    "workClient": 1024
+  },
+  {
+    "width": 1024,
+    "design": "tide-satin",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 1024,
+    "workScroll": 1024,
+    "workClient": 1024
+  },
+  {
+    "width": 1024,
+    "design": "tide-satin",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 1024,
+    "workScroll": 1024,
+    "workClient": 1024
+  },
+  {
+    "width": 760,
+    "design": "tide",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 760,
+    "workScroll": 760,
+    "workClient": 760
+  },
+  {
+    "width": 760,
+    "design": "tide",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 760,
+    "workScroll": 760,
+    "workClient": 760
+  },
+  {
+    "width": 760,
+    "design": "tide",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 760,
+    "workScroll": 760,
+    "workClient": 760
+  },
+  {
+    "width": 760,
+    "design": "tide-relief",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 760,
+    "workScroll": 760,
+    "workClient": 760
+  },
+  {
+    "width": 760,
+    "design": "tide-relief",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 760,
+    "workScroll": 760,
+    "workClient": 760
+  },
+  {
+    "width": 760,
+    "design": "tide-relief",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 760,
+    "workScroll": 760,
+    "workClient": 760
+  },
+  {
+    "width": 760,
+    "design": "tide-glass",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 760,
+    "workScroll": 760,
+    "workClient": 760
+  },
+  {
+    "width": 760,
+    "design": "tide-glass",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 760,
+    "workScroll": 760,
+    "workClient": 760
+  },
+  {
+    "width": 760,
+    "design": "tide-glass",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 760,
+    "workScroll": 760,
+    "workClient": 760
+  },
+  {
+    "width": 760,
+    "design": "tide-signal",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 760,
+    "workScroll": 760,
+    "workClient": 760
+  },
+  {
+    "width": 760,
+    "design": "tide-signal",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 760,
+    "workScroll": 760,
+    "workClient": 760
+  },
+  {
+    "width": 760,
+    "design": "tide-signal",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 760,
+    "workScroll": 760,
+    "workClient": 760
+  },
+  {
+    "width": 760,
+    "design": "tide-console",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 760,
+    "workScroll": 760,
+    "workClient": 760
+  },
+  {
+    "width": 760,
+    "design": "tide-console",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 760,
+    "workScroll": 760,
+    "workClient": 760
+  },
+  {
+    "width": 760,
+    "design": "tide-console",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 760,
+    "workScroll": 760,
+    "workClient": 760
+  },
+  {
+    "width": 760,
+    "design": "tide-satin",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 760,
+    "workScroll": 760,
+    "workClient": 760
+  },
+  {
+    "width": 760,
+    "design": "tide-satin",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 760,
+    "workScroll": 760,
+    "workClient": 760
+  },
+  {
+    "width": 760,
+    "design": "tide-satin",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 760,
+    "workScroll": 760,
+    "workClient": 760
+  },
+  {
+    "width": 390,
+    "design": "tide",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 390,
+    "workScroll": 390,
+    "workClient": 390
+  },
+  {
+    "width": 390,
+    "design": "tide",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 390,
+    "workScroll": 390,
+    "workClient": 390
+  },
+  {
+    "width": 390,
+    "design": "tide",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 390,
+    "workScroll": 390,
+    "workClient": 390
+  },
+  {
+    "width": 390,
+    "design": "tide-relief",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 390,
+    "workScroll": 390,
+    "workClient": 390
+  },
+  {
+    "width": 390,
+    "design": "tide-relief",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 390,
+    "workScroll": 390,
+    "workClient": 390
+  },
+  {
+    "width": 390,
+    "design": "tide-relief",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 390,
+    "workScroll": 390,
+    "workClient": 390
+  },
+  {
+    "width": 390,
+    "design": "tide-glass",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 390,
+    "workScroll": 390,
+    "workClient": 390
+  },
+  {
+    "width": 390,
+    "design": "tide-glass",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 390,
+    "workScroll": 390,
+    "workClient": 390
+  },
+  {
+    "width": 390,
+    "design": "tide-glass",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 390,
+    "workScroll": 390,
+    "workClient": 390
+  },
+  {
+    "width": 390,
+    "design": "tide-signal",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 390,
+    "workScroll": 390,
+    "workClient": 390
+  },
+  {
+    "width": 390,
+    "design": "tide-signal",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 390,
+    "workScroll": 390,
+    "workClient": 390
+  },
+  {
+    "width": 390,
+    "design": "tide-signal",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 390,
+    "workScroll": 390,
+    "workClient": 390
+  },
+  {
+    "width": 390,
+    "design": "tide-console",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 390,
+    "workScroll": 390,
+    "workClient": 390
+  },
+  {
+    "width": 390,
+    "design": "tide-console",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 390,
+    "workScroll": 390,
+    "workClient": 390
+  },
+  {
+    "width": 390,
+    "design": "tide-console",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 390,
+    "workScroll": 390,
+    "workClient": 390
+  },
+  {
+    "width": 390,
+    "design": "tide-satin",
+    "section": "music",
+    "body": false,
+    "workspace": false,
+    "scroll": 390,
+    "workScroll": 390,
+    "workClient": 390
+  },
+  {
+    "width": 390,
+    "design": "tide-satin",
+    "section": "ads",
+    "body": false,
+    "workspace": false,
+    "scroll": 390,
+    "workScroll": 390,
+    "workClient": 390
+  },
+  {
+    "width": 390,
+    "design": "tide-satin",
+    "section": "settings",
+    "body": false,
+    "workspace": false,
+    "scroll": 390,
+    "workScroll": 390,
+    "workClient": 390
+  }
+]

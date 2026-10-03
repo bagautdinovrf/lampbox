@@ -1,0 +1,33 @@
+/* Eight additional palettes. Generated from catalog.js. */
+body[data-design][data-palette="lagoon"] {
+--accent:#167896;--accent-soft:color-mix(in srgb,#167896 10%,white);--bg:color-mix(in srgb,#167896 4%,#f5f6f7);--surface:#fff;--surface-2:color-mix(in srgb,#167896 6%,white);--ink:#28323c;--muted:#63717e;--line:color-mix(in srgb,#167896 15%,#e8ebee);
+--art-1:color-mix(in srgb,#167896 10%,white);--art-2:color-mix(in srgb,#167896 25%,white);--art-3:color-mix(in srgb,#167896 45%,white);--art-4:color-mix(in srgb,#167896 75%,white);--art-5:#167896;--art-alt:color-mix(in srgb,#167896 30%,#d7e5ed);--shadow-rgb:63 76 94;
+}
+body[data-design][data-palette="denim"] {
+--accent:#315ca8;--accent-soft:color-mix(in srgb,#315ca8 10%,white);--bg:color-mix(in srgb,#315ca8 4%,#f5f6f7);--surface:#fff;--surface-2:color-mix(in srgb,#315ca8 6%,white);--ink:#28323c;--muted:#63717e;--line:color-mix(in srgb,#315ca8 15%,#e8ebee);
+--art-1:color-mix(in srgb,#315ca8 10%,white);--art-2:color-mix(in srgb,#315ca8 25%,white);--art-3:color-mix(in srgb,#315ca8 45%,white);--art-4:color-mix(in srgb,#315ca8 75%,white);--art-5:#315ca8;--art-alt:color-mix(in srgb,#315ca8 30%,#d7e5ed);--shadow-rgb:63 76 94;
+}
+body[data-design][data-palette="berry"] {
+--accent:#a3336a;--accent-soft:color-mix(in srgb,#a3336a 10%,white);--bg:color-mix(in srgb,#a3336a 4%,#f5f6f7);--surface:#fff;--surface-2:color-mix(in srgb,#a3336a 6%,white);--ink:#28323c;--muted:#63717e;--line:color-mix(in srgb,#a3336a 15%,#e8ebee);
+--art-1:color-mix(in srgb,#a3336a 10%,white);--art-2:color-mix(in srgb,#a3336a 25%,white);--art-3:color-mix(in srgb,#a3336a 45%,white);--art-4:color-mix(in srgb,#a3336a 75%,white);--art-5:#a3336a;--art-alt:color-mix(in srgb,#a3336a 30%,#d7e5ed);--shadow-rgb:63 76 94;
+}
+body[data-design][data-palette="slate"] {
+--accent:#54707b;--accent-soft:color-mix(in srgb,#54707b 10%,white);--bg:color-mix(in srgb,#54707b 4%,#f5f6f7);--surface:#fff;--surface-2:color-mix(in srgb,#54707b 6%,white);--ink:#28323c;--muted:#63717e;--line:color-mix(in srgb,#54707b 15%,#e8ebee);
+--art-1:color-mix(in srgb,#54707b 10%,white);--art-2:color-mix(in srgb,#54707b 25%,white);--art-3:color-mix(in srgb,#54707b 45%,white);--art-4:color-mix(in srgb,#54707b 75%,white);--art-5:#54707b;--art-alt:color-mix(in srgb,#54707b 30%,#d7e5ed);--shadow-rgb:63 76 94;
+}
+body[data-design][data-palette="iris"] {
+--accent:#7752b1;--accent-soft:color-mix(in srgb,#7752b1 10%,white);--bg:color-mix(in srgb,#7752b1 4%,#f5f6f7);--surface:#fff;--surface-2:color-mix(in srgb,#7752b1 6%,white);--ink:#28323c;--muted:#63717e;--line:color-mix(in srgb,#7752b1 15%,#e8ebee);
+--art-1:color-mix(in srgb,#7752b1 10%,white);--art-2:color-mix(in srgb,#7752b1 25%,white);--art-3:color-mix(in srgb,#7752b1 45%,white);--art-4:color-mix(in srgb,#7752b1 75%,white);--art-5:#7752b1;--art-alt:color-mix(in srgb,#7752b1 30%,#d7e5ed);--shadow-rgb:63 76 94;
+}
+body[data-design][data-palette="coral"] {
+--accent:#ba5357;--accent-soft:color-mix(in srgb,#ba5357 10%,white);--bg:color-mix(in srgb,#ba5357 4%,#f5f6f7);--surface:#fff;--surface-2:color-mix(in srgb,#ba5357 6%,white);--ink:#28323c;--muted:#63717e;--line:color-mix(in srgb,#ba5357 15%,#e8ebee);
+--art-1:color-mix(in srgb,#ba5357 10%,white);--art-2:color-mix(in srgb,#ba5357 25%,white);--art-3:color-mix(in srgb,#ba5357 45%,white);--art-4:color-mix(in srgb,#ba5357 75%,white);--art-5:#ba5357;--art-alt:color-mix(in srgb,#ba5357 30%,#d7e5ed);--shadow-rgb:63 76 94;
+}
+body[data-design][data-palette="pine"] {
+--accent:#2a6a58;--accent-soft:color-mix(in srgb,#2a6a58 10%,white);--bg:color-mix(in srgb,#2a6a58 4%,#f5f6f7);--surface:#fff;--surface-2:color-mix(in srgb,#2a6a58 6%,white);--ink:#28323c;--muted:#63717e;--line:color-mix(in srgb,#2a6a58 15%,#e8ebee);
+--art-1:color-mix(in srgb,#2a6a58 10%,white);--art-2:color-mix(in srgb,#2a6a58 25%,white);--art-3:color-mix(in srgb,#2a6a58 45%,white);--art-4:color-mix(in srgb,#2a6a58 75%,white);--art-5:#2a6a58;--art-alt:color-mix(in srgb,#2a6a58 30%,#d7e5ed);--shadow-rgb:63 76 94;
+}
+body[data-design][data-palette="graphite"] {
+--accent:#515963;--accent-soft:color-mix(in srgb,#515963 10%,white);--bg:color-mix(in srgb,#515963 4%,#f5f6f7);--surface:#fff;--surface-2:color-mix(in srgb,#515963 6%,white);--ink:#28323c;--muted:#63717e;--line:color-mix(in srgb,#515963 15%,#e8ebee);
+--art-1:color-mix(in srgb,#515963 10%,white);--art-2:color-mix(in srgb,#515963 25%,white);--art-3:color-mix(in srgb,#515963 45%,white);--art-4:color-mix(in srgb,#515963 75%,white);--art-5:#515963;--art-alt:color-mix(in srgb,#515963 30%,#d7e5ed);--shadow-rgb:63 76 94;
+}

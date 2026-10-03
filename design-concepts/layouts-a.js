@@ -30,35 +30,6 @@
       </div>`;
   };
 
-  layouts.studio = function (ui) {
-    return `
-      <style>
-        .studio-workspace{display:grid;gap:24px;min-width:0}
-        .studio-stage{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(320px,1fr);gap:24px;align-items:start;min-width:0}
-        .studio-feature,.studio-monitor{display:grid;gap:20px;min-width:0}
-        .studio-workspace>*,.studio-stage>*,.studio-feature>*,.studio-monitor>*,.studio-week>*{min-width:0}
-        .studio-week{min-width:0}
-        @media(max-width:1100px){.studio-workspace,.studio-stage{gap:20px}.studio-stage{grid-template-columns:minmax(0,1.2fr) minmax(290px,1fr)}.studio-feature,.studio-monitor{gap:18px}}
-        @media(max-width:800px){.studio-stage{grid-template-columns:minmax(0,1fr)}.studio-monitor{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.studio-feature{grid-template-columns:minmax(0,1fr)}}
-        @media(max-width:600px){.studio-workspace,.studio-stage,.studio-feature,.studio-monitor{gap:16px}.studio-monitor{grid-template-columns:minmax(0,1fr)}}
-      </style>
-      <div class="studio-workspace">
-        <div class="studio-stage">
-          <div class="studio-feature">
-            ${ui.rotation({ hero: true })}
-            ${ui.program()}
-          </div>
-          <aside class="studio-monitor" aria-label="Студийный монитор">
-            ${ui.player({ compact: false })}
-            ${ui.queue({ strip: false })}
-          </aside>
-        </div>
-        <div class="studio-week">
-          ${ui.week()}
-        </div>
-      </div>`;
-  };
-
   layouts.canvas = function (ui) {
     return `
       <style>
@@ -104,7 +75,7 @@
         </div>
         <aside class="focus-context" aria-label="Календарь и основная программа">
           ${ui.calendar({ compact: true })}
-          ${ui.program()}
+          ${ui.isVideo() ? ui.library({ compact: true }) : ui.program()}
         </aside>
       </div>
       <div class="focus-sequence">

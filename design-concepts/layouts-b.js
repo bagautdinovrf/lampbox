@@ -3,96 +3,6 @@
 
   const layouts = window.LampBoxLayouts = window.LampBoxLayouts || {};
 
-  layouts.silver = function silverLayout(ui) {
-    return `
-      <style>
-        .silver-workspace {
-          display: grid;
-          grid-template-columns: minmax(0, .82fr) minmax(0, 1.5fr) minmax(0, 1fr);
-          gap: 22px;
-          align-items: start;
-          width: 100%;
-          min-width: 0;
-        }
-        .silver-rules,
-        .silver-editor,
-        .silver-live {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr);
-          gap: 20px;
-          align-content: start;
-          min-width: 0;
-        }
-        .silver-bottom {
-          grid-column: 1 / -1;
-          min-width: 0;
-        }
-        .silver-workspace > *,
-        .silver-rules > *,
-        .silver-editor > *,
-        .silver-live > * {
-          min-width: 0;
-          max-width: 100%;
-        }
-        @media (min-width: 1500px) {
-          .silver-workspace { gap: 28px; }
-          .silver-rules,
-          .silver-editor,
-          .silver-live { gap: 24px; }
-        }
-        @media (max-width: 1250px) {
-          .silver-workspace {
-            grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
-            gap: 20px;
-          }
-          .silver-rules {
-            grid-column: 1 / -1;
-            grid-template-columns: minmax(0, .92fr) minmax(0, 1.08fr);
-          }
-          .silver-editor { grid-column: 1; }
-          .silver-live { grid-column: 2; }
-        }
-        @media (max-width: 850px) {
-          .silver-workspace {
-            grid-template-columns: minmax(0, 1fr);
-            gap: 20px;
-          }
-          .silver-editor,
-          .silver-live { grid-column: 1; }
-          .silver-live {
-            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-          }
-        }
-        @media (max-width: 600px) {
-          .silver-workspace,
-          .silver-rules,
-          .silver-editor,
-          .silver-live {
-            grid-template-columns: minmax(0, 1fr);
-            gap: 16px;
-          }
-        }
-      </style>
-      <div class="silver-workspace">
-        <div class="silver-rules">
-          ${ui.ruleList()}
-          ${ui.calendar({ compact: true })}
-        </div>
-        <div class="silver-editor">
-          ${ui.ruleEditor()}
-          ${ui.rotation({ hero: false })}
-        </div>
-        <div class="silver-live">
-          ${ui.player({ compact: true })}
-          ${ui.queue({ strip: false })}
-        </div>
-        <div class="silver-bottom">
-          ${ui.program()}
-        </div>
-      </div>
-    `;
-  };
-
   layouts.library = function libraryLayout(ui) {
     return `
       <style>
@@ -161,7 +71,7 @@
           ${ui.library({ compact: false })}
         </div>
         <div class="library-rule">
-          ${ui.rotation({ hero: false })}
+          ${ui.isVideo() ? ui.program() : ui.rotation({ hero: false })}
           ${ui.calendar({ compact: true })}
           ${ui.player({ compact: true })}
         </div>

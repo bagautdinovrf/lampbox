@@ -1,0 +1,84 @@
+{
+  "date": "2026-10-03",
+  "fonts": [
+    {
+      "file": "C:/Windows/Fonts/segoeui.ttf",
+      "missing": []
+    },
+    {
+      "file": "C:/Windows/Fonts/segoeuib.ttf",
+      "missing": []
+    },
+    {
+      "file": "C:/Windows/Fonts/seguisb.ttf",
+      "missing": []
+    },
+    {
+      "file": "C:/Windows/Fonts/georgia.ttf",
+      "missing": []
+    }
+  ],
+  "designs": [
+    {
+      "design": "tide",
+      "loaded": true,
+      "sizes": {
+        "viewport": 1440,
+        "scroll": 1440,
+        "height": 900,
+        "variant": "tide"
+      }
+    },
+    {
+      "design": "tide-relief",
+      "loaded": true,
+      "sizes": {
+        "viewport": 1440,
+        "scroll": 1440,
+        "height": 900,
+        "variant": "tide-relief"
+      }
+    },
+    {
+      "design": "tide-glass",
+      "loaded": true,
+      "sizes": {
+        "viewport": 1440,
+        "scroll": 1440,
+        "height": 900,
+        "variant": "tide-glass"
+      }
+    },
+    {
+      "design": "tide-signal",
+      "loaded": true,
+      "sizes": {
+        "viewport": 1440,
+        "scroll": 1440,
+        "height": 900,
+        "variant": "tide-signal"
+      }
+    },
+    {
+      "design": "tide-console",
+      "loaded": true,
+      "sizes": {
+        "viewport": 1440,
+        "scroll": 1440,
+        "height": 900,
+        "variant": "tide-console"
+      }
+    },
+    {
+      "design": "tide-satin",
+      "loaded": true,
+      "sizes": {
+        "viewport": 1440,
+        "scroll": 1440,
+        "height": 900,
+        "variant": "tide-satin"
+      }
+    }
+  ],
+  "errors": []
+}

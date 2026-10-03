@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/player">
+        <file>icons/app.ico</file>
         <file>icons/direction_down.png</file>
         <file>icons/direction_left.png</file>
         <file>icons/direction_right.png</file>

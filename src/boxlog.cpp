@@ -6,6 +6,7 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QDir>
+#include <QStandardPaths>
 
 BoxLog::BoxLog() :
     mLogFile( new QFile() ),
@@ -56,9 +57,17 @@ BoxLog::~BoxLog()
 
 void BoxLog::init()
 {
-    if( mLogFile )
-      mLogFile->setFileName(qApp->applicationDirPath() + QDir::separator()
-                            + qApp->applicationName() + ".log");
+    if (!mLogFile)
+        return;
+    QString logDirectory = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+    if (logDirectory.isEmpty())
+        logDirectory = QDir::home().absoluteFilePath(".mediaboxmanager");
+    const QDir directory(logDirectory);
+    if (!directory.mkpath(".")) {
+        qWarning().noquote() << QStringLiteral("Не удалось создать каталог журнала: %1").arg(logDirectory);
+        return;
+    }
+    mLogFile->setFileName(directory.absoluteFilePath(QCoreApplication::applicationName() + ".log"));
 }
 
 

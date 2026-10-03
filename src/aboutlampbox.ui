@@ -41,7 +41,7 @@
   </property>
   <property name="windowIcon">
    <iconset resource="icons.qrc">
-    <normaloff>:/player/icons/get_info.png</normaloff>:/player/icons/get_info.png</iconset>
+    <normaloff>:/player/icons/app.ico</normaloff>:/player/icons/app.ico</iconset>
   </property>
   <property name="autoFillBackground">
    <bool>false</bool>

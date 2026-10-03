@@ -1,0 +1,52 @@
+/* Tide / Signal. Precision, fine rules and luminous accents on a light surface. */
+body[data-design="tide"][data-palette][data-variant="tide-signal"] {
+  --bg:#f2f5f8; --surface:#fff; --surface-2:#f4f7fa; --ink:#253342; --muted:#607285; --line:#d4dee7;
+  --signal-line:color-mix(in srgb,var(--accent) 28%,#d6e0e9);
+  --signal-glow:color-mix(in srgb,var(--accent) 18%,transparent);
+  background:var(--bg);font-variant-numeric:tabular-nums;
+}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .workspace {background:#f2f5f8}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .app-header {background:#fff;border-bottom:1px solid #d7e0e9;box-shadow:inset 0 2px 0 var(--accent)}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .brand-mark {background:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 66%,white);border-radius:5px;box-shadow:0 0 0 3px var(--accent-soft),inset 0 1px 0 #ffffff57}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .primary-nav {background:#f9fbfc;border-bottom:1px solid #d7e0e9}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] :is(.ops-overview,.channel-panel,.schedule-panel,.media-panel,.inspector-panel,.service-card) {background:#fff;border:1px solid #cfdbe5;border-radius:5px;box-shadow:0 1px 0 #ffffff,inset 0 1px 0 #f6f9fc}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .ops-overview {border-top-color:var(--signal-line);box-shadow:inset 0 2px 0 var(--accent-soft)}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .ops-overview > * {border-color:#dbe4ec}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .ops-context {background:#f5f8fb}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .ops-label {letter-spacing:.8px;color:#617487}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .ops-overview strong {font-weight:600}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .feature.ops-selection {border:1px solid var(--signal-line);border-left:3px solid var(--accent);border-radius:4px;background:#fff;box-shadow:inset 0 1px 0 var(--accent-soft)}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .rule-chips > span {border-radius:3px;background:#f6f9fb;border-color:#d8e2eb;letter-spacing:.2px}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] :is(.button,.icon-button,.palette-picker,.variant-picker,.feature-action) {background:#fff;border:1px solid #c9d6e2;border-radius:4px;box-shadow:inset 0 1px 0 #fff;color:var(--ink)}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .button.primary {background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:inset 0 1px 0 #ffffff59,0 0 0 2px var(--accent-soft)}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .button.quiet {background:#f9fbfd;border-color:#dce5ed;color:var(--muted);box-shadow:none}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .button.danger {color:#a63a43;background:#fff5f5;border-color:#eedbdd;box-shadow:none}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] :is(.button,.icon-button,.feature-action):hover:not(:disabled) {border-color:var(--signal-line);box-shadow:0 0 0 2px var(--accent-soft)}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .nav-item {border-radius:4px;border-bottom:2px solid transparent}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .nav-item:is(.active,[aria-current="page"]) {background:var(--accent-soft);border-color:transparent;border-bottom-color:var(--accent);color:var(--accent);box-shadow:none}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .channel-card {background:#fff;border:1px solid #e0e7ef;border-radius:4px}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .channel-card:is(.active,[aria-pressed="true"]) {background:color-mix(in srgb,var(--accent) 5%,white);border-color:var(--signal-line);box-shadow:inset 3px 0 0 var(--accent)}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] :is(.search,.ops-context input,.field input:not([type=checkbox]):not([type=range]),.field select) {background:#f7fafd;border:1px solid #cddbe6;border-radius:4px;box-shadow:inset 0 1px 2px #2c506b08;color:var(--ink)}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .search input {background:transparent;border:0;box-shadow:none}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .day-strip {background:#f1f5f9;border:1px solid #d7e1ea;border-radius:4px;box-shadow:none}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .day-strip button {border-radius:2px;background:transparent}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .day-strip button:is(.active,[aria-selected="true"]) {background:white;color:var(--accent);border:1px solid var(--signal-line);box-shadow:inset 0 -2px 0 var(--accent)}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .timeline-scale {font-size:10px;color:#657b8e;letter-spacing:.2px}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .timeline-track {border-radius:2px;background:repeating-linear-gradient(to right,transparent 0,transparent calc(4.1667% - 1px),#d4dfe880 calc(4.1667% - 1px),#d4dfe880 4.1667%),linear-gradient(#f4f7fa,#f4f7fa);box-shadow:inset 0 1px 0 #d7e2eb,inset 0 -1px 0 #e5ebf1}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .timeline-span {border-radius:2px;background:#e9f0f6;border:1px solid #cbdbe6;box-shadow:inset 0 1px 0 #ffffffb3;color:#587188;font-size:10px}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .timeline-row.selected .timeline-span {background:var(--accent-soft);border-color:var(--accent);box-shadow:inset 0 1px 0 #ffffffcf,0 0 5px var(--signal-glow);color:var(--accent)}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .timeline-cursor {width:1px;box-shadow:0 0 0 1px #ffffff9e}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] :is(.media-table,.data-table) th {background:#f1f6fa;border-color:#cad9e5;font-weight:600;color:#5a7185}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] :is(.media-table,.data-table) td {border-color:#dde6ef}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .media-table tr.selected td {background:color-mix(in srgb,var(--accent) 6%,white)}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .media-table tr.selected td:first-child {box-shadow:inset 2px 0 0 var(--accent)}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .file-thumb {border-radius:3px;background:#f0f5f9;border-color:#d7e3ec;color:#607b91}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .transport {background:#fff;border-top:1px solid #cbd9e5;box-shadow:inset 0 2px 0 #f2f6fa}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .transport-controls .play-button {background:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 60%,white);border-radius:4px;box-shadow:0 0 0 2px var(--accent-soft),inset 0 1px 0 #ffffff66;color:white}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] .transport-controls .stop-button {background:#f8fbfd;border:1px solid #c7d7e3;border-radius:4px;box-shadow:inset 0 1px 0 #fff}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] :is(.check-row,.weekday-picker label,.month-picker label) {background:#f9fbfd;border:1px solid #d2dfe9;border-radius:4px}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] :is(.check-row,.weekday-picker label,.month-picker label):has(input:checked) {color:var(--accent);border-color:var(--signal-line);background:var(--accent-soft);box-shadow:inset 0 -1px 0 var(--accent)}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] input:is([type=checkbox],[type=range]) {accent-color:var(--accent)}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] input[type=range] {background:repeating-linear-gradient(to right,#d8e2eb 0,#d8e2eb 1px,transparent 1px,transparent 10%);border-radius:2px}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] dialog {background:#fff;border:1px solid #bfd1df;border-top:3px solid var(--accent);border-radius:7px;box-shadow:0 17px 52px #1b3b5833}
+body[data-design="tide"][data-palette][data-variant="tide-signal"] dialog::backdrop {background:#25435945;backdrop-filter:blur(2px)}
