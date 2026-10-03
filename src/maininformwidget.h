@@ -13,7 +13,7 @@ class MainInformWidget : public QWidget
     Q_OBJECT
 
 public:
-    explicit MainInformWidget(QWidget *parent = 0);
+    explicit MainInformWidget(QWidget *parent = nullptr);
     ~MainInformWidget();
 
     /**

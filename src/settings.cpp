@@ -1,3 +1,4 @@
+#include <utility>
 
 #include "settings.h"
 #include "lampdata.h"
@@ -49,7 +50,7 @@ void Settings::readSettings()
     mFileVideoFormats.clear();
     settings.beginGroup(mFileFormatsGroup);
     QStringList keys = settings.allKeys();
-    foreach (QString key, keys) {
+    for (const QString &key : std::as_const(keys)) {
         QString group = key.section('/', -2, -2);
         QString fileFormat = key.section( '/', -1);
         mFileFormats.insert( fileFormat, settings.value(key, false).toBool() );
@@ -153,7 +154,7 @@ QStringList Settings::allFormats()
     // Форматы файлов
     settings.beginGroup("FileFormats");
     QStringList keys = settings.allKeys();
-    foreach (QString key, keys) {
+    for (const QString &key : std::as_const(keys)) {
 //        QString group = key.section('/', -2);
         QString fileFormat = key.section('/', -1);
         list << "*." + fileFormat;
@@ -175,7 +176,7 @@ QStringList Settings::allAudioFormats()
     settings.beginGroup("AudioFormats");
 
     QStringList keys = settings.allKeys();
-    foreach (QString key, keys) {
+    for (const QString &key : std::as_const(keys)) {
 //        QString group = key.section('/', -2);
         QString fileFormat = key.section('/', -1);
         list << "*." + fileFormat;
@@ -196,7 +197,7 @@ QStringList Settings::allVideoFormats()
     settings.beginGroup("FileFormats");
     settings.beginGroup("VideoFormats");
     QStringList keys = settings.allKeys();
-    foreach (QString key, keys) {
+    for (const QString &key : std::as_const(keys)) {
         QString fileFormat = key.section('/', -1);
         list << "*." + fileFormat;
     }

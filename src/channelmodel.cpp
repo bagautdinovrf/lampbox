@@ -29,23 +29,22 @@ QVariant ChannelModel::headerData(int section, Qt::Orientation orientation, int 
         switch (section)
         {
             case 0:
-                return QVariant( trUtf8("Плейлист") );
+                return QVariant( tr("Плейлист") );
             case 1:
-                return QVariant( trUtf8("Начало") );
+                return QVariant( tr("Начало") );
             case 2:
-                return QVariant( trUtf8("Окончание") );
+                return QVariant( tr("Окончание") );
             case 3:
-                return QVariant( trUtf8("Дни недели") );
+                return QVariant( tr("Дни недели") );
             case 4:
-                return QVariant( trUtf8("Дни") );
+                return QVariant( tr("Дни") );
             case 5:
-                return QVariant( trUtf8("Месяцы") );
+                return QVariant( tr("Месяцы") );
             case 6:
-                return QVariant( trUtf8("Громкость") );
+                return QVariant( tr("Громкость") );
             default:
                 return QVariant();
         }
-    return QVariant();
 }
 
 QVariant ChannelModel::data(const QModelIndex &index, int nRole) const

@@ -9,7 +9,7 @@ class AdvertJsonGenerator : public QObject
 {
     Q_OBJECT
 public:
-    explicit AdvertJsonGenerator(QString timetable = QString::null, QObject *parent = 0);
+    explicit AdvertJsonGenerator(QString timetable = QString(), QObject *parent = nullptr);
 
     /**
      * @brief setAdvertTimetable                    - Установка расписания

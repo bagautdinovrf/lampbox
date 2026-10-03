@@ -52,7 +52,8 @@ Slider::wheelEvent( QWheelEvent *e )
     }
 
     // Position Slider (horizontal)
-    int step = e->delta() * 1500 / 18;
+    const QPoint delta = e->angleDelta();
+    const int step = (delta.y() != 0 ? delta.y() : delta.x()) * 1500 / 18;
     int nval = QSlider::value() + step;
     nval = qMax(nval, minimum());
     nval = qMin(nval, maximum());
@@ -70,7 +71,7 @@ Slider::mouseMoveEvent( QMouseEvent *e )
         //feels better, but using set value of 20 is bad of course
         QRect rect( -20, -20, width()+40, height()+40 );
 
-        if ( orientation() == Qt::Horizontal && !rect.contains( e->pos() ) ) {
+        if ( orientation() == Qt::Horizontal && !rect.contains(e->position().toPoint()) ) {
             if ( !m_outside )
                 QSlider::setValue( m_prevValue );
             m_outside = true;
@@ -89,12 +90,13 @@ Slider::slideEvent( QMouseEvent *e )
   QStyleOptionSlider option;
   initStyleOption(&option);
   QRect sliderRect(style()->subControlRect(QStyle::CC_Slider, &option, QStyle::SC_SliderHandle, this));
+  const QPoint pos = e->position().toPoint();
 
     QSlider::setValue( orientation() == Qt::Horizontal
         ? ((QApplication::layoutDirection() == Qt::RightToLeft) ?
-           QStyle::sliderValueFromPosition(minimum(), maximum(), width() - (e->pos().x() - sliderRect.width()/2),  width()  + sliderRect.width(), true )
-         : QStyle::sliderValueFromPosition(minimum(), maximum(), e->pos().x() - sliderRect.width()/2,  width()  - sliderRect.width() ) )
-        : QStyle::sliderValueFromPosition(minimum(), maximum(), e->pos().y() - sliderRect.height()/2, height() - sliderRect.height() ) );
+           QStyle::sliderValueFromPosition(minimum(), maximum(), width() - (pos.x() - sliderRect.width()/2),  width()  + sliderRect.width(), true )
+         : QStyle::sliderValueFromPosition(minimum(), maximum(), pos.x() - sliderRect.width()/2,  width()  - sliderRect.width() ) )
+        : QStyle::sliderValueFromPosition(minimum(), maximum(), pos.y() - sliderRect.height()/2, height() - sliderRect.height() ) );
 }
 
 void
@@ -107,7 +109,7 @@ Slider::mousePressEvent( QMouseEvent *e )
     m_sliding   = true;
     m_prevValue = QSlider::value();
 
-    if ( !sliderRect.contains( e->pos() ) )
+    if ( !sliderRect.contains(e->position().toPoint()) )
         mouseMoveEvent( e );
 }
 
@@ -162,10 +164,11 @@ PrettySlider::mousePressEvent( QMouseEvent *e )
 void
 PrettySlider::slideEvent( QMouseEvent *e )
 {
+    const QPoint pos = e->position().toPoint();
     if( m_mode == Pretty )
       QSlider::setValue( orientation() == Qt::Horizontal
-          ? QStyle::sliderValueFromPosition(minimum(), maximum(), e->pos().x(), width()-2 )
-          : QStyle::sliderValueFromPosition(minimum(), maximum(), e->pos().y(), height()-2 ) );
+          ? QStyle::sliderValueFromPosition(minimum(), maximum(), pos.x(), width()-2 )
+          : QStyle::sliderValueFromPosition(minimum(), maximum(), pos.y(), height()-2 ) );
     else
       Slider::slideEvent( e );
 }
@@ -215,8 +218,8 @@ VolumeSlider::VolumeSlider( QWidget *parent, uint max )
     QImage pixmapHandle    ( "://img/volumeslider-handle.png" );
     QImage pixmapHandleGlow( "://img/volumeslider-handle_glow.png" );
 
-    float opacity = 0.0;
-    const float step = 1.0 / ANIM_MAX;
+    float opacity = 0.0f;
+    const float step = 1.0f / ANIM_MAX;
     QImage dst;
     for ( int i = 0; i < ANIM_MAX; ++i ) {
         dst = pixmapHandle.copy();
@@ -236,7 +239,7 @@ VolumeSlider::VolumeSlider( QWidget *parent, uint max )
     setMinimumWidth( m_pixmapInset.width() );
     setMinimumHeight( m_pixmapInset.height() );
 
-    connect( m_animTimer, SIGNAL( timeout() ), this, SLOT( slotAnimTimer() ) );
+    connect(m_animTimer, &QTimer::timeout, this, &VolumeSlider::slotAnimTimer);
 }
 
 void
@@ -250,7 +253,7 @@ VolumeSlider::generateGradient()
 
     QLinearGradient gradient(gradient_image.rect().topLeft(),
                              gradient_image.rect().topRight());
-    gradient.setColorAt(0, palette().color(QPalette::Background));
+    gradient.setColorAt(0, palette().color(QPalette::Window));
     gradient.setColorAt(1, palette().color(QPalette::Highlight));
     p.fillRect(gradient_image.rect(), QBrush(gradient));
 
@@ -310,13 +313,14 @@ VolumeSlider::contextMenuEvent( QContextMenuEvent *e )
 void
 VolumeSlider::slideEvent( QMouseEvent *e )
 {
-  QSlider::setValue( QStyle::sliderValueFromPosition(minimum(), maximum(), e->pos().x(), width()-2 ) );
+  QSlider::setValue( QStyle::sliderValueFromPosition(minimum(), maximum(), e->position().toPoint().x(), width()-2 ) );
 }
 
 void
 VolumeSlider::wheelEvent( QWheelEvent *e )
 {
-    const uint step = e->delta() / 30;
+    const QPoint delta = e->angleDelta();
+    const int step = (delta.y() != 0 ? delta.y() : delta.x()) / 30;
     QSlider::setValue( QSlider::value() + step );
 
     emit sliderReleased( value() );
@@ -335,7 +339,7 @@ VolumeSlider::paintEvent( QPaintEvent * )
     p.drawPixmap(offset - m_handlePixmaps[0].width() / 2 + padding, 0, m_handlePixmaps[m_animCount]);
 
     // Draw percentage number
-    p.setPen( palette().color( QPalette::Disabled, QPalette::Text ).dark() );
+    p.setPen( palette().color( QPalette::Disabled, QPalette::Text ).darker() );
     QFont font;
     font.setPixelSize( 9 );
     p.setFont( font );
@@ -344,7 +348,7 @@ VolumeSlider::paintEvent( QPaintEvent * )
 }
 
 void
-VolumeSlider::enterEvent( QEvent* )
+VolumeSlider::enterEvent(QEnterEvent *)
 {
     m_animEnter = true;
     m_animCount = 0;
@@ -364,7 +368,9 @@ VolumeSlider::leaveEvent( QEvent* )
 }
 
 void
-VolumeSlider::paletteChange( const QPalette& )
+VolumeSlider::changeEvent(QEvent *event)
 {
-    generateGradient();
+    if (event->type() == QEvent::PaletteChange)
+        generateGradient();
+    Slider::changeEvent(event);
 }

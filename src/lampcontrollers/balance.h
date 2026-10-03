@@ -23,25 +23,24 @@
 #define MAX_POS       4
 #define ZERO    QString("Z")
 
-using namespace std;
 #include <stdexcept>
-typedef QString idTrack;
+using idTrack = QString;
 
 //! @var сырой список имя трека - частота
-typedef map<QString, unsigned int> TracksFreq;
+using TracksFreq = std::map<QString, unsigned int>;
 //! @var список для хранения вида [МИНУТА ЗАПУСКА:ТРЭК]
-typedef map<unsigned int, QString>  minuteOfTrack;
-typedef minuteOfTrack::iterator iminuteOfTrack;
+using minuteOfTrack = std::map<unsigned int, QString>;
+using iminuteOfTrack = minuteOfTrack::iterator;
 //! @var список для хранения вида [МИНУТА ЗАПУСКА:ТРЭК]
-typedef map<unsigned int, QString>  preferedMinute;
+using preferedMinute = std::map<unsigned int, QString>;
 
-typedef preferedMinute::iterator ipreferedMinute;
-typedef set<unsigned int>     minutesSet;
-typedef vector<QString>   tracksNames;
-typedef tracksNames::iterator itracksNames;
-typedef QString MsgError;
-typedef vector<idTrack> idTracks;
-typedef TracksFreq::iterator iTracksFreq;
+using ipreferedMinute = preferedMinute::iterator;
+using minutesSet = std::set<unsigned int>;
+using tracksNames = std::vector<QString>;
+using itracksNames = tracksNames::iterator;
+using MsgError = QString;
+using idTracks = std::vector<idTrack>;
+using iTracksFreq = TracksFreq::iterator;
 
 class Balance  {
 
@@ -60,14 +59,14 @@ class Balance  {
         //! @var lStatus - результат построения сбалансированного списка
         //! @ErrorStr - сообщение о ошибке
         //! @ret vector<idTrack> - список треков следующих друг за другом
-        vector<QString> MakeBalanced( TracksFreq unbalance,
+        std::vector<QString> MakeBalanced( TracksFreq unbalance,
                                       bool &lStatus);
 
         //! @fn MakeStartMinutes - присваивает каждому треку в списке его минуты запуска
         //! @var balance - список треков в порядке из запуска(минуты)
         //! @var minuteOfTrack - список вида [МИНУТА ЗАПУСКА:ТРЭК]
         //! @ret результат выполнения
-        bool MakeStartMinutes(vector<QString> balance,
+        bool MakeStartMinutes(std::vector<QString> balance,
                               minuteOfTrack &,
                               preferedMinute
                           );

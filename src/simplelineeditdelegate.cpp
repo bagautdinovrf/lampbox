@@ -5,7 +5,8 @@
 
 #include <QLineEdit>
 #include <QDebug>
-#include <QRegExpValidator>
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
 
 using namespace lampbox;
 
@@ -24,9 +25,8 @@ SimpleLineEditDelegate::~SimpleLineEditDelegate()
 QWidget *SimpleLineEditDelegate::createEditor( QWidget *parent, const QStyleOptionViewItem& /* option */, const QModelIndex& /* index */) const
 {
     QLineEdit *editor = new QLineEdit(parent);
-//    QRegExp rx("\\w+");
-    QRegExp rx( mValidator );
-    QValidator *valid = new QRegExpValidator(rx, editor);
+    const QRegularExpression rx(mValidator, QRegularExpression::UseUnicodePropertiesOption);
+    auto *valid = new QRegularExpressionValidator(rx, editor);
     editor->setValidator( valid );
     editor->setMaxLength(15);
     editor->installEventFilter(const_cast<SimpleLineEditDelegate*>(this));

@@ -16,7 +16,7 @@ class StationManager : public QObject
     Q_OBJECT
 private:
     StationManager() :
-        QObject(0),
+        QObject(nullptr),
         nameStation("NO SET"), stationId(LOCAL_ID),
         typeStation(STATION_LOCAL), pathToStation(""), lastErrorStr("Data not load")
     {
@@ -25,8 +25,8 @@ private:
         update();
     }
 
-    StationManager(const StationManager&);
-    StationManager& operator=(const StationManager&);
+    StationManager(const StationManager&) = delete;
+    StationManager& operator=(const StationManager&) = delete;
     QString nameStation;
     int stationId;          // if -1(LOCAL_ID) => local
     TypeStation typeStation;// if stationId != -1(LOCAL_ID) and typeStation = local => nonfree version
@@ -34,14 +34,14 @@ private:
     QDir pathToMedia;
     QString lastErrorStr;
     QString mCronDir;
-    bool alternativeExecScript;
+    bool alternativeExecScript = false;
     QMap<TypeStation,QString> textType;
 
     /// Конфигрурафионный файл
     QString                     mConfigFile;
 
     /// Триальность
-    bool                        mTrial;
+    bool                        mTrial = false;
 
 public:
     static StationManager& Instance()

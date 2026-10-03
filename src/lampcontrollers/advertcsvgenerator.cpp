@@ -3,7 +3,7 @@
 #include "controller.h"
 #include "trackdistributor.h"
 
-#include <QScopedPointer>
+#include <memory>
 #include <vector>
 
 using std::vector;
@@ -19,7 +19,7 @@ bool AdvertCsvGenerator::makeAdvert(TracksFullInfo &tracks)
     if( !tracks.size() )
         return false;
 
-    QScopedPointer<TrackDistributor> _distributor(new TrackDistributor(tracks));
+    auto _distributor = std::make_unique<TrackDistributor>(tracks);
     _distributor->distribute();
 
     QString advertResult;

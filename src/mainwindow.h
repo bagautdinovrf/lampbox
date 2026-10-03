@@ -8,6 +8,7 @@
 #include <QModelIndex>
 #include <QMap>
 #include <QPointer>
+#include <memory>
 
 
 class QModelIndex;
@@ -34,8 +35,8 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget *parent = 0);
-    ~MainWindow();
+    explicit MainWindow(QWidget *parent = nullptr);
+    ~MainWindow() override;
 
 
     enum MainWindowPage { PAGE_MUSIC, PAGE_VIDEO, PAGE_ADVERT };
@@ -196,8 +197,8 @@ private:
     MediaModel              *mMediaModelVideo;
 
     ///
-    QScopedPointer<MediaManager>        mMediaAdvertManager;
-    QScopedPointer<AdvertManager>       mAdvertManager;
+    std::unique_ptr<MediaManager>       mMediaAdvertManager;
+    std::unique_ptr<AdvertManager>      mAdvertManager;
 
     QFileSystemModel        *mFileSystemModel_;
 

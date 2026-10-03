@@ -13,7 +13,9 @@ Name "LampBox"
 SetCompressor /SOLID lzma
 # General Symbol Definitions
 !define REGKEY "SOFTWARE\$(^Name)"
-#set in command line "ex: /DVERSION=1.0.6.666"!define VERSION "1.0.4"
+!ifndef VERSION
+!define VERSION "1.1.0"
+!endif
 !define COMPANY "OOO Lampmedia"
 !define URL www.lampmedia.ru
 #!define CONTENTDIR "C:\Users\All Users\Lampmedia\"
@@ -56,7 +58,7 @@ Var LibInstall
 CRCCheck on
 XPStyle on
 ShowInstDetails show
-VIProductVersion 1.0.4.0
+VIProductVersion 1.1.0.0
 VIAddVersionKey ProductName "Lampmedia LampBox"
 VIAddVersionKey ProductVersion "${VERSION}"
 VIAddVersionKey CompanyName "${COMPANY}"

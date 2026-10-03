@@ -9,7 +9,7 @@ class Informer : public QObject
     Q_OBJECT
     Q_DISABLE_COPY(Informer)
 
-    explicit Informer(QObject *parent = 0);
+    explicit Informer(QObject *parent = nullptr);
 
 public:
     enum INFORMER_STATUS { INFO, WARNING, ERROR };

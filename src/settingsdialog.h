@@ -14,7 +14,7 @@ class SettingsDialog : public QDialog
 {
     Q_OBJECT
 public:
-    explicit SettingsDialog(QWidget *parent, Qt::WindowFlags f = 0);
+    explicit SettingsDialog(QWidget *parent, Qt::WindowFlags f = {});
 
 private:
     /**

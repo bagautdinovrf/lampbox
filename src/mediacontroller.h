@@ -12,7 +12,7 @@ class MediaController : public QObject
     Q_OBJECT
 
 public:
-    MediaController( QObject *parent = 0);
+    MediaController( QObject *parent = nullptr);
     ~MediaController();
 
     /**

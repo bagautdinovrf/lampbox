@@ -87,7 +87,7 @@ bool MediaController::isPlaying()
 {
     QProcess cron;
 #ifdef Q_OS_LINUX
-    cron.start( "service cron status" );
+    cron.start("service", {"cron", "status"});
     if (!cron.waitForStarted())
         return false;
     if (!cron.waitForFinished())
@@ -128,7 +128,7 @@ void MediaController::sendPlayingState()
 bool MediaController::startProcess(const QString arg )
 {
      QProcess proc;
-     proc.start( arg );
+     proc.startCommand(arg);
      if (!proc.waitForStarted())
          return false;
      if (!proc.waitForFinished())

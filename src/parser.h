@@ -9,7 +9,7 @@ class Parser : public QObject
 {
     Q_OBJECT
 public:
-    explicit Parser(QObject *parent = 0);
+    explicit Parser(QObject *parent = nullptr);
     bool Init(QString filename);
     bool Parse();
     QString mCsvFile;

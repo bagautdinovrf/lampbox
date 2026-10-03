@@ -11,17 +11,14 @@
 #include <QtXml/QDomElement>
 #include <QListView>
 #include <qlistview.h>
-#include <iostream>
 #include <QMap>
 //#include <QLMCommons>
-
-using namespace std;
 
 class XMLParse : public QObject
 {
     Q_OBJECT
 public:
-    explicit XMLParse(QObject *parent = 0);
+    explicit XMLParse(QObject *parent = nullptr);
     QDomDocument doc;
 
     //! @fn Init() - Функция принимает имя файла для парсинга

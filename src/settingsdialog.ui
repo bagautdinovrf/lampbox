@@ -390,7 +390,6 @@
     </layout>
    </item>
   </layout>
-  <zorder></zorder>
  </widget>
  <resources>
   <include location="icons.qrc"/>

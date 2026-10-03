@@ -352,7 +352,7 @@ Switch::mousePressEvent( QMouseEvent * event )
 {
 	if( event->button() == Qt::LeftButton )
 	{
-		d->mousePos = event->pos();
+		d->mousePos = event->position().toPoint();
 		d->leftMouseButtonPressed = true;
 	}
 
@@ -409,9 +409,9 @@ Switch::mouseMoveEvent( QMouseEvent * event )
 {
 	if( d->leftMouseButtonPressed )
 	{
-		const int delta = event->pos().x() - d->mousePos.x();
+		const int delta = event->position().toPoint().x() - d->mousePos.x();
 		d->offset += delta;
-		d->mousePos = event->pos();
+		d->mousePos = event->position().toPoint();
 
 		if( d->offset < 0 )
 			d->offset = 0;

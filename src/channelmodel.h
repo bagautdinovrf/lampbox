@@ -12,12 +12,12 @@ class ChannelModel : public QAbstractTableModel
 {
     Q_OBJECT
 public:
-    explicit ChannelModel(ChannelManager *channelManager, QObject *parent = 0);
-    ~ChannelModel();
+    explicit ChannelModel(ChannelManager *channelManager, QObject *parent = nullptr);
+    ~ChannelModel() override;
 
     /**
      */
-    QVariant data( const QModelIndex& index, int nRole ) const;
+    QVariant data( const QModelIndex& index, int nRole ) const override;
 
     /**
      * @brief setData
@@ -26,23 +26,23 @@ public:
      * @param role
      * @return
      */
-    bool setData(const QModelIndex &index, const QVariant &value, int role);
+    bool setData(const QModelIndex &index, const QVariant &value, int role) override;
 
     /**
       */
-    int rowCount(const QModelIndex &parent = QModelIndex() ) const;
+    int rowCount(const QModelIndex &parent = QModelIndex() ) const override;
 
     /**
       */
-    int columnCount(const QModelIndex &parent = QModelIndex()) const;
+    int columnCount(const QModelIndex &parent = QModelIndex()) const override;
 
     /**
       */
-    QVariant headerData(int section, Qt::Orientation orientation, int role) const;
+    QVariant headerData(int section, Qt::Orientation orientation, int role) const override;
 
     /**
       */
-    Qt::ItemFlags flags(const QModelIndex &index) const;
+    Qt::ItemFlags flags(const QModelIndex &index) const override;
 
     void beginCollect();
     void endCollect();

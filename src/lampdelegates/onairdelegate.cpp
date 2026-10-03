@@ -12,6 +12,7 @@ OnAirDelegate::OnAirDelegate(QObject *parent) :
 {
 }
 QString OnAirDelegate::displayText( const QVariant & value, const QLocale & locale ) const{
+Q_UNUSED(locale)
 int values = value.toInt();
 return (values == 2 ? tr("В эфире") : tr("Отключен"));
 }
@@ -19,10 +20,7 @@ QWidget* OnAirDelegate::createEditor(QWidget *parent, const QStyleOptionViewItem
                       const QModelIndex &index) const{
     Q_UNUSED(index)
     Q_UNUSED(option)
-    QColor onColor;
-    QColor offColor;
-    onColor.setNamedColor("#66FF00");
-    offColor.setNamedColor("#999999");
+    const QColor onColor = QColor::fromString(QStringLiteral("#66FF00"));
     Switch *editor = new Switch(parent);
     QFont f = editor->font();
     f.setBold( true );
@@ -76,10 +74,8 @@ void OnAirDelegate::updateEditorGeometry(QWidget *editor,
 
 void OnAirDelegate::paint( QPainter * p, const QStyleOptionViewItem & option,
             const QModelIndex & index ) const{
-    QColor onColor;
-    QColor offColor;
-    onColor.setNamedColor("#66FF00");
-    offColor.setNamedColor("#999999");
+    const QColor onColor = QColor::fromString(QStringLiteral("#66FF00"));
+    const QColor offColor = QColor::fromString(QStringLiteral("#999999"));
     int value = index.model()->data(index, Qt::EditRole).toInt();
     if(value == 2){
         p->fillRect(option.rect, QBrush(onColor));;

@@ -1,5 +1,6 @@
 #include "delegatedaysoftheweek.h"
 #include "ui_delegatedaysoftheweek.h"
+#include <utility>
 
 
 using namespace lampproject;
@@ -29,7 +30,7 @@ DelegateDaysOfTheWeek::~DelegateDaysOfTheWeek()
 
 bool DelegateDaysOfTheWeek::setValue(QList<DayOfWeek> dow){
     int ok = 0;
-    foreach (DayOfWeek day, dow) {
+    for (DayOfWeek day : dow) {
         if((Sunday <= day) && (day <= Saturday)){
             listButtons[day]->setChecked(true);
             ++ok;
@@ -40,13 +41,9 @@ bool DelegateDaysOfTheWeek::setValue(QList<DayOfWeek> dow){
 
 QList<DayOfWeek> DelegateDaysOfTheWeek::getValue(){
     QList<DayOfWeek> result;
-    foreach (QPushButton* dayB, listButtons.values()) {
-        if(dayB->isChecked()) {
-            QMapIterator<DayOfWeek, QPushButton *> i(listButtons);
-            while(i.findNext(dayB)) {
-                 result << i.key();
-            }
-        }
+    for (const auto &[day, button] : std::as_const(listButtons).asKeyValueRange()) {
+        if (button->isChecked())
+            result << day;
     }
     return result;
 }
@@ -101,11 +98,11 @@ QString DelegateDayOfWeekEdit::displayText ( const QVariant & value,
             inLanguage[Saturday] = tr("Sat");
             break;
     }
-    foreach (DayOfWeek day, days) {
+    for (DayOfWeek day : days) {
         friendlyString += QString("%1, ").arg(inLanguage[day]);
     }
     if(!friendlyString.isEmpty())
-        friendlyString.remove(friendlyString.count()-2,2);
+        friendlyString.remove(friendlyString.size()-2,2);
 
     return friendlyString;
 }
@@ -135,11 +132,11 @@ void DelegateDayOfWeekEdit::setModelData(QWidget *editor, QAbstractItemModel *mo
         model->setData(index,tr("*"));
     }
     QString value;
-    foreach (DayOfWeek day, days) {
+    for (DayOfWeek day : days) {
         value += QString("%1,").arg(day);
     }
     if(!value.isEmpty())
-        value.remove(value.count()-1,1);
+        value.remove(value.size()-1,1);
     model->setData(index,value);
     emit setDataMultiple(value);
 }
@@ -176,7 +173,7 @@ QList<DayOfWeek> DelegateDayOfWeekEdit::getDays(QString value) const{
     if(dayString.isEmpty())
         return QList<DayOfWeek>(); // string not contain days
     //
-    foreach (QString sub, dayString) {
+    for (const QString &sub : dayString) {
         bool ok;
         int day = sub.toInt(&ok, 10);
         if(ok && ((Sunday <= day) && (day <= Saturday))){

@@ -1,3 +1,4 @@
+#include <utility>
 #include "advertjsongenerator.h"
 
 #include <QJsonDocument>
@@ -10,6 +11,7 @@
 AdvertJsonGenerator::AdvertJsonGenerator(QString timetable, QObject *parent) :
     QObject(parent)
 {
+    Q_UNUSED(timetable);
 }
 
 void AdvertJsonGenerator::setAdvertTimetable(const QString timetable)
@@ -27,7 +29,7 @@ void AdvertJsonGenerator::setAdvertTimetable(const QStringList timetable_list)
 QString AdvertJsonGenerator::json()
 {
     QJsonArray jarray;
-    foreach (auto advert, mTimeTableList) {
+    for (const QString &advert : std::as_const(mTimeTableList)) {
         QStringList advert_data = advert.split(';');
         QVariantMap advertMap;
         int i = 0;

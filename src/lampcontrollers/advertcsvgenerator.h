@@ -11,7 +11,7 @@ class AdvertCsvGenerator : public QObject
 {
     Q_OBJECT
 public:
-    explicit AdvertCsvGenerator(QObject *parent = 0);
+    explicit AdvertCsvGenerator(QObject *parent = nullptr);
 
     /**
      * @brief MakeCsv                Генерация рекламы в формате CSV

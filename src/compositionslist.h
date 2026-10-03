@@ -10,22 +10,22 @@ class CompositionsList : public QAbstractTableModel
 public:
 
 
-    CompositionsList(QObject *parent = 0);
+    CompositionsList(QObject *parent = nullptr);
 
 
 
-    int columnCount(const QModelIndex & parent) const ;
+    int columnCount(const QModelIndex & parent) const override ;
 
     bool Init(QString fileName);
 
-    int rowCount(const QModelIndex & parent) const ;
+    int rowCount(const QModelIndex & parent) const override ;
 
 
-    QVariant data(const QModelIndex & index, int role) const ;
+    QVariant data(const QModelIndex & index, int role) const override ;
 
     QVariant getData(int num, int position) const;
 
-    QVariant headerData(int section, Qt ::Orientation orientation, int role) const ;
+    QVariant headerData(int section, Qt ::Orientation orientation, int role) const override ;
     //Composition& getComposition(const QModelIndex & index) const ;
 
    QList<Composition> mListOfCompositions;

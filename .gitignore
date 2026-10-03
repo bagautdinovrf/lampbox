@@ -5,5 +5,15 @@ lampbox.pro.user
 build-lampbox*
 Installer/package
 Installer/bin/
+/agent_build/build/
+/agent_build/install/
+/agent_build/deploy/
+/agent_build/logs/
+/agent_build/*.log
+/agent_build/runtime/
+/build/
+/CMakeUserPresets.json
+/.qtcreator/
+/CMakeLists.txt.user
 src/lampbox.pro.user.3.3-pre1
 src/lampbox.pro.user.cac5ded.4.8-pre1

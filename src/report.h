@@ -13,7 +13,7 @@ class Report : public QWidget
     Q_OBJECT
     
 public:
-    explicit Report(QWidget *parent = 0, Qt::WindowFlags f = 0);
+    explicit Report(QWidget *parent = nullptr, Qt::WindowFlags f = {});
     ~Report();
    	CompositionsList *mCompositionsList; 
 public slots:

@@ -21,11 +21,14 @@ TreeItemDelegate::~TreeItemDelegate()
 
 
 QString TreeItemDelegate::displayText( const QVariant & value, const QLocale & locale ) const{
+    Q_UNUSED(locale)
     return value.toString();
 }
 
 QWidget* TreeItemDelegate::createEditor(QWidget *parent, const QStyleOptionViewItem &option,
                                         const QModelIndex &index) const{
+    Q_UNUSED(option)
+    Q_UNUSED(index)
     QLineEdit* line = new QLineEdit(parent);
     return line;
 }
@@ -56,8 +59,8 @@ void TreeItemDelegate::updateEditorGeometry(QWidget *editor,
 void TreeItemDelegate::paint( QPainter * painter, const QStyleOptionViewItem & option,
                               const QModelIndex & index ) const{
     LMObject* object = reinterpret_cast<LMObject*>(index.internalPointer());
-    TreeItemDelegate* This = (TreeItemDelegate*)this;
-    QStyleOptionViewItemV4 opt = option;
+    TreeItemDelegate *This = const_cast<TreeItemDelegate *>(this);
+    QStyleOptionViewItem opt = option;
     initStyleOption(&opt, index);
 
     QString line0 = index.model()->data(index).toString();
@@ -137,7 +140,7 @@ void TreeItemDelegate::makeIconList(){
 
 }
 
-QImage& TreeItemDelegate::StatusItem(const LMObject* object){
+QImage TreeItemDelegate::StatusItem(const LMObject* object){
     if(!object)
         return QImage();
     if(object->Type() == OTMediastation){
@@ -153,7 +156,7 @@ JournalListen::PlayerStatus TreeItemDelegate::status(const MusicboxId id){
     if(statusBoxs.count(id) == 0){
         JournalListenController *l = GlobalListener::Instance().get(id);
         connect(l,&JournalListenController::playerStatus, this,
-                [=](JournalListen::PlayerStatus status)
+                [this](JournalListen::PlayerStatus status)
         {
             JournalListenController *listner = static_cast<JournalListenController*>(sender());
             if(statusBoxs[listner->getId()] != status){
@@ -170,7 +173,7 @@ QString TreeItemDelegate::nowPlay(const MusicboxId id) {
     if(nowPlayBoxs.count(id) == 0){
         AirConnect* air = GlobalAirConnect::Instance().get(id);
         connect(air,&AirConnect::nowPlayChange, this,
-                [=](QDateTime start, QTime time, int /*delta*/, TrackId /*id*/, QString label, QString title)
+                [this](QDateTime /*start*/, QTime /*time*/, int /*delta*/, TrackId /*id*/, QString /*label*/, QString title)
                 {
                     AirConnect *_air = static_cast<AirConnect*>(sender());
                     if(nowPlayBoxs[_air->getId()] != title){

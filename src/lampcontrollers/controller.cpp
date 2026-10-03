@@ -10,7 +10,6 @@ bool Controller::Init(TracksFullInfo tracksFullInfo, QString &lErrorMsg, bool db
     //Балансировщик, отлаживаемся
     Balance balancer(dbg);
     mTracksFullInfo = tracksFullInfo;
-    TracksFullInfo::iterator it;
 
     //Контейнер для хранения треков с частотой
     TracksFreq NameFrequency;
@@ -20,13 +19,13 @@ bool Controller::Init(TracksFullInfo tracksFullInfo, QString &lErrorMsg, bool db
     qDebug()<<tr("Controller::Init> полученное tracksFullInfo");
     #endif
 
-    for( it = tracksFullInfo.begin(); it!=tracksFullInfo.end(); ++it ){
+    for (auto &track : tracksFullInfo) {
         #ifdef SHOW_DEBUG_OUTPUT
-        it->ShowMe();
+        track.ShowMe();
         #endif
-        QString trackIdentity  = it->GetFileName();
+        QString trackIdentity = track.GetFileName();
 
-        QString value = it->GetFrequency();
+        QString value = track.GetFrequency();
         int mIndex = value.indexOf("m");
         qDebug()<<"str:"<<value<<" INDEX OF M"<<mIndex;
         if (mIndex!=-1){
@@ -41,10 +40,10 @@ bool Controller::Init(TracksFullInfo tracksFullInfo, QString &lErrorMsg, bool db
 
             int preferedMinute = prefM.toInt();
 
-            NamePreferedMinute.insert( pair<int, QString>(preferedMinute,trackIdentity)) ;
+            NamePreferedMinute.emplace(preferedMinute, trackIdentity);
         }
         else{
-            NameFrequency.insert(pair<QString, int>(trackIdentity, value.toInt()));
+            NameFrequency.emplace(trackIdentity, value.toInt());
         }
 
 
@@ -86,39 +85,38 @@ return true;
 
 bool Controller::GenerateCronList( QString& lErrorMsg ){
     //Заполним список минут запуска у объекта TrackFullInfo
-    for(TracksFullInfo::iterator it =  mTracksFullInfo.begin(); it != mTracksFullInfo.end(); it++){
+    for (auto &track : mTracksFullInfo) {
         //пробегаем по всему списку [трэк:минута]
-        for( minuteOfTrack::iterator itr = mTrackAndMinutesList.begin(); itr!=mTrackAndMinutesList.end(); itr++) {
+        for (const auto &[minute, filename] : mTrackAndMinutesList) {
             //   если имя трека == имени трека в списке минута трек
-            if ( (*itr).second == (*it).GetFileName() ){
-                               (*it).AddMinute( (*itr).first);
+            if (filename == track.GetFileName()) {
+                track.AddMinute(minute);
             }
          }
     }
     #ifdef SHOW_DEBUG_OUTPUT
-    for(TracksFullInfo::iterator it = mTracksFullInfo.begin(); it != mTracksFullInfo.end(); it++){
-        (*it).ShowMe();
+    for (auto &track : mTracksFullInfo) {
+        track.ShowMe();
     }
     #endif
-    for(TracksFullInfo::iterator it = mTracksFullInfo.begin(); it != mTracksFullInfo.end(); it++){
-        QDate startDate = QDate::fromString((*it).mStartDate, "yyyy-MM-dd");
-        QDate finishedDate = QDate::fromString((*it).mFinishedDate, "yyyy-MM-dd");
+    for (const auto &track : mTracksFullInfo) {
+        QDate startDate = QDate::fromString(track.mStartDate, "yyyy-MM-dd");
+        QDate finishedDate = QDate::fromString(track.mFinishedDate, "yyyy-MM-dd");
         if(startDate>finishedDate) {
             lErrorMsg += tr("В одной из записей начальный период больше конечного\n");
             return false;
         }
-        MonthAndDaysList mAndD = GetDates(startDate, finishedDate, (*it).mTrackDayOfWeek);
-        MonthAndDaysList::iterator itm;
+        const MonthAndDaysList mAndD = GetDates(startDate, finishedDate, track.mTrackDayOfWeek);
         //Для всех месяцев создадим отдельные блоки в расписании
-        for(itm = mAndD.begin(); itm!=mAndD.end(); itm++ ){
+        for (const auto &monthAndDays : mAndD) {
 
-            CronItemData myCronItem((*it).GetFileName(),
-                                    (*it).mMinutesList ,
-                                    (*it).mTrackHours  ,
-                                    (*itm).mDays,
-                                    (*itm).mMonth,
-                                    (((*it).mStartDate!="*") && ((*it).mFinishedDate!="*")? "*":(*it).mTrackDayOfWeek),
-                                    (*it).mVolume);
+            CronItemData myCronItem(track.GetFileName(),
+                                    track.mMinutesList,
+                                    track.mTrackHours,
+                                    monthAndDays.mDays,
+                                    monthAndDays.mMonth,
+                                    ((track.mStartDate != "*") && (track.mFinishedDate != "*") ? "*" : track.mTrackDayOfWeek),
+                                    track.mVolume);
             mCronList.push_back( myCronItem );
         }
     }
@@ -248,23 +246,21 @@ return monthAndDaysList;
 QString Controller::AllTimesByDayOfWeek(QDate _beginDate, QDate _endDate, QString dayOfWeek){
     DaysOfWeek listDOW;
     QStringList slistDOW = dayOfWeek.split(",");
-    QString cdow;
 
     if(slistDOW.empty())
         return QString();
 
-    foreach(cdow,slistDOW){
+    for (const QString &cdow : slistDOW) {
         listDOW.push_back(Qt::DayOfWeek(cdow.toInt()));
     }
 
     Days days =  AllTimesByDayOfWeek(_beginDate,_endDate,listDOW);
-    int i;
     QString result;
-    foreach(i, days){
-        result+=QString("%1,").arg(i);
+    for (int day : days) {
+        result += QString("%1,").arg(day);
     }
     if(!result.isEmpty())
-        result.remove(result.count()-1,1);
+        result.remove(result.size()-1,1);
     return result;
 }
 
@@ -278,8 +274,7 @@ Days Controller::AllTimesByDayOfWeek(QDate _beginDate, QDate _endDate, DaysOfWee
 
     Days result;
     for(;_beginDate<=_endDate;_beginDate = _beginDate.addDays(1)){
-            Qt::DayOfWeek d;
-            foreach(d,dayOfWeek){
+            for (Qt::DayOfWeek d : dayOfWeek) {
                  if(d == _beginDate.dayOfWeek())
                     result.push_back(_beginDate.day());
             }
@@ -289,13 +284,13 @@ Days Controller::AllTimesByDayOfWeek(QDate _beginDate, QDate _endDate, DaysOfWee
 }
 
 void Controller::ShowCronList(CronList cronList){
-    foreach( CronItemData cronItemData_,cronList ){
+    for (const CronItemData &cronItemData_ : cronList) {
         cronItemData_.ShowMe( );
     }
 }
 
 bool Controller::CheckCronList(CronList cronList ){
-    foreach(CronItemData cronItemData_, cronList){
+    for (const CronItemData &cronItemData_ : cronList) {
         if ( cronItemData_.IsEmptyElement() ) return false;
     }
 return true;

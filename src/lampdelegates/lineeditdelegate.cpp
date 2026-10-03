@@ -11,6 +11,7 @@ LineEditDelegate::LineEditDelegate(QObject *parent) :
 LineEditDelegate::~LineEditDelegate(){
 }
 QString LineEditDelegate::displayText( const QVariant & value, const QLocale & locale ) const{
+    Q_UNUSED(locale)
     return value.toString();
 }
 void LineEditDelegate::updateEditorGeometry(QWidget *editor,
@@ -21,6 +22,7 @@ void LineEditDelegate::updateEditorGeometry(QWidget *editor,
 
 QWidget* LineEditDelegate::createEditor(QWidget *parent, const QStyleOptionViewItem &option,
                                         const QModelIndex &index) const{
+    Q_UNUSED(option)
 
     QLineEdit *lineEdit= new   QLineEdit(parent);
     //lineEdit->installEventFilter(const_cast<LineEditDelegate*>(this));

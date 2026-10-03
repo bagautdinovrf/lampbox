@@ -22,7 +22,7 @@ class Controller : public QObject
 {
     Q_OBJECT
 public:
-    explicit Controller(QObject *parent = 0);
+    explicit Controller(QObject *parent = nullptr);
     //! @fn Функция создает расписание по минутам, если не удалось то false
     bool Init(TracksFullInfo, QString& lErrorMsg, bool dbg);
 

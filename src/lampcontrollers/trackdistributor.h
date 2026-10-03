@@ -6,27 +6,26 @@
 #include <QObject>
 #include <QList>
 
-#include <map>
+#include <cstddef>
+#include <utility>
 
 class TrackDistributor : public QObject
 {
     Q_OBJECT
-    typedef std::vector< std::vector<int> > FrequncyTable;
+    using FrequncyTable = std::vector<std::vector<int>>;
 public:
-    explicit TrackDistributor( TracksFullInfo &tracks, QObject *parent = 0);
+    explicit TrackDistributor( TracksFullInfo &tracks, QObject *parent = nullptr);
 
     TracksFullInfo& distribute();
 
 private:
-    void clear();
-
     void counting();
 
     void ranking();
 
 private:
     TracksFullInfo          &mTracks;
-    QList<std::pair<int, int> > mTrackList;
+    QList<std::pair<std::size_t, int>> mTrackList;
 };
 
 #endif // TRACKDISTRIBUTOR_H

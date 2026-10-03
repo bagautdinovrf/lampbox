@@ -1,5 +1,5 @@
 #include "balance.h"
-using namespace std;
+#include <array>
 
 Balance::Balance(const bool &dbg) : mDbg(dbg){
 
@@ -77,10 +77,7 @@ idTracks Balance::MakeBalanced( TracksFreq unbalance,
    //Суммарное количество запусков в течении часа
    const unsigned int numStarts = 5*arr5+4*arr4+3*arr3+2*arr2+arr1;
 
-   QString **M = new QString*[row];
-   for(uint i=0; i<row; i++){
-         M[i] = new QString[MAX_POS];
-   }
+   std::vector<std::array<QString, MAX_POS>> M(row);
    //Заполняем
    int Mrow=0;
    //трек a - 5 раз
@@ -104,16 +101,16 @@ idTracks Balance::MakeBalanced( TracksFreq unbalance,
             for( int line =1; line<3; line++){
                if (line == 1){
                 for(int i=0;i<MAX_POS;i++){
-                  (*(M[Mrow]+i))= it->first;
+                  (M[Mrow][i])= it->first;
                 }
                }
                //вторую строчку заполним лишь в одном месте
                if (line == 2){
                    for(int i=0;i<MAX_POS;i++){
                        if(i == 3){
-                           (*(M[Mrow]+i))=it->first;
+                           (M[Mrow][i])=it->first;
                         }else{
-                           *(M[Mrow]+i)=ZERO;
+                           M[Mrow][i]=ZERO;
                         }
                    }
                }
@@ -129,8 +126,8 @@ idTracks Balance::MakeBalanced( TracksFreq unbalance,
        if ( it->second==4 ){
            for(int i=0; i < MAX_POS; i++){
                QString tmp =it->first;
-               (*(M[Mrow]+i)) = tmp;
-               //qDebug()<<" "<<(*(M[Mrow]+i));
+               (M[Mrow][i]) = tmp;
+               //qDebug()<<" "<<(M[Mrow][i]);
            }
 
            Mrow++;
@@ -141,16 +138,16 @@ idTracks Balance::MakeBalanced( TracksFreq unbalance,
    //
    int zeroPos =0;
    //qDebug()<<"==============="<<"\n";
-   for(TracksFreq::iterator it=unbalance.begin() ;it!=unbalance.end(); ++it){
+   for(it=unbalance.begin() ;it!=unbalance.end(); ++it){
        if ( it->second==3 ){
            for(int i=0; i<MAX_POS; i++){
                if(i == zeroPos){
-                   *(M[Mrow]+zeroPos)=ZERO;
-                  // qDebug()<<" "<<(*(M[Mrow]+zeroPos));
+                   M[Mrow][zeroPos]=ZERO;
+                  // qDebug()<<" "<<(M[Mrow][zeroPos]);
                }
                else{
-                   (*(M[Mrow]+i))= it->first;
-                    //qDebug()<<" "<<(*(M[Mrow]+i));
+                   (M[Mrow][i])= it->first;
+                    //qDebug()<<" "<<(M[Mrow][i]);
                }
             }
            (MAX_POS - 1) == zeroPos ? zeroPos = 0: zeroPos++;
@@ -163,18 +160,18 @@ idTracks Balance::MakeBalanced( TracksFreq unbalance,
    //2
    int pos =0;
    qDebug()<<"==============="<<"\n";
-   for( TracksFreq::iterator it = unbalance.begin(); it!=unbalance.end(); ++it){
+   for(it = unbalance.begin(); it!=unbalance.end(); ++it){
        QString qRow;
        if ( it->second==2){
            for(int i=0;i<MAX_POS;i++){
                if( Mrow%2==0 ){
-                   if( i & 1 ) *(M[Mrow]+i)= it->first;
-                   else (*(M[Mrow]+i))=ZERO;
+                   if( i & 1 ) M[Mrow][i]= it->first;
+                   else (M[Mrow][i])=ZERO;
                 }else{
-                    if   ( i & 1 ) (*(M[Mrow]+i))=ZERO;
-                    else (*(M[Mrow]+i))= it->first;
+                    if   ( i & 1 ) (M[Mrow][i])=ZERO;
+                    else (M[Mrow][i])= it->first;
                 }
-                qRow+=(*(M[Mrow]+i));
+                qRow+=(M[Mrow][i]);
                 qRow+=" ";
            }
            //qDebug()<<"----"<<Mrow<<"-----";
@@ -193,11 +190,11 @@ idTracks Balance::MakeBalanced( TracksFreq unbalance,
        if ( it->second==1){
            for(int i=0;i<MAX_POS;i++){
                if(i == pos){
-                   (*(M[Mrow]+i))= it->first;
+                   (M[Mrow][i])= it->first;
                 }else{
-                   *(M[Mrow]+i)=ZERO;
+                   M[Mrow][i]=ZERO;
                 }
-               qRow+=(*(M[Mrow]+i));
+               qRow+=(M[Mrow][i]);
                qRow+=" ";
            }
            //если поставили последнее значение в последнюю позицию т.е. i==3
@@ -218,8 +215,8 @@ idTracks Balance::MakeBalanced( TracksFreq unbalance,
        QString qRow;
        for(int i=0; i<Mrow; i++){
 
-           if( (*(M[i]+j) )!=ZERO){
-           balanced.push_back( *(M[i]+j)) ;
+           if( (M[i][j] )!=ZERO){
+           balanced.push_back( M[i][j]) ;
 
            }
 
@@ -230,11 +227,11 @@ idTracks Balance::MakeBalanced( TracksFreq unbalance,
    savebalanced = balanced;
    //Если два одинаковых трека стоят рядом, то они меняются местами с третьим, а если например последний и предпоследний
    //то ничего не меняется, нужно будет сделать.
-   const int tracks = balanced.size();
+   const auto tracks = balanced.size();
    //если у нас 3 запуска
    if(tracks>3){
     try {
-        for(unsigned int i=0; i<(tracks-2); i++){
+        for(std::size_t i=0; i<(tracks-2); i++){
             QString current,next, previous;
             current= balanced.at(i+1);
             previous = balanced.at(i);
@@ -246,7 +243,7 @@ idTracks Balance::MakeBalanced( TracksFreq unbalance,
             }
         }
     }
-    catch(out_of_range& oor)
+    catch(const std::out_of_range &)
     {
         //если произошла ошибка, вернем безопасный вектор
         //qDebug((string("exception caught:")+oor.what()).data());
@@ -256,11 +253,11 @@ idTracks Balance::MakeBalanced( TracksFreq unbalance,
     }
     }
     qDebug()<< "Список треков по порядку\n";;
-    int z=0;
     #ifdef SHOW_DEBUG_OUTPUT
-    for (vector<QString>::iterator it= balanced.begin();it!=balanced.end(); ++it){
+    int z=0;
+    for (const auto &track : balanced) {
         z++;
-        qDebug()<<z<<":"<<(*it);
+        qDebug()<<z<<":"<<track;
     }
     #endif
     if(numStarts!=balanced.size()){
@@ -272,9 +269,8 @@ idTracks Balance::MakeBalanced( TracksFreq unbalance,
 }
 bool Balance::MakeStartMinutes( idTracks tracks, minuteOfTrack &TrackByMinute, preferedMinute BusyMinutes )
 {
-     QString lErrorMsg;
-    int num = tracks.size();
-    const int numBusyMinutes = BusyMinutes.size();
+    const auto num = tracks.size();
+    const auto numBusyMinutes = BusyMinutes.size();
     //Превышение количества минут
     if ( (num+numBusyMinutes) > 60){
         lErrorMsg+= QObject::tr("balance::MakeStartMinutes>Превышен лимит запусков. Текущее количество запусков\n");
@@ -304,7 +300,7 @@ bool Balance::MakeStartMinutes( idTracks tracks, minuteOfTrack &TrackByMinute, p
     //Четко указанные минуты
     for(ipreferedMinute itP = BusyMinutes.begin(); itP!=BusyMinutes.end(); itP++){
         mSet.erase( itP->first);
-        TrackByMinute.insert( pair<int, QString> (static_cast<int>( itP->first), itP->second) );
+        TrackByMinute.emplace(itP->first, itP->second);
     }
     int m=0;
     float initS = 0;
@@ -345,7 +341,7 @@ bool Balance::MakeStartMinutes( idTracks tracks, minuteOfTrack &TrackByMinute, p
                     continue;
                 }
              }
-             TrackByMinute.insert(pair< int, QString>( static_cast<int>(m), *it));
+             TrackByMinute.emplace(static_cast<unsigned int>(m), *it);
              mSet.erase(m);
              //если минута свободна
     }

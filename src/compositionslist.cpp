@@ -43,9 +43,9 @@ QVariant CompositionsList::headerData(int section, Qt ::Orientation orientation,
     else
         switch (section) {
         case 0:
-            return QVariant (trUtf8("Название композиции"));
+            return QVariant (tr("Название композиции"));
         case 1:
-            return QVariant (trUtf8("Частота звучания"));
+            return QVariant (tr("Частота звучания"));
         default:
             return QVariant ();
         }

@@ -1,13 +1,11 @@
 #ifndef HOURS_H
 #define HOURS_H
 #include <vector>
-#include <map>
+#include <utility>
 #include <QString>
 #include <QObject>
 
-using namespace std;
-
-typedef vector< pair<QString,int> > HoursList;
+using HoursList = std::vector<std::pair<QString, int>>;
 
 class Hours : public QObject
 {

@@ -1,6 +1,7 @@
 #include <QSettings>
 #include <QDebug>
 #include "stationmanager.h"
+#include <utility>
 
 bool StationManager::update()
 {
@@ -9,9 +10,9 @@ bool StationManager::update()
     if( settings.status() == QSettings::NoError) {
         pathToStation.setPath( settings.value("Path").toString() );
 //        qDebug() << pathToStation.absolutePath();
-        if( settings.value("Type").toInt() == (int)STATION_LOCAL){ //local
+        if( settings.value("Type").toInt() == std::to_underlying(STATION_LOCAL)){ //local
             typeStation = STATION_LOCAL;
-        } else if( settings.value("Type").toInt() == (int)STATION_NETWORK){ //network
+        } else if( settings.value("Type").toInt() == std::to_underlying(STATION_NETWORK)){ //network
             typeStation = STATION_NETWORK;
         }
 

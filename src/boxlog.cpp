@@ -6,7 +6,6 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QDir>
-#include <QTextCodec>
 
 BoxLog::BoxLog() :
     mLogFile( new QFile() ),

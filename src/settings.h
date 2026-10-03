@@ -13,7 +13,7 @@ class Settings : public QObject
 {
     Q_OBJECT
 public:
-    explicit Settings(QObject *parent = 0);
+    explicit Settings(QObject *parent = nullptr);
 
     /**
      * @brief writeFileFormatValue          - Запись значения в конфигурационный файл

@@ -8,7 +8,6 @@
 #include <QDateEdit>
 #include <QCalendarWidget>
 #include <QLineEdit>
-#include <QRegExp>
 #include <QMessageBox>
 
 #define MAX_FREQUENCY 5

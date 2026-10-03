@@ -1,5 +1,6 @@
 #include "report.h"
 #include "ui_report.h"
+#include <QLocale>
 
 Report::Report(QWidget *parent, Qt::WindowFlags f) :
     QWidget(parent, f),
@@ -8,10 +9,8 @@ Report::Report(QWidget *parent, Qt::WindowFlags f) :
 
     ui->setupUi(this);
     connect(ui->pbGenerate,SIGNAL(clicked()),SLOT(Generate()));
-    QStringList month;
-
     for (int month = 1; month <= 12; ++month)
-            ui->cbMonth->addItem(QDate::longMonthName(month));
+        ui->cbMonth->addItem(QLocale::system().monthName(month, QLocale::LongFormat));
     ui->yearEdit->setDisplayFormat("yyyy");
 }
 
@@ -26,8 +25,7 @@ void Report::Generate(){
 
     QString strYear = startDate.toString("yy");
     int month = ui->cbMonth->currentIndex()+1;
-    QString strMonth;
-    strMonth.sprintf("%02d", month);
+    const QString strMonth = QString::number(month).rightJustified(2, '0');
 
 
     QString filePath = QString("/home/mediabox/mbstatus/") + strMonth+strYear + ".csv";
@@ -37,7 +35,7 @@ void Report::Generate(){
     }
     else{
 
-        QMessageBox::information(this, trUtf8("Файл отчетов не найден"), trUtf8("За этот период отчетов нет"));
+        QMessageBox::information(this, tr("Файл отчетов не найден"), tr("За этот период отчетов нет"));
 
     }
 

@@ -11,6 +11,7 @@
 #include <QErrorMessage>
 #include "trackfullinfo.h"
 #include <QTemporaryFile>
+#include <memory>
 class Controller;
 
 class QCronGenerator: public QObject
@@ -39,11 +40,11 @@ public:
 
     bool WinMake(QString advFullPath, QString adsContent);
     QString toString();
-    Controller *mController;
+    std::unique_ptr<Controller> mController;
     QTemporaryFile mTmpFile;
 
     QString mLastError;
-    ~QCronGenerator();
+    ~QCronGenerator() override;
 signals:
 
 public slots:

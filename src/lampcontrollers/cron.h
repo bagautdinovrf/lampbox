@@ -14,14 +14,15 @@
 #define CRON_H
 #include <QString>
 #include <QMap>
-#include <QVector>
+#include <QList>
 #include <vector>
+#include <utility>
 #include <QDebug>
 //#define  STOP_STRING   QString("59 23 * * * root /home/scripts/killer.sh \n")
 #define  START_STRING  QString("MAILTO=\"\"\n")
 ///home/scripts/playkanal.sh music \n")
 
-typedef struct _CronItemData
+struct CronItemData
 {
     QString Filename; //Имя файла
     QString m;        //Месяц
@@ -31,7 +32,7 @@ typedef struct _CronItemData
     QString dow;      //День недели
     QString volume;   //Громокость
 
-    void ShowMe(){
+    void ShowMe() const {
         qDebug()<<"------------------------";
         qDebug()<<"FileName : " << Filename;
         qDebug()<<"m        : " << m;
@@ -42,7 +43,7 @@ typedef struct _CronItemData
         qDebug()<<"volume      : " << volume;
         qDebug()<<"------------------------";
     }
-    bool IsEmptyElement(){
+    bool IsEmptyElement() const {
         bool status = false;
         if ( Filename.isEmpty()) status = true;
         if ( m.isEmpty())       status = true;
@@ -57,31 +58,34 @@ typedef struct _CronItemData
         return status;
     }
 
-    _CronItemData(){}
-    _CronItemData(QString _Filename,
+    CronItemData() = default;
+    CronItemData(QString _Filename,
                   QString _m,
                   QString _h,
                   QString _dom,
                   QString _mon,
                   QString _dow,
                   QString _volume):
-        Filename(_Filename), m(_m), h(_h), dom(_dom), mon(_mon), dow(_dow),volume(_volume)
+        Filename(std::move(_Filename)), m(std::move(_m)), h(std::move(_h)),
+        dom(std::move(_dom)), mon(std::move(_mon)), dow(std::move(_dow)),
+        volume(std::move(_volume))
     {
     }
 
-} CronItemData;
+};
 
-typedef struct _MonthAndDays{
+struct MonthAndDays {
     QString mMonth;
     QString mDays;
 
-    _MonthAndDays(QString _month, QString _days ):mMonth( _month ),mDays( _days )
+    MonthAndDays(QString _month, QString _days)
+        : mMonth(std::move(_month)), mDays(std::move(_days))
     {}
-} MonthAndDays;
+};
 
-typedef QVector<CronItemData> CronList;
-typedef std::vector<MonthAndDays>  MonthAndDaysList;
-typedef std::vector<int> Days;
-typedef std::vector<Qt::DayOfWeek> DaysOfWeek;
+using CronList = QList<CronItemData>;
+using MonthAndDaysList = std::vector<MonthAndDays>;
+using Days = std::vector<int>;
+using DaysOfWeek = std::vector<Qt::DayOfWeek>;
 
 #endif // CRON_H

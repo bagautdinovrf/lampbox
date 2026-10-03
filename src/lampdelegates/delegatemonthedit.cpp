@@ -1,6 +1,6 @@
 #include "delegatemonthedit.h"
 
-#include <QDateTime>
+#include <QLocale>
 using namespace lampproject::delegate;
 
 DelegateMonthEdit::DelegateMonthEdit(QObject *parent):
@@ -32,11 +32,11 @@ QString DelegateMonthEdit::displayText ( const QVariant & value,
             return tr("Never");
         }
     }
-    foreach (Month month, months) {
-        friendlyString += QString("%1, ").arg(QDate::shortMonthName(month));
+    for (Month month : months) {
+        friendlyString += QString("%1, ").arg(locale.monthName(month, QLocale::ShortFormat));
     }
     if(!friendlyString.isEmpty())
-        friendlyString.remove(friendlyString.count()-2,2);
+        friendlyString.remove(friendlyString.size()-2,2);
 
     return friendlyString;
 }
@@ -65,11 +65,11 @@ void DelegateMonthEdit::setModelData(QWidget *_editor, QAbstractItemModel *model
         model->setData(index,tr("*"));
     }
     QString value;
-    foreach (Month month, months) {
+    for (Month month : months) {
         value += QString("%1,").arg(month);
     }
     if(!value.isEmpty())
-        value.remove(value.count()-1,1);
+        value.remove(value.size()-1,1);
     model->setData(index,value);
 }
 
@@ -107,7 +107,7 @@ QList<Month> DelegateMonthEdit::getMonth(QString value) const{
     if(monthString.isEmpty())
         return QList<Month>(); // string not contain days
     //
-    foreach (QString sub, monthString) {
+    for (const QString &sub : monthString) {
         bool ok;
         int month = sub.toInt(&ok, 10);
         if(ok && ((January <= month) && (month <= December))){

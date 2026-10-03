@@ -7,7 +7,7 @@
 class TrialMessageBox : public QMessageBox
 {
 public:
-    TrialMessageBox( QString text = QString(), QWidget *parent = 0);
+    TrialMessageBox( QString text = QString(), QWidget *parent = nullptr);
     ~TrialMessageBox();
 };
 

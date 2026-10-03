@@ -4,6 +4,8 @@
 #include <QWidget>
 #include <QStyledItemDelegate>
 #include <QListWidgetItem>
+#include <QMap>
+#include <QStringList>
 
 namespace Ui {
 class DelegateDateTimePeriod;
@@ -23,8 +25,8 @@ namespace lampproject{
     };
     class TimePeriodListWidgetItem: public QListWidgetItem {
     public:
-        TimePeriodListWidgetItem(QString text, QListWidget *view =0,int type = Type);
-        bool operator< ( const QListWidgetItem & other ) const;
+        TimePeriodListWidgetItem(QString text, QListWidget *view = nullptr, int type = Type);
+        bool operator< ( const QListWidgetItem & other ) const override;
     };
 
     /// Класс делегата
@@ -37,18 +39,18 @@ namespace lampproject{
         QStringList groupItem(QStringList value, GroupFormat fromat = Group) const;
         QMap<DataTimePeriodDelegateType, QString> foreverText;
     public:
-        DelegateDateTimePeriodEdit(DataTimePeriodDelegateType delegateType = hour, QObject *parent = 0);
-        QString displayText( const QVariant & value, const QLocale & locale ) const;
+        DelegateDateTimePeriodEdit(DataTimePeriodDelegateType delegateType = hour, QObject *parent = nullptr);
+        QString displayText( const QVariant & value, const QLocale & locale ) const override;
         QWidget *createEditor(QWidget *parent, const QStyleOptionViewItem &option,
-                              const QModelIndex &index) const;
+                              const QModelIndex &index) const override;
 
-        void setEditorData(QWidget *editor, const QModelIndex &index) const;
+        void setEditorData(QWidget *editor, const QModelIndex &index) const override;
         void setModelData(QWidget *editor, QAbstractItemModel *model,
-                          const QModelIndex &index) const;
+                          const QModelIndex &index) const override;
         bool editorEvent(QEvent * event, QAbstractItemModel * model,
-                         const QStyleOptionViewItem & option, const QModelIndex & index);
+                         const QStyleOptionViewItem & option, const QModelIndex & index) override;
 
-        void updateEditorGeometry(QWidget *editor, const QStyleOptionViewItem &option, const QModelIndex &index) const;
+        void updateEditorGeometry(QWidget *editor, const QStyleOptionViewItem &option, const QModelIndex &index) const override;
 
         void setType(DataTimePeriodDelegateType type);
     private:
@@ -69,8 +71,8 @@ namespace lampproject{
             QMap<DataTimePeriodDelegateType, int> minimum;
             QMap<DataTimePeriodDelegateType, QString> label;
         public:
-            explicit DelegateDateTimePeriod(QWidget *parent = 0);
-            ~DelegateDateTimePeriod();
+            explicit DelegateDateTimePeriod(QWidget *parent = nullptr);
+            ~DelegateDateTimePeriod() override;
             QString getValue();
             bool setValue(QString value);
             void setType(DataTimePeriodDelegateType type);
@@ -84,7 +86,7 @@ namespace lampproject{
 
             void on_pushButtonAccept_clicked();
             void on_pushButtonCancel_clicked();
-            void setElementsState(int);
+            void setElementsState(Qt::CheckState);
 
         signals:
             void accept();

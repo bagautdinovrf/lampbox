@@ -1,6 +1,7 @@
 #include "delegatemonthwidget.h"
 #include "ui_delegatemonthwidget.h"
 #include <QDate>
+#include <utility>
 
 DelegateMonthWidget::DelegateMonthWidget(QWidget *parent) :
     QWidget(parent),
@@ -28,7 +29,7 @@ DelegateMonthWidget::~DelegateMonthWidget()
 
 bool DelegateMonthWidget::setValue(QList<Month> months){
     int ok = 0;
-    foreach (Month month, months) {
+    for (Month month : months) {
         if((January <= month) && (month <= December)){
             listCheckbox[month]->setChecked(true);
             ++ok;
@@ -38,13 +39,9 @@ bool DelegateMonthWidget::setValue(QList<Month> months){
 }
 QList<Month> DelegateMonthWidget::getValue(){
     QList<Month> result;
-    foreach (QCheckBox* monthB, listCheckbox.values()) {
-        if(monthB->isChecked()) {
-            QMapIterator<Month, QCheckBox *> i(listCheckbox);
-            while(i.findNext(monthB)) {
-                 result << i.key();
-            }
-        }
+    for (const auto &[month, checkbox] : std::as_const(listCheckbox).asKeyValueRange()) {
+        if (checkbox->isChecked())
+            result << month;
     }
     return result;
 }

@@ -2,6 +2,7 @@
 #include <QMainWindow>
 #include <QApplication>
 #include <QSpinBox>
+#include <QStyleOptionProgressBar>
 
 using namespace lampproject::delegate;
 DelegateVolumeEdit::DelegateVolumeEdit(QObject *parent):

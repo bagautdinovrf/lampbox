@@ -14,7 +14,7 @@ class AdvertManager : public QObject
 {
     Q_OBJECT
 public:
-    AdvertManager(QObject *parent = 0);
+    AdvertManager(QObject *parent = nullptr);
 
     /// Возвращает число стоблцов для модели
     int column();

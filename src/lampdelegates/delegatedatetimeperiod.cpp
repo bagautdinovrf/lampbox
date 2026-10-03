@@ -1,7 +1,7 @@
 #include "delegatedatetimeperiod.h"
 #include "ui_delegatedatetimeperiod.h"
 #include <QDebug>
-#include <stdlib.h>
+#include <QRegularExpression>
 
 using namespace lampproject::delegate;
 
@@ -52,7 +52,7 @@ QStringList DelegateDateTimePeriodEdit::groupItem(QStringList value, GroupFormat
         return value;
     }
     QMap<int,int> mapPeriod;
-    foreach (QString item, value) {
+    for (const QString &item : value) {
         mapPeriod[item.toInt()] = item.toInt();
     }
 
@@ -96,7 +96,7 @@ QStringList DelegateDateTimePeriodEdit::groupItem(QStringList value, GroupFormat
 QWidget *DelegateDateTimePeriodEdit::createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const
 {
     Q_UNUSED(option);
-    //Q_UNUSED(index);
+    Q_UNUSED(index);
     DelegateDateTimePeriod *editor = new DelegateDateTimePeriod(parent);
     //#ifdef __APPLE__
     editor->setFocusPolicy(Qt::StrongFocus);
@@ -115,7 +115,7 @@ void DelegateDateTimePeriodEdit::setEditorData(QWidget *editor, const QModelInde
     connect(deditor,&DelegateDateTimePeriod::accept,this,
                     &DelegateDateTimePeriodEdit::commitAndCloseEditor);
     connect(deditor,&DelegateDateTimePeriod::reject,this,
-                    [=](){
+                    [this, deditor, index](){
                         this->destroyEditor(deditor,index);
                     });
 
@@ -204,7 +204,8 @@ DelegateDateTimePeriod::DelegateDateTimePeriod(QWidget *parent) :
     ui->spinBox->setDisabled(true);
 
 //    if( minute == type )
-        connect(ui->checkBox, SIGNAL( stateChanged(int) ), SLOT(setElementsState(int) ) );
+        connect(ui->checkBox, &QCheckBox::checkStateChanged, this,
+                &DelegateDateTimePeriod::setElementsState);
 }
 
 DelegateDateTimePeriod::~DelegateDateTimePeriod()
@@ -213,19 +214,15 @@ DelegateDateTimePeriod::~DelegateDateTimePeriod()
 }
 
 
-void DelegateDateTimePeriod::setElementsState(int cb)
+void DelegateDateTimePeriod::setElementsState(Qt::CheckState cb)
 {
     if( type != minute )
         return;
 
-    bool state;
-    if( cb == 0 ) {
-        state = false;
+    const bool state = cb == Qt::Checked;
+    if( cb == Qt::Unchecked ) {
         setValue("*");
     }
-
-    if( cb == 2 )
-        state = true;
 
     ui->spinBox->setEnabled(state);
     ui->pushButtonAddOne->setDisabled(state);
@@ -349,7 +346,7 @@ void lampproject::delegate::DelegateDateTimePeriod::checkList(){
         ui->listWidget->addItem(new TimePeriodListWidgetItem("*"));
         return;
     } else if(ui->listWidget->count() > 1) {
-        foreach(QListWidgetItem* item, ui->listWidget->findItems("*",Qt::MatchExactly)){
+        for (QListWidgetItem *item : ui->listWidget->findItems("*", Qt::MatchExactly)) {
             delete item;
         }
     }
@@ -357,11 +354,12 @@ void lampproject::delegate::DelegateDateTimePeriod::checkList(){
 }
 
 QStringList lampproject::delegate::DelegateDateTimePeriod::convertItem(QString item){
-    QRegExp re;
-    re.setPattern("(\\d+)-(\\d+)");
-    if(re.indexIn(item) != -1){
-        int start = re.cap(1).toInt();
-        int end = re.cap(2).toInt();
+    static const QRegularExpression re(QStringLiteral("(\\d+)-(\\d+)"),
+                                       QRegularExpression::UseUnicodePropertiesOption);
+    const auto match = re.match(item);
+    if (match.hasMatch()) {
+        const int start = match.captured(1).toInt();
+        const int end = match.captured(2).toInt();
         QStringList fatLine;
         if(start < end){
             for(int i = start; i <= end ; ++i ){
@@ -387,12 +385,9 @@ QStringList lampproject::delegate::DelegateDateTimePeriod::convertItem(QString i
 }
 
 QStringList DelegateDateTimePeriod::removeDuplicate(QStringList value){
-    std::list<QString> clearList = value.toStdList();
-    clearList.sort();
-    clearList.unique([=](QString first, QString second){
-        return ( first == second);
-    });
-    return QStringList::fromStdList(clearList);
+    value.sort();
+    value.removeDuplicates();
+    return value;
 }
 
 
@@ -401,9 +396,9 @@ QStringList DelegateDateTimePeriod::removeDuplicate(QStringList value){
 ///************************************************************************************************************************
 TimePeriodListWidgetItem::TimePeriodListWidgetItem(QString text, QListWidget *view,int type): QListWidgetItem(view,type){
     setText(text);
-    QRegExp re;
-    re.setPattern("(\\d+)-(\\d+)");
-    if(re.indexIn(text) != -1){
+    static const QRegularExpression re(QStringLiteral("(\\d+)-(\\d+)"),
+                                       QRegularExpression::UseUnicodePropertiesOption);
+    if (re.match(text).hasMatch()) {
         setIcon(QIcon(":/ico/res/period.png"));
     } else {
         setIcon(QIcon(":/ico/res/onepoint.png"));

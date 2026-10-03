@@ -1,5 +1,4 @@
 #include <QApplication>
-#include <QTextCodec>
 #include <QSharedMemory>
 #include <QDebug>
 #include <QMessageBox>
@@ -80,9 +79,6 @@ int main(int argc, char *argv[])
 
     QApplication a(argc, argv);
 
-    QTextCodec *codec = QTextCodec::codecForName("UTF-8");
-    QTextCodec::setCodecForLocale(codec);
-
     QSharedMemory mem("LampBoxMemory");
     if( mem.attach() ) {
         QMessageBox msgBox;
@@ -92,13 +88,7 @@ int main(int argc, char *argv[])
     } else {
         mem.create(1);
     }
-#if QT_VERSION >= 0x050100
-    #ifdef __linux__
-        QApplication::setStyle(QStyleFactory::create("Gtk"));
-    #else
-        QApplication::setStyle(QStyleFactory::create("Fusion"));
-    #endif
-#endif
+    QApplication::setStyle(QStyleFactory::create("Fusion"));
 
     if( !checkLampPlayer() )
         return 1;

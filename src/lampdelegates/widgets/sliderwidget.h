@@ -30,10 +30,10 @@ signals:
     void sliderReleased( int );
 
 protected:
-    virtual void wheelEvent( QWheelEvent* );
-    virtual void mouseMoveEvent( QMouseEvent* );
-    virtual void mouseReleaseEvent( QMouseEvent* );
-    virtual void mousePressEvent( QMouseEvent* );
+    void wheelEvent(QWheelEvent *) override;
+    void mouseMoveEvent(QMouseEvent *) override;
+    void mouseReleaseEvent(QMouseEvent *) override;
+    void mousePressEvent(QMouseEvent *) override;
     virtual void slideEvent( QMouseEvent* );
 
     bool m_sliding;
@@ -69,8 +69,8 @@ public:
                   QWidget *parent, uint max = 0 );
 
 protected:
-    virtual void slideEvent( QMouseEvent* );
-    virtual void mousePressEvent( QMouseEvent* );
+    void slideEvent(QMouseEvent *) override;
+    void mousePressEvent(QMouseEvent *) override;
 
 private:
     PrettySlider( const PrettySlider& ); //undefined
@@ -87,14 +87,14 @@ public:
     VolumeSlider( QWidget *parent, uint max = 0 );
 
 protected:
-    virtual void paintEvent( QPaintEvent* );
-    virtual void enterEvent( QEvent* );
-    virtual void leaveEvent( QEvent* );
-    virtual void paletteChange( const QPalette& );
-    virtual void slideEvent( QMouseEvent* );
-    virtual void mousePressEvent( QMouseEvent* );
-    virtual void contextMenuEvent( QContextMenuEvent* );
-    virtual void wheelEvent( QWheelEvent *e );
+    void paintEvent(QPaintEvent *) override;
+    void enterEvent(QEnterEvent *) override;
+    void leaveEvent(QEvent *) override;
+    void changeEvent(QEvent *) override;
+    void slideEvent(QMouseEvent *) override;
+    void mousePressEvent(QMouseEvent *) override;
+    void contextMenuEvent(QContextMenuEvent *) override;
+    void wheelEvent(QWheelEvent *) override;
 
 private slots:
     virtual void slotAnimTimer();

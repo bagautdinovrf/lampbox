@@ -10,11 +10,9 @@
 #include <QDebug>
 //#include "common.h"
 
-using namespace std;
-
 class  TrackFullInfo;
 
-typedef vector<TrackFullInfo> TracksFullInfo;
+using TracksFullInfo = std::vector<TrackFullInfo>;
 
 class  TrackFullInfo
 {

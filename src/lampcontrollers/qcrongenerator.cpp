@@ -3,14 +3,13 @@
 #include "controller.h"
 #include "cron.h"
 
-QCronGenerator::QCronGenerator(QObject *parent)//:FileMaker( parent )
+QCronGenerator::QCronGenerator(QObject *parent) : QObject(parent)
 {
-    Q_UNUSED(parent);
 }
 
 bool QCronGenerator::Init(TracksFullInfo tracksFullInfo, QString &lErrorMsg, bool dbg){
 
-    mController = new Controller( 0 );
+    mController = std::make_unique<Controller>();
 
     if (tracksFullInfo.size()==0){
         lErrorMsg += tr("Отсутствует информация о расписании\n");
@@ -34,7 +33,6 @@ bool QCronGenerator::Init(TracksFullInfo tracksFullInfo, QString &lErrorMsg, boo
 bool QCronGenerator::Make(){
 
 
-    CronItemData item;
     mResult.append(START_STRING);
     if (mController->mCronList.size()==0) {
         mLastError = "QCronGenerator::Make mCronList is empty";
@@ -42,7 +40,7 @@ bool QCronGenerator::Make(){
         return false;
     }
 
-    foreach(item, mController->mCronList)
+    for (const auto &item : mController->mCronList)
     {
         mResult.append(QString("%1 %2 %3 %4 %5 root /home/mediabox/scripts/play_advertise.pl %6 %7\n").arg(
                                     item.m, item.h, item.dom, item.mon, item.dow, item.Filename, item.volume));
@@ -59,7 +57,7 @@ bool QCronGenerator::Make(){
 }
 
 bool QCronGenerator::WinMake(QString advFullPath, QString adsContent){
-    CronItemData item;
+    Q_UNUSED(adsContent);
     //mResult.append(START_STRING);
     QString play_advertise = QString("perl.exe") + "\"" + advFullPath + "/play_advertise.pl" + "\"";
     QString play_music =QString("perl.exe  ") + "\""+ advFullPath + "/play_music.pl"+"\"";
@@ -71,7 +69,7 @@ bool QCronGenerator::WinMake(QString advFullPath, QString adsContent){
         return false;
     }
 
-    foreach(item, mController->mCronList)
+    for (const auto &item : mController->mCronList)
     {
         mResult.append(QString("%1 %2 %3 %4 %5 %6 %7 %8\n").arg(
                                     item.m, item.h, item.dom, item.mon,
@@ -91,14 +89,13 @@ bool QCronGenerator::WinMake(QString advFullPath, QString adsContent){
 
 bool QCronGenerator::Make(QString cronPath){
 
-    CronItemData item;
     mResult.append(START_STRING);
     if (mController->mCronList.size()==0) {
         qDebug()<<"Make::Empty mCronList";
         return false;
     }
 
-    foreach(item, mController->mCronList)
+    for (const auto &item : mController->mCronList)
     {
            mResult.append(QString("%1 %2 %3 %4 %5  c:/myplayer/mpg123.exe c:/lampcontent/ads/%6 \n").arg(
                                     item.m, item.h, item.dom, item.mon, item.dow, item.Filename));
@@ -162,7 +159,4 @@ QString QCronGenerator::toString()
     return mResult;
 }
 
-QCronGenerator::~QCronGenerator(){
-    if(mController)
-        delete mController;
-}
+QCronGenerator::~QCronGenerator() = default;

@@ -1,3 +1,4 @@
+#include <utility>
 
 
 #include "mainwindow.h"
@@ -46,7 +47,6 @@
 #include <QTimer>
 #include <QLabel>
 //#include <QThread>
-#include <QSignalMapper>
 #include <QTreeView>
 #include <QTableView>
 #include <QFileSystemModel>
@@ -172,16 +172,9 @@ MainWindow::MainWindow(QWidget *parent) :
     // Подключение информера
     connect( &Informer::Instance(),     SIGNAL( infoEventSignal( QString ) ), ui->InfoWidget, SLOT(inform(QString)) );
 
-    // Формируем карту сигналов
-    QSignalMapper  *mapper = new QSignalMapper(this);
-    mapper->setMapping( mAct_music,     (int)PAGE_MUSIC );
-    mapper->setMapping( mAct_ads,       (int)PAGE_ADVERT );
-    mapper->setMapping( mAct_video,     (int)PAGE_VIDEO );
-
-    connect( mAct_music,    SIGNAL( triggered() ), mapper,  SLOT( map() ) );
-    connect( mAct_ads,      SIGNAL( triggered() ), mapper,  SLOT( map() ) );
-    connect( mAct_video,    SIGNAL( triggered() ), mapper,  SLOT( map() ) );
-    connect( mapper,        SIGNAL( mapped(int) ), SLOT( changePage(int) ) );
+    connect(mAct_music, &QAction::triggered, this, [this] { changePage(PAGE_MUSIC); });
+    connect(mAct_ads, &QAction::triggered, this, [this] { changePage(PAGE_ADVERT); });
+    connect(mAct_video, &QAction::triggered, this, [this] { changePage(PAGE_VIDEO); });
 
     /// Установка делегатов в таблицу музыки
     ui->tableCnannelMusic->setItemDelegateForColumn(0, new SimpleLineEditDelegate(ui->tableCnannelMusic) );
@@ -255,17 +248,17 @@ MainWindow::MainWindow(QWidget *parent) :
 
 /// Реклама
     // Список доступных рекламных треков
-    mMediaAdvertManager.reset( new MediaManager(/*SPathData().homePathDir + */SPathData().advertDir, ADVERT) );
-    MediaModel *advertTrackModel = new MediaModel(mMediaAdvertManager.data(), ADVERT, this);
+    mMediaAdvertManager = std::make_unique<MediaManager>(SPathData().advertDir, ADVERT);
+    MediaModel *advertTrackModel = new MediaModel(mMediaAdvertManager.get(), ADVERT, this);
     mMediaAdvertManager->setMediaModel(advertTrackModel);
     ui->tree_advert->setModel(advertTrackModel);
 
     // Расписание рекламы
-    mAdvertManager.reset( new AdvertManager() );
-    AdvertModel *advertModel = new AdvertModel( mAdvertManager.data(), this );
+    mAdvertManager = std::make_unique<AdvertManager>();
+    AdvertModel *advertModel = new AdvertModel(mAdvertManager.get(), this);
 //    connect(advertModel, SIGNAL(dataChanged(QModelIndex,QModelIndex)), SLOT( generateCron() ) );
-    connect(mAdvertManager.data(), SIGNAL(beginCollect()), advertModel, SLOT(beginReset()) );
-    connect(mAdvertManager.data(), SIGNAL(endCollect()), advertModel, SLOT(endReset()) );
+    connect(mAdvertManager.get(), SIGNAL(beginCollect()), advertModel, SLOT(beginReset()));
+    connect(mAdvertManager.get(), SIGNAL(endCollect()), advertModel, SLOT(endReset()));
     ui->tableAdvert->setModel(advertModel);
 
     // Таблица музыки
@@ -493,7 +486,7 @@ void MainWindow::slot_removeMediaFiles()
         }
     }
 
-    foreach (QModelIndex index, list) {
+    for (const QModelIndex &index : std::as_const(list)) {
         if( !index.isValid() )
             continue;
             mediaManager->delFile(index.data().toString());
@@ -600,7 +593,7 @@ void MainWindow::slot_addAdvert()
         }
     }
 
-    foreach (QModelIndex index, list) {
+    for (const QModelIndex &index : std::as_const(list)) {
         if(index.isValid()) {
             mAdvertManager->addAdvert(mMediaAdvertManager->mediaData( index.row() ).fileName());
 //            qDebug() << mMediaAdvertManager->mediaData(index.row()).fileName();
@@ -622,7 +615,7 @@ void MainWindow::slot_deleteAdvert()
     if(list.isEmpty())
         return;
 //qDebug() << list.size();
-    foreach (QModelIndex index, list) {
+    for (const QModelIndex &index : std::as_const(list)) {
         if(index.isValid())
             mAdvertManager->delAdvert( index.row() );
     }
@@ -673,34 +666,19 @@ void MainWindow::changeFileFormats()
 
 void MainWindow::changePage( const int page )
 {
-    bool act_music,
-         act_advert,
-         act_video;
-
     switch (page) {
         case PAGE_MUSIC:
-            act_music = true;
-            act_advert = false;
-            act_video = false;
-        break;
-
         case PAGE_ADVERT:
-            act_music = false;
-            act_advert = true;
-            act_video = false;
-        break;
-
         case PAGE_VIDEO:
-            act_music = false;
-            act_advert = false;
-            act_video = true;
-        break;
+            break;
+        default:
+            return;
     }
 
-    mAct_music->setChecked(act_music);
-    mAct_ads->setChecked(act_advert);
-    mAct_video->setChecked(act_video);
-    mPage = (MainWindowPage)page;
+    mAct_music->setChecked(page == PAGE_MUSIC);
+    mAct_ads->setChecked(page == PAGE_ADVERT);
+    mAct_video->setChecked(page == PAGE_VIDEO);
+    mPage = static_cast<MainWindowPage>(page);
 
     if(page == ui->sw_->currentIndex() )
         return;
@@ -771,7 +749,7 @@ MediaManager *MainWindow::currentPageMediaManager()
     if( PAGE_MUSIC == mPage ) {
         manager = &mChannelManagerMusic->currentChannel().mediaManager();
     } else if( PAGE_ADVERT == mPage ) {
-        manager = mMediaAdvertManager.data();
+        manager = mMediaAdvertManager.get();
     } else if(PAGE_VIDEO == mPage ) {
         manager = &mChannelManagerVideo->currentChannel().mediaManager();
     }
@@ -831,13 +809,13 @@ void MainWindow::setSelectFileInfoHeader(QModelIndex index, QModelIndex)
     QString lb_trackLength  = "Длительность: <b>%1</b>";
     QString lb_trackAutor   = "Исполнитель: <b>%1</b>";
 
-    const MediaData &data = manager->mediaData( index.row() );
-    ui->lb_trackName->      setText( lb_trackName.arg( data.title() ) );
-    ui->lb_trackGenre->     setText( lb_trackGenre.arg( data.genre() ) );
-    ui->lb_trackAlbum->     setText( lb_trackAlbum.arg( data.album() ) );
-    ui->lb_trackYear->      setText( lb_trackYear.arg( data.year() ) );
-    ui->lb_trackLength->    setText( lb_trackLength.arg( manager->calculateLength( data.length() ) ) );
-    ui->lb_trackAutor->     setText( lb_trackAutor.arg( data.artist() ) );
+    const MediaData &mediaData = manager->mediaData(index.row());
+    ui->lb_trackName->      setText( lb_trackName.arg( mediaData.title() ) );
+    ui->lb_trackGenre->     setText( lb_trackGenre.arg( mediaData.genre() ) );
+    ui->lb_trackAlbum->     setText( lb_trackAlbum.arg( mediaData.album() ) );
+    ui->lb_trackYear->      setText( lb_trackYear.arg( mediaData.year() ) );
+    ui->lb_trackLength->    setText( lb_trackLength.arg( manager->calculateLength( mediaData.length() ) ) );
+    ui->lb_trackAutor->     setText( lb_trackAutor.arg( mediaData.artist() ) );
 
     mFileInfoHeaderIsClear = false;
 }
@@ -879,7 +857,7 @@ void MainWindow::setInfoHeader()
             clearInfoHeader();
             return;
         }
-        mediaManager = mMediaAdvertManager.data();
+        mediaManager = mMediaAdvertManager.get();
         lb_about = "Реклама";
     } else {
         clearInfoHeader();
@@ -1028,15 +1006,6 @@ void MainWindow::setAddFilesButtonState()
 void MainWindow::setRefreshButtonState()
 {
     // NOTE: Пока что не требуется изменять состояние кнопки "обновить"
-    return;
-    bool state;
-    if( mChannelManagerMusic->channelCount() || mAdvertManager->count() )
-        state = true;
-    else
-        state = false;
-
-    mAct_RefreshTimetable->setEnabled(state);
-    ui->act_updateTimetable->setEnabled(state);
 }
 
 ///

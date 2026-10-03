@@ -15,7 +15,6 @@
 
 /// Qt
 #include <QFileInfoList>
-#include <QPointer>
 #include <QApplication>
 #include <QProgressDialog>
 #include <QSettings>
@@ -221,14 +220,14 @@ bool MediaManager::addFile(const QString &fileName)
     }
 
     qApp->processEvents();
-    QPointer<QFile> file = new QFile(fileName);
+    QFile file(fileName);
     QString name = fileName.section('/', -1);
 
     name.remove('}').remove('{');
     QString mediaFileName =  mDirMediaFiles.path() + '/' + name;
-    if( !file->copy( mediaFileName ) ) {
+    if( !file.copy( mediaFileName ) ) {
         // TODO: такой файл уже существует, переписать?
-        BoxLog() << file->errorString();
+        BoxLog() << file.errorString();
         BoxLog() << "Copy error:" << fileName << "!";
         return false;
     }
@@ -243,7 +242,12 @@ void MediaManager::createTagFile( const QString &fileName )
 {
     QString tagFileName = fileName + ".tag";
     QSettings tag( tagFileName, QSettings::IniFormat);
-    TagLib::FileRef mediaTag(fileName.toStdWString().c_str() );
+#ifdef Q_OS_WIN
+    const auto tagFileNameNative = fileName.toStdWString();
+#else
+    const auto tagFileNameNative = QFile::encodeName(fileName);
+#endif
+    TagLib::FileRef mediaTag(tagFileNameNative.data());
     if( mediaTag.isNull() )
         return;
     if( !mediaTag.tag()->isEmpty() ) {

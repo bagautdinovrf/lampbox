@@ -51,11 +51,10 @@ QVariant MediaModel::headerData(int section, Qt::Orientation orientation, int nR
                          name = "Реклама";
                      return QVariant( name );
                  }
-                return QVariant( trUtf8("Файлы") );
+                return QVariant( tr("Файлы") );
             default:
                 return QVariant();
         }
-    return QVariant();
 }
 
 /**
@@ -74,7 +73,7 @@ QVariant MediaModel::data(const QModelIndex &index, int nRole) const
             default:
                 return QVariant();
         }
-    } else if( nRole == Qt::BackgroundColorRole ) {
+    } else if( nRole == Qt::BackgroundRole ) {
         switch( index.row() % 2 ) {
         case 1:
             // Snow3
@@ -172,7 +171,7 @@ bool MediaModel::dropMimeData(const QMimeData *data, Qt::DropAction action, int 
         return false;
 
     QStringList files;
-    foreach ( QUrl url, data->urls() ) {
+    for (const QUrl &url : data->urls()) {
        files <<  url.toLocalFile();
     }
     emit dropFileList(files);

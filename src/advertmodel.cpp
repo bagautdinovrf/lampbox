@@ -22,23 +22,22 @@ QVariant AdvertModel::headerData(int section, Qt::Orientation orientation, int n
         switch (section)
         {
             case 0:
-                return QVariant( trUtf8("Название") );
+                return QVariant( tr("Название") );
             case 1:
-                return QVariant( trUtf8("Часы") );
+                return QVariant( tr("Часы") );
             case 2:
-                return QVariant( trUtf8("Минуты/Частота") );
+                return QVariant( tr("Минуты/Частота") );
             case 3:
-                return QVariant( trUtf8("Дни недели") );
+                return QVariant( tr("Дни недели") );
             case 4:
-                return QVariant( trUtf8("Начало") );
+                return QVariant( tr("Начало") );
             case 5:
-                return QVariant( trUtf8("Окончание") );
+                return QVariant( tr("Окончание") );
             case 6:
-                return QVariant( trUtf8("Громкость") );
+                return QVariant( tr("Громкость") );
             default:
                 return QVariant();
         }
-    return QVariant();
 }
 
 /**
