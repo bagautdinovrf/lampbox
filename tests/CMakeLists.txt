@@ -21,6 +21,14 @@ add_test(NAME lampbox_distribution COMMAND "${CMAKE_COMMAND}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/run_qt_test.cmake")
 set_tests_properties(lampbox_distribution PROPERTIES TIMEOUT 30)
 
+qt_add_executable(lampbox_stationmanager_tests tst_stationmanager.cpp)
+target_link_libraries(lampbox_stationmanager_tests PRIVATE lampbox_core Qt6::Test)
+add_test(NAME lampbox_stationmanager COMMAND "${CMAKE_COMMAND}"
+    "-DTEST_EXECUTABLE=$<TARGET_FILE:lampbox_stationmanager_tests>"
+    "-DTEST_REPORT=${CMAKE_CURRENT_BINARY_DIR}/stationmanager-results.txt"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/run_qt_test.cmake")
+set_tests_properties(lampbox_stationmanager PROPERTIES TIMEOUT 30)
+
 add_test(NAME lampbox_version COMMAND lampbox version)
 set_tests_properties(lampbox_version PROPERTIES
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
@@ -31,6 +39,6 @@ set_tests_properties(lampbox_version PROPERTIES
 if(WIN32)
     get_target_property(_qt_qmake Qt6::qmake IMPORTED_LOCATION)
     get_filename_component(_qt_bin "${_qt_qmake}" DIRECTORY)
-    set_property(TEST lampbox_migration lampbox_distribution lampbox_version APPEND PROPERTY
+    set_property(TEST lampbox_migration lampbox_distribution lampbox_stationmanager lampbox_version APPEND PROPERTY
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${_qt_bin}")
 endif()

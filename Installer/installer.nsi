@@ -14,14 +14,13 @@ SetCompressor /SOLID lzma
 # General Symbol Definitions
 !define REGKEY "SOFTWARE\$(^Name)"
 !ifndef VERSION
-!define VERSION "1.1.0"
+!define VERSION "1.1.1"
 !endif
-!define COMPANY "OOO Lampmedia"
-!define URL www.lampmedia.ru
-#!define CONTENTDIR "C:\Users\All Users\Lampmedia\"
+!define COMPANY "Руслан Багаутдинов"
+!define URL "mailto:bagautdinovrf@ya.ru"
 
 !define PRODUCT_NAME "LampBox"
-!define COMPANY_NAME "Lampmedia"
+!define COMPANY_NAME "LampBox"
 !define PACKAGE_DIR "package"
 
 # MUI Symbol Definitions
@@ -32,15 +31,15 @@ SetCompressor /SOLID lzma
 !define MUI_STARTMENUPAGE_NODISABLE
 !define MUI_STARTMENUPAGE_REGISTRY_KEY ${REGKEY}
 #!define MUI_STARTMENUPAGE_REGISTRY_VALUENAME StartMenuGroup
-!define MUI_STARTMENUPAGE_DEFAULTFOLDER Lampmedia
-!define MUI_FINISHPAGE_RUN "$PROGRAMFILES\${COMPANY_NAME}\${PRODUCT_NAME}\lampbox.exe"
+!define MUI_STARTMENUPAGE_DEFAULTFOLDER LampBox
+!define MUI_FINISHPAGE_RUN "$INSTDIR\lampbox.exe"
 
 !define MUI_UNFINISHPAGE_NOAUTOCLOSE
 
 ShowInstDetails nevershow
 ShowUninstDetails nevershow
 
-BrandingText 'ООО "Лампмедиа"'
+BrandingText 'Автор: Руслан Багаутдинов | bagautdinovrf@ya.ru'
 
 # Variables
 #Var StartMenuGroup
@@ -58,18 +57,18 @@ Var LibInstall
 CRCCheck on
 XPStyle on
 ShowInstDetails show
-VIProductVersion 1.1.0.0
-VIAddVersionKey ProductName "Lampmedia LampBox"
+VIProductVersion ${VERSION}.0
+VIAddVersionKey ProductName "LampBox"
 VIAddVersionKey ProductVersion "${VERSION}"
 VIAddVersionKey CompanyName "${COMPANY}"
 VIAddVersionKey CompanyWebsite "${URL}"
 VIAddVersionKey FileVersion "${VERSION}"
-VIAddVersionKey FileDescription "Установщик локального менеджера Лампмедиа"
+VIAddVersionKey FileDescription "Установщик LampBox"
 VIAddVersionKey LegalCopyright ""
 InstallDirRegKey HKLM "${REGKEY}" Path
 ShowUninstDetails show
 
-InstallDir "$PROGRAMFILES\${COMPANY_NAME}\${PRODUCT_NAME}"
+InstallDir "$PROGRAMFILES\${PRODUCT_NAME}"
 
 !define /file LAMPBOX_VERSION "${PACKAGE_DIR}\version"
 
@@ -96,16 +95,15 @@ Section "Установка"
     #####################################
     # Создание ярлыков программы
     #####################################
-    !define PROGRAM_MENU "$SMPROGRAMS\${COMPANY_NAME}\${PRODUCT_NAME}\"
+    !define PROGRAM_MENU "$SMPROGRAMS\${PRODUCT_NAME}\"
 
-    createDirectory "$SMPROGRAMS\${COMPANY_NAME}\"
-    createDirectory "$SMPROGRAMS\${COMPANY_NAME}\${PRODUCT_NAME}\"
+    createDirectory "$SMPROGRAMS\${PRODUCT_NAME}\"
     # Ярлык программы в программах
-    CreateShortCut "$SMPROGRAMS\${COMPANY_NAME}\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk" "$INSTDIR\${PRODUCT_NAME}.exe"
+    CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk" "$INSTDIR\${PRODUCT_NAME}.exe"
     # Ярлык программы на рабочем столе
     CreateShortCut "$Desktop\${PRODUCT_NAME}.lnk" "$INSTDIR\${PRODUCT_NAME}.exe"
     # Ярлык деинсталлятора в программах
-    CreateShortCut "$SMPROGRAMS\${COMPANY_NAME}\${PRODUCT_NAME}\Удалить ${PRODUCT_NAME}.lnk" "$INSTDIR\uninstall.exe"
+    CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\Удалить ${PRODUCT_NAME}.lnk" "$INSTDIR\uninstall.exe"
 
     # Создание контент директорий
     !define CONTENTDIR "$APPDATA\${COMPANY_NAME}"
@@ -124,9 +122,9 @@ Section "Установка"
     WriteRegDWORD HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}" NoRepair 1
     
     SetRegView 64
-    WriteRegStr HKLM "SOFTWARE\Lampmedia\Station" Trial "${TRIAL}"
+    WriteRegStr HKLM "SOFTWARE\LampBox\Station" Trial "${TRIAL}"
     SetRegView 32
-    WriteRegStr HKLM "SOFTWARE\Lampmedia\Station" Trial "${TRIAL}"
+    WriteRegStr HKLM "SOFTWARE\LampBox\Station" Trial "${TRIAL}"
 SectionEnd
 
 Section Uninstall
@@ -150,12 +148,6 @@ SectionEnd
 
 # Installer functions
 Function .onInit
-    InitPluginsDir
-    Push $R1
-    File /oname=$PLUGINSDIR\spltmp.bmp lamp_logo.bmp
-    advsplash::show 1000 600 400 -1 $PLUGINSDIR\spltmp
-    Pop $R1
-    Pop $R1
     Push $0
     ReadRegStr $0 HKLM "${REGKEY}" Path
     ClearErrors

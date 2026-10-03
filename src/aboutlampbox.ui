@@ -46,9 +46,6 @@
   <property name="autoFillBackground">
    <bool>false</bool>
   </property>
-  <property name="styleSheet">
-   <string notr="true"/>
-  </property>
   <property name="modal">
    <bool>true</bool>
   </property>
@@ -56,9 +53,9 @@
    <item row="0" column="0">
     <layout class="QVBoxLayout" name="verticalLayout_2">
      <item>
-      <widget class="QLabel" name="label_version_2">
+      <widget class="QLabel" name="label_author">
        <property name="text">
-        <string>ООО &quot;Лампмедиа&quot;</string>
+        <string>Автор: Руслан Багаутдинов</string>
        </property>
       </widget>
      </item>
@@ -70,30 +67,12 @@
       </widget>
      </item>
      <item>
-      <widget class="QLabel" name="label_version_6">
+      <widget class="QLabel" name="label_email">
        <property name="text">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Сайт: &lt;/span&gt;&lt;a href=&quot;http://www.lampmedia.ru&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;www.lampmedia.ru&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;b&gt;Почта:&lt;/b&gt; &lt;a href=&quot;mailto:bagautdinovrf@ya.ru&quot;&gt;bagautdinovrf@ya.ru&lt;/a&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLabel" name="label_version_3">
-       <property name="text">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Телефон:&lt;/span&gt; (495)729-73-48&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLabel" name="label_version_4">
-       <property name="text">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;email:&lt;/span&gt; office@lampmedia.ru&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLabel" name="label_version_5">
-       <property name="text">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Skype:&lt;/span&gt; Lampmedia&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       <property name="openExternalLinks">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
@@ -135,9 +114,12 @@
       </spacer>
      </item>
      <item>
-      <widget class="QLabel" name="label_2">
+      <widget class="QLabel" name="label_years">
        <property name="text">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;2012-2015&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        <string notr="true">2012-2026</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
        </property>
       </widget>
      </item>

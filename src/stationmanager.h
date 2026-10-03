@@ -15,6 +15,11 @@ class StationManager : public QObject
 {
     Q_OBJECT
 private:
+    friend class StationManagerTest;
+
+    bool loadConfiguration(const QString &stationPath, TypeStation stationType, bool isTrial);
+    bool initializeStandaloneConfiguration();
+
     StationManager() :
         QObject(nullptr),
         nameStation("NO SET"), stationId(LOCAL_ID),

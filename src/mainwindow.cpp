@@ -77,7 +77,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->tree_music->setDropIndicatorShown(true);
     ui->tree_music->setDragDropMode( QAbstractItemView::DropOnly );
 
-    setWindowTitle(tr("Lampmedia LampBox %1 [%2]")
+    setWindowTitle(tr("LampBox %1 [%2]")
                    .arg(VERSION)
                    .arg(StationManager::Instance().typeText()));
 

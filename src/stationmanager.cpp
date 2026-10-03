@@ -1,49 +1,93 @@
 #include <QSettings>
-#include <QDebug>
+#include <QFileInfo>
+#include <QStandardPaths>
 #include "stationmanager.h"
 #include <utility>
 
 bool StationManager::update()
 {
-#ifdef WIN32
-    QSettings settings("HKEY_LOCAL_MACHINE\\SOFTWARE\\Lampmedia\\Station", QSettings::NativeFormat);
-    if( settings.status() == QSettings::NoError) {
-        pathToStation.setPath( settings.value("Path").toString() );
-//        qDebug() << pathToStation.absolutePath();
-        if( settings.value("Type").toInt() == std::to_underlying(STATION_LOCAL)){ //local
-            typeStation = STATION_LOCAL;
-        } else if( settings.value("Type").toInt() == std::to_underlying(STATION_NETWORK)){ //network
-            typeStation = STATION_NETWORK;
-        }
+#ifdef Q_OS_WIN
+    QSettings settings("HKEY_LOCAL_MACHINE\\SOFTWARE\\LampBox\\Station", QSettings::NativeFormat);
+    const QString configuredPath = settings.value("Path").toString();
+    const TypeStation configuredType = settings.value("Type").toInt()
+            == std::to_underlying(STATION_NETWORK) ? STATION_NETWORK : STATION_LOCAL;
+    const bool configuredTrial = settings.value("Trial", false).toBool();
+    if (settings.status() == QSettings::NoError
+            && loadConfiguration(configuredPath, configuredType, configuredTrial))
+        return true;
 
-        mTrial = settings.value("Trial", false).toBool();
+    if (loadConfiguration(QStringLiteral("C:/myplayer"), STATION_LOCAL, false))
+        return true;
+#elif defined(Q_OS_LINUX)
+    if (loadConfiguration(QStringLiteral("/home/mediabox"), STATION_LOCAL, false))
+        return true;
+#endif
+    return initializeStandaloneConfiguration();
+}
 
-        mConfigFile = pathToStation.absoluteFilePath("mediabox.conf");
-        QSettings settingfile(mConfigFile, QSettings::IniFormat);
-        if( settingfile.status() == QSettings::NoError){
-            stationId = settingfile.value("mediastation/mediabox_id", LOCAL_ID).toInt();
-            pathToMedia.setPath(settingfile.value("mediastation/media").toString());
-            nameStation = settingfile.value("mediastation/mediabox_name").toString();
-            alternativeExecScript = settingfile.value("mediastation/alternative").toBool();
-            mCronDir=settingfile.value("mediastation/crondir","c:/myplayer/cron").toString();
-            if(pathToStation.absolutePath().isEmpty()){
-                lastErrorStr = tr("<b>LampPlayer</b> был удален или поврежден.<br>"
-                                  "Для востановления необходимо переустановить <b>LampPlayer</b>.<br>");
-                return false;
-            }
-        } else {
-            lastErrorStr = tr("<b>LampPlayer</b> был удален или поврежден.<br>"
-                              "Для востановления необходимо переустановить <b>LampPlayer</b>.<br>");
+bool StationManager::loadConfiguration(const QString &stationPath, TypeStation stationType, bool isTrial)
+{
+    if (stationPath.trimmed().isEmpty() || !QDir::isAbsolutePath(stationPath))
+        return false;
+
+    const QDir stationDirectory(QDir::cleanPath(stationPath));
+    const QString configuration = stationDirectory.absoluteFilePath("mediabox.conf");
+    const QFileInfo configurationInfo(configuration);
+    if (!configurationInfo.isFile() || !configurationInfo.isReadable())
+        return false;
+
+    QSettings settings(configuration, QSettings::IniFormat);
+    const int configuredId = settings.value("mediastation/mediabox_id", LOCAL_ID).toInt();
+    const QString configuredName = settings.value("mediastation/mediabox_name", "NO SET").toString();
+    QString mediaPath = settings.value("mediastation/media").toString();
+    QString cronPath = settings.value("mediastation/crondir").toString();
+    const bool configuredAlternative = settings.value("mediastation/alternative", false).toBool();
+    if (settings.status() != QSettings::NoError)
+        return false;
+
+    if (mediaPath.trimmed().isEmpty())
+        mediaPath = "media";
+    if (cronPath.trimmed().isEmpty())
+        cronPath = "cron";
+
+    pathToStation = stationDirectory;
+    pathToMedia.setPath(QDir::cleanPath(stationDirectory.absoluteFilePath(mediaPath)));
+    mCronDir = QDir::cleanPath(stationDirectory.absoluteFilePath(cronPath));
+    mConfigFile = configuration;
+    stationId = configuredId;
+    nameStation = configuredName;
+    typeStation = stationType;
+    mTrial = isTrial;
+    alternativeExecScript = configuredAlternative;
+    lastErrorStr.clear();
+    return true;
+}
+
+bool StationManager::initializeStandaloneConfiguration()
+{
+    QString dataPath = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+    if (dataPath.isEmpty())
+        dataPath = QDir::home().absoluteFilePath(".lampbox");
+
+    pathToStation.setPath(QDir::cleanPath(dataPath));
+    pathToMedia.setPath(pathToStation.absoluteFilePath("media"));
+    mCronDir = pathToStation.absoluteFilePath("cron");
+    mConfigFile = pathToStation.absoluteFilePath("mediabox.conf");
+    stationId = LOCAL_ID;
+    nameStation = "NO SET";
+    typeStation = STATION_LOCAL;
+    mTrial = false;
+    alternativeExecScript = false;
+    lastErrorStr.clear();
+
+    const QStringList directories = {"timetable", "media/music", "media/video", "media/ads", "nncronlt", "cron"};
+    for (const QString &directory : directories) {
+        if (!pathToStation.mkpath(directory)) {
+            lastErrorStr = tr("Не удалось создать каталог данных: %1")
+                    .arg(pathToStation.absoluteFilePath(directory));
             return false;
         }
-    } else {
-        lastErrorStr = tr("<b>LampPlayer</b> не установлен.");
-        return false;
     }
-#elif __linux__
-    pathToStation = "/home/mediabox/";
-    pathToMedia = "/home/mediabox/music/";
-#endif
     return true;
 }
 
