@@ -1,0 +1,115 @@
+#include "storagepaths.h"
+
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QStandardPaths>
+
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#include <ShlObj.h>
+#endif
+
+namespace MediaBox::StoragePaths {
+namespace {
+QString rootDirectory(bool configuration)
+{
+    // Qt's test paths include the test application/organization. Never touch
+    // machine-wide ProgramData or another application's settings in tests.
+    if (QStandardPaths::isTestModeEnabled()) {
+        const auto location = configuration ? QStandardPaths::AppConfigLocation
+                                            : QStandardPaths::AppLocalDataLocation;
+        return QDir(QStandardPaths::writableLocation(location)).filePath(QStringLiteral("mediabox"));
+    }
+#if defined(Q_OS_ANDROID)
+    return QDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation))
+            .filePath(QStringLiteral("mediabox"));
+#elif defined(Q_OS_WIN)
+    QString base = QDir::fromNativeSeparators(qEnvironmentVariable("ProgramData"));
+    if (base.isEmpty() || !QDir::isAbsolutePath(base)) {
+        wchar_t path[MAX_PATH] = {};
+        const HRESULT result = SHGetFolderPathW(nullptr, CSIDL_COMMON_APPDATA, nullptr,
+                                               SHGFP_TYPE_CURRENT, path);
+        if (FAILED(result))
+            qFatal("Cannot determine the Windows ProgramData directory (0x%08lx).",
+                   static_cast<unsigned long>(result));
+        base = QDir::fromNativeSeparators(QString::fromWCharArray(path));
+    }
+    return QDir(QDir::cleanPath(base)).filePath(QStringLiteral("MediaBox"));
+#elif defined(Q_OS_LINUX)
+    return QStringLiteral("/etc/mediabox");
+#else
+    const auto location = configuration ? QStandardPaths::GenericConfigLocation
+                                        : QStandardPaths::GenericDataLocation;
+    return QDir(QStandardPaths::writableLocation(location)).filePath(QStringLiteral("mediabox"));
+#endif
+}
+
+QString applicationName(Application application)
+{
+#ifdef Q_OS_WIN
+    return application == Application::Manager ? QStringLiteral("MediaBoxManager")
+                                               : QStringLiteral("MediaBoxPlayer");
+#else
+    return application == Application::Manager ? QStringLiteral("mediaboxmanager")
+                                               : QStringLiteral("mediaboxplayer");
+#endif
+}
+} // namespace
+
+QString commonConfigurationDirectory()
+{
+    return rootDirectory(true);
+}
+
+QString commonDataDirectory()
+{
+    return rootDirectory(false);
+}
+
+QString configurationDirectory(Application application)
+{
+    return QDir(commonConfigurationDirectory()).filePath(applicationName(application));
+}
+
+QString dataDirectory(Application application)
+{
+    return QDir(rootDirectory(false)).filePath(applicationName(application));
+}
+
+bool migrateFile(const QString &destination, const QStringList &sources, QString *error)
+{
+    if (error)
+        error->clear();
+    const auto fail = [error](const QString &message) {
+        if (error)
+            *error = message;
+        return false;
+    };
+    const QFileInfo target(destination);
+    if (target.exists()) {
+        if (!target.isFile())
+            return fail(QStringLiteral("Settings path is not a file: %1").arg(destination));
+        return true;
+    }
+    if (!QDir().mkpath(target.absolutePath()))
+        return fail(QStringLiteral("Cannot create settings directory: %1").arg(target.absolutePath()));
+    for (const QString &source : sources) {
+        if (!QFileInfo(source).isFile())
+            continue;
+        QFile file(source);
+        if (!file.copy(destination)) {
+            // Another application instance may have completed migration first.
+            if (QFileInfo(destination).isFile())
+                return true;
+            return fail(QStringLiteral("Cannot copy settings from %1 to %2: %3. The source is preserved.")
+                        .arg(source, destination, file.errorString()));
+        }
+        break;
+    }
+    return true;
+}
+} // namespace MediaBox::StoragePaths

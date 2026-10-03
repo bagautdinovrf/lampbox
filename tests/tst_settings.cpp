@@ -1,3 +1,6 @@
+#include <utility>
+#include <stdexcept>
+
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
@@ -12,48 +15,56 @@
 
 #include "boxlog.h"
 #include "settings.h"
+#include "storagepaths.h"
 
 #ifdef Q_OS_WIN
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
 #include <Windows.h>
+#endif
 
 namespace {
 class SettingsEnvironment final
 {
 public:
-    SettingsEnvironment(const QString &programData, const QString &programFiles,
-                        const QByteArray &programFilesVariable = "ProgramFiles",
-                        const QString &applicationName = "MediaBoxManager")
-        : originalName(QCoreApplication::applicationName())
+    SettingsEnvironment()
+        : originalName(QCoreApplication::applicationName()),
+          originalOrganization(QCoreApplication::organizationName()),
+          originalTestMode(QStandardPaths::isTestModeEnabled()),
+          originalPreviewFile(QCoreApplication::instance()->property("restylePreviewSettings")),
+          testOrganization("MediaBoxManagerSettingsTest_" + QUuid::createUuid().toString(QUuid::Id128))
     {
-        for (int i = 0; i < 4; ++i) {
-            originalValues[i] = qgetenv(variables[i]);
-            originalVariablesSet[i] = qEnvironmentVariableIsSet(variables[i]);
-            qunsetenv(variables[i]);
-        }
-        QCoreApplication::setApplicationName(applicationName);
-        qputenv("ProgramData", QDir::toNativeSeparators(programData).toUtf8());
-        qputenv(programFilesVariable.constData(), QDir::toNativeSeparators(programFiles).toUtf8());
+        QStandardPaths::setTestModeEnabled(true);
+        QCoreApplication::setApplicationName("MediaBoxManager");
+        QCoreApplication::setOrganizationName(testOrganization);
+        QCoreApplication::instance()->setProperty("restylePreviewSettings", QVariant());
+        ownedDirectories << QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
+                         << QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+        ownedDirectories.removeDuplicates();
     }
 
     ~SettingsEnvironment()
     {
-        for (int i = 0; i < 4; ++i) {
-            if (originalVariablesSet[i])
-                qputenv(variables[i], originalValues[i]);
-            else
-                qunsetenv(variables[i]);
+        for (const QString &directory : std::as_const(ownedDirectories)) {
+            if (!directory.contains(testOrganization))
+                continue;
+            QDir(directory).removeRecursively();
+            QDir().rmdir(QFileInfo(directory).dir().absolutePath());
         }
+        QCoreApplication::instance()->setProperty("restylePreviewSettings", originalPreviewFile);
         QCoreApplication::setApplicationName(originalName);
+        QCoreApplication::setOrganizationName(originalOrganization);
+        QStandardPaths::setTestModeEnabled(originalTestMode);
     }
 
 private:
-    const char *variables[4] = {"ProgramW6432", "ProgramFiles", "ProgramFiles(x86)", "ProgramData"};
-    QByteArray originalValues[4];
-    bool originalVariablesSet[4] = {};
     QString originalName;
+    QString originalOrganization;
+    bool originalTestMode;
+    QVariant originalPreviewFile;
+    QString testOrganization;
+    QStringList ownedDirectories;
 };
 
 bool writeContents(const QString &path, const QByteArray &contents)
@@ -63,8 +74,13 @@ bool writeContents(const QString &path, const QByteArray &contents)
     QFile file(path);
     return file.open(QIODevice::WriteOnly) && file.write(contents) == contents.size();
 }
+
+QString managerConfigurationFile()
+{
+    return QDir(MediaBox::StoragePaths::configurationDirectory(MediaBox::StoragePaths::Application::Manager))
+            .absoluteFilePath("MediaBoxManager.conf");
 }
-#endif
+}
 
 class SettingsTest final : public QObject
 {
@@ -194,182 +210,89 @@ private slots:
         QCOMPARE(reopened.themeId(), QString("denim"));
     }
 
-    void configurationFileSelection_data()
+    void configurationMigration_data()
     {
-        QTest::addColumn<QString>("applicationName");
-        QTest::addColumn<bool>("legacyExists");
-        QTest::addColumn<bool>("preferredExists");
-        QTest::addColumn<QString>("selectedName");
-
-        QTest::newRow("new-install") << QString("MediaBoxManager") << false << false
-                                     << QString("MediaBoxManager.conf");
-        QTest::newRow("legacy-settings") << QString("MediaBoxManager") << true << false
-                                         << QString("lampbox.conf");
-        QTest::newRow("new-settings-preferred") << QString("MediaBoxManager") << true << true
-                                                << QString("MediaBoxManager.conf");
-        QTest::newRow("new-settings-only") << QString("MediaBoxManager") << false << true
-                                           << QString("MediaBoxManager.conf");
-        QTest::newRow("other-application") << QString("SettingsTestApplication") << true << false
-                                           << QString("SettingsTestApplication.conf");
-    }
-
-    void configurationFileSelection()
-    {
-        QFETCH(QString, applicationName);
-        QFETCH(bool, legacyExists);
-        QFETCH(bool, preferredExists);
-        QFETCH(QString, selectedName);
-
-        QTemporaryDir directory;
-        QVERIFY(directory.isValid());
-        const QString originalApplicationName = QCoreApplication::applicationName();
-        const bool originalTestMode = QStandardPaths::isTestModeEnabled();
-        const auto restoreApplication = qScopeGuard([&] {
-            QCoreApplication::setApplicationName(originalApplicationName);
-            QStandardPaths::setTestModeEnabled(originalTestMode);
-        });
-        QStandardPaths::setTestModeEnabled(true);
-        QCoreApplication::setApplicationName(applicationName);
-
-        const QString legacyPath = directory.filePath("lampbox.conf");
-        const QString preferredPath = directory.filePath(applicationName + ".conf");
-        const QByteArray legacyContents("source=legacy\n[FileFormats]\nAudioFormats/flac=true\n");
-        const QByteArray preferredContents("source=current\n[FileFormats]\nAudioFormats/ogg=true\n");
-        if (legacyExists) {
-            QFile file(legacyPath);
-            QVERIFY(file.open(QIODevice::WriteOnly));
-            QCOMPARE(file.write(legacyContents), qint64(legacyContents.size()));
-        }
-        if (preferredExists) {
-            QFile file(preferredPath);
-            QVERIFY(file.open(QIODevice::WriteOnly));
-            QCOMPARE(file.write(preferredContents), qint64(preferredContents.size()));
-        }
-
-        const QString selectedPath = Settings::configurationFilePath(directory.path());
-        QCOMPARE(selectedPath, directory.filePath(selectedName));
-        if (QFileInfo::exists(selectedPath)) {
-            const QSettings settings(selectedPath, QSettings::IniFormat);
-            QCOMPARE(settings.value("source").toString(),
-                     selectedName == "lampbox.conf" ? QString("legacy") : QString("current"));
-        }
-        QCOMPARE(QFileInfo::exists(legacyPath), legacyExists);
-        QCOMPARE(QFileInfo::exists(preferredPath), preferredExists);
-        if (legacyExists) {
-            QFile file(legacyPath);
-            QVERIFY(file.open(QIODevice::ReadOnly));
-            QCOMPARE(file.readAll(), legacyContents);
-        }
-        if (preferredExists) {
-            QFile file(preferredPath);
-            QVERIFY(file.open(QIODevice::ReadOnly));
-            QCOMPARE(file.readAll(), preferredContents);
-        }
-    }
-
-#ifdef Q_OS_WIN
-    void installedConfiguration_data()
-    {
-        QTest::addColumn<QByteArray>("environmentVariable");
-        QTest::addColumn<int>("layout");
-        QTest::addColumn<bool>("localNewExists");
-        QTest::addColumn<bool>("localLegacyExists");
+        QTest::addColumn<bool>("newExists");
+        QTest::addColumn<bool>("commonExists");
         QTest::addColumn<bool>("userExists");
-        QTest::addColumn<bool>("sharedExists");
+        QTest::addColumn<bool>("localExists");
+        QTest::addColumn<bool>("legacyExists");
         QTest::addColumn<QByteArray>("expectedContents");
 
-        QTest::newRow("programw6432-legacy") << QByteArray("ProgramW6432") << 0 << false << true << false << false << QByteArray("source=legacy\n");
-        QTest::newRow("programfiles-new-install") << QByteArray("ProgramFiles") << 0 << false << false << false << false << QByteArray();
-        QTest::newRow("programfiles-x86-new-preferred") << QByteArray("ProgramFiles(x86)") << 0 << true << true << false << false << QByteArray("source=current\n");
-        QTest::newRow("previous-user-file-preferred") << QByteArray("ProgramW6432") << 0 << true << true << true << false << QByteArray("source=user\n");
-        QTest::newRow("existing-shared-file-preferred") << QByteArray("ProgramFiles") << 0 << true << true << true << true << QByteArray("source=shared\n");
-        QTest::newRow("existing-shared-file-only") << QByteArray("ProgramFiles") << 0 << false << false << false << true << QByteArray("source=shared\n");
-        QTest::newRow("normalized-case-insensitive-path") << QByteArray("ProgramFiles") << 2 << false << true << false << false << QByteArray("source=legacy\n");
-        QTest::newRow("root-directory") << QByteArray("ProgramFiles") << 3 << false << true << false << false << QByteArray("source=legacy\n");
-        QTest::newRow("portable-sibling-prefix") << QByteArray("ProgramFiles") << 1 << false << true << false << false << QByteArray("source=legacy\n");
-        QTest::newRow("other-application") << QByteArray("ProgramFiles") << 4 << false << true << false << false << QByteArray();
+        QTest::newRow("new-install") << false << false << false << false << false << QByteArray();
+        QTest::newRow("migrate-lampbox") << false << false << false << false << true << QByteArray("source=legacy\n");
+        QTest::newRow("exe-manager-before-lampbox") << false << false << false << true << true << QByteArray("source=local\n");
+        QTest::newRow("old-user-before-exe") << false << false << true << true << true << QByteArray("source=user\n");
+        QTest::newRow("old-common-before-user") << false << true << true << true << true << QByteArray("source=common\n");
+        QTest::newRow("existing-new-is-never-replaced") << true << true << true << true << true << QByteArray("source=new\n");
+        QTest::newRow("existing-new-only") << true << false << false << false << false << QByteArray("source=new\n");
     }
 
-    void installedConfiguration()
+    void configurationMigration()
     {
-        QFETCH(QByteArray, environmentVariable);
-        QFETCH(int, layout);
-        QFETCH(bool, localNewExists);
-        QFETCH(bool, localLegacyExists);
+        QFETCH(bool, newExists);
+        QFETCH(bool, commonExists);
         QFETCH(bool, userExists);
-        QFETCH(bool, sharedExists);
+        QFETCH(bool, localExists);
+        QFETCH(bool, legacyExists);
         QFETCH(QByteArray, expectedContents);
-
+        const SettingsEnvironment environment;
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        const QString programFiles = directory.filePath("Program Files");
-        const QString programData = directory.filePath("ProgramData");
-        const QString userDirectory = directory.filePath("AppConfigLocation");
-        const QString applicationName = layout == 4 ? "InstalledSettingsTestApplication" : "MediaBoxManager";
-        const SettingsEnvironment environment(programData, programFiles + "/.", environmentVariable, applicationName);
-        QString applicationDirectory = programFiles + "/MediaBox/bin";
-        if (layout == 1)
-            applicationDirectory = programFiles + "Portable/MediaBox/bin";
-        else if (layout == 2)
-            applicationDirectory = QDir::toNativeSeparators(programFiles.toUpper() + "/Unused/../MediaBox/bin");
-        else if (layout == 3)
-            applicationDirectory = programFiles;
-        const QDir applicationDir(applicationDirectory);
-        QVERIFY(applicationDir.mkpath("."));
-        const QString localNew = applicationDir.absoluteFilePath(applicationName + ".conf");
-        const QString localLegacy = applicationDir.absoluteFilePath("lampbox.conf");
+        const QString applicationDirectory = directory.filePath("portable/bin");
+        const QString userDirectory = directory.filePath("old-user-config");
+        const QString selectedFile = managerConfigurationFile();
+        const QString commonFile = QDir(MediaBox::StoragePaths::commonConfigurationDirectory())
+                .absoluteFilePath("MediaBoxManager.conf");
         const QString userFile = QDir(userDirectory).absoluteFilePath("MediaBoxManager.conf");
-        const QString sharedDirectory = QDir(programData).absoluteFilePath("MediaBox");
-        const QString sharedFile = QDir(sharedDirectory).absoluteFilePath("MediaBoxManager.conf");
-        const QByteArray legacyContents("source=legacy\n");
-        const QByteArray localContents("source=current\n");
+        const QString localFile = QDir(applicationDirectory).absoluteFilePath("MediaBoxManager.conf");
+        const QString legacyFile = QDir(applicationDirectory).absoluteFilePath("lampbox.conf");
+        const QByteArray newContents("source=new\n");
+        const QByteArray commonContents("source=common\n");
         const QByteArray userContents("source=user\n");
-        const QByteArray sharedContents("source=shared\n");
-        if (localLegacyExists)
-            QVERIFY(writeContents(localLegacy, legacyContents));
-        if (localNewExists)
-            QVERIFY(writeContents(localNew, localContents));
+        const QByteArray localContents("source=local\n");
+        const QByteArray legacyContents("source=legacy\n");
+        if (newExists)
+            QVERIFY(writeContents(selectedFile, newContents));
+        if (commonExists)
+            QVERIFY(writeContents(commonFile, commonContents));
         if (userExists)
             QVERIFY(writeContents(userFile, userContents));
-        if (sharedExists)
-            QVERIFY(writeContents(sharedFile, sharedContents));
+        if (localExists)
+            QVERIFY(writeContents(localFile, localContents));
+        if (legacyExists)
+            QVERIFY(writeContents(legacyFile, legacyContents));
 
         const QString selected = Settings::configurationFilePath(applicationDirectory, userDirectory);
-        const bool installed = layout != 1 && layout != 4;
-        if (installed) {
-            QCOMPARE(selected, sharedFile);
-            QVERIFY(QDir(sharedDirectory).exists());
-            if (expectedContents.isEmpty()) {
-                QVERIFY(!QFileInfo::exists(sharedFile));
-            } else {
-                QFile file(sharedFile);
-                QVERIFY(file.open(QIODevice::ReadOnly));
-                QCOMPARE(file.readAll(), expectedContents);
-            }
-            {
-                Settings settings(selected, nullptr);
-                settings.writeStringSettings("shared/value", "persistent");
-                settings.writeFileFormatAudioValue("flac", true);
-                settings.writeFileFormatVideoValue("mp4", false);
-            }
-            QCOMPARE(Settings::configurationFilePath(applicationDirectory, userDirectory), sharedFile);
-            const QSettings settings(sharedFile, QSettings::IniFormat);
-            QCOMPARE(settings.value("shared/value").toString(), QString("persistent"));
-            {
-                Settings reopened(selected, nullptr);
-                QVERIFY(reopened.fileFormatsAudio().value("flac"));
-                QVERIFY(!reopened.fileFormatsVideo().value("mp4", true));
-            }
+        QCOMPARE(selected, selectedFile);
+        QVERIFY(QDir(QFileInfo(selected).absolutePath()).exists());
+        if (expectedContents.isEmpty()) {
+            QVERIFY(!QFileInfo::exists(selected));
         } else {
-            QCOMPARE(selected, layout == 4 ? localNew : localLegacy);
-            QVERIFY(!QDir(programData).exists());
+            QFile file(selected);
+            QVERIFY(file.open(QIODevice::ReadOnly));
+            QCOMPARE(file.readAll(), expectedContents);
         }
-        QCOMPARE(QFileInfo(localNew).isFile(), localNewExists);
-        QCOMPARE(QFileInfo(localLegacy).isFile(), localLegacyExists);
+        {
+            Settings settings(selected, nullptr);
+            settings.writeStringSettings("Station/Name", "Моя станция");
+            settings.writeFileFormatAudioValue("flac", true);
+            settings.setThemeId("dark");
+        }
+        QCOMPARE(Settings::configurationFilePath(applicationDirectory, userDirectory), selected);
+        Settings reopened(selected, nullptr);
+        QVERIFY(reopened.fileFormatsAudio().value("flac"));
+        QCOMPARE(reopened.themeId(), QString("dark"));
+        const QSettings stored(selected, QSettings::IniFormat);
+        QCOMPARE(stored.value("Station/Name").toString(), QString("Моя станция"));
+        QCOMPARE(QFileInfo(commonFile).isFile(), commonExists);
         QCOMPARE(QFileInfo(userFile).isFile(), userExists);
-        for (const auto &source : {qMakePair(localNew, localContents),
-                                   qMakePair(localLegacy, legacyContents),
-                                   qMakePair(userFile, userContents)}) {
+        QCOMPARE(QFileInfo(localFile).isFile(), localExists);
+        QCOMPARE(QFileInfo(legacyFile).isFile(), legacyExists);
+        for (const auto &source : {qMakePair(commonFile, commonContents),
+                                   qMakePair(userFile, userContents),
+                                   qMakePair(localFile, localContents),
+                                   qMakePair(legacyFile, legacyContents)}) {
             if (!QFileInfo(source.first).isFile())
                 continue;
             QFile file(source.first);
@@ -378,74 +301,91 @@ private slots:
         }
     }
 
-    void migrationSkipsDirectories_data()
+    void configurationDoesNotDependOnWorkingDirectory()
     {
-        QTest::addColumn<bool>("userDirectoryInsteadOfFile");
-        QTest::addColumn<bool>("localDirectoryInsteadOfFile");
-        QTest::newRow("user-source-is-directory") << true << false;
-        QTest::newRow("local-source-is-directory") << false << true;
-        QTest::newRow("both-sources-are-directories") << true << true;
+        const SettingsEnvironment environment;
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString originalWorkingDirectory = QDir::currentPath();
+        const auto restoreDirectory = qScopeGuard([&] { QDir::setCurrent(originalWorkingDirectory); });
+        const QString firstDirectory = directory.filePath("first");
+        const QString secondDirectory = directory.filePath("second");
+        QVERIFY(QDir().mkpath(firstDirectory));
+        QVERIFY(QDir().mkpath(secondDirectory));
+        QVERIFY(writeContents(QDir(firstDirectory).filePath("MediaBoxManager.conf"), "source=working-directory\n"));
+        QVERIFY(QDir::setCurrent(firstDirectory));
+        const QString selected = Settings::configurationFilePath(directory.filePath("application"), QString());
+        QCOMPARE(selected, managerConfigurationFile());
+        QVERIFY(!QFileInfo::exists(selected));
+        Settings settings(selected, nullptr);
+        settings.setThemeId("dark");
+        QVERIFY(QDir::setCurrent(secondDirectory));
+        QCOMPARE(Settings::configurationFilePath(directory.filePath("another-application"), QString()), selected);
+        Settings reopened(selected, nullptr);
+        QCOMPARE(reopened.themeId(), QString("dark"));
+        QVERIFY(!QFileInfo::exists(QDir(secondDirectory).filePath("MediaBoxManager.conf")));
+    }
+
+    void previewConfigurationOverrideIsPreserved()
+    {
+        const SettingsEnvironment environment;
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString previewFile = directory.filePath("preview.conf");
+        QCoreApplication::instance()->setProperty("restylePreviewSettings", previewFile);
+        QCOMPARE(Settings::configurationFilePath(directory.path()), previewFile);
+        QVERIFY(!QFileInfo::exists(managerConfigurationFile()));
     }
 
     void migrationSkipsDirectories()
     {
-        QFETCH(bool, userDirectoryInsteadOfFile);
-        QFETCH(bool, localDirectoryInsteadOfFile);
+        const SettingsEnvironment environment;
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        const QString programFiles = directory.filePath("Program Files");
-        const QString programData = directory.filePath("ProgramData");
-        const QString userDirectory = directory.filePath("AppConfigLocation");
-        const QString applicationDirectory = programFiles + "/MediaBox/bin";
-        const SettingsEnvironment environment(programData, programFiles);
+        const QString userDirectory = directory.filePath("old-user-config");
+        const QString applicationDirectory = directory.filePath("application");
+        const QString commonFile = QDir(MediaBox::StoragePaths::commonConfigurationDirectory())
+                .absoluteFilePath("MediaBoxManager.conf");
         const QString userFile = QDir(userDirectory).filePath("MediaBoxManager.conf");
         const QString localFile = QDir(applicationDirectory).filePath("MediaBoxManager.conf");
         const QString legacyFile = QDir(applicationDirectory).filePath("lampbox.conf");
         const QByteArray legacyContents("source=legacy\n");
+        QVERIFY(QDir().mkpath(commonFile));
+        QVERIFY(QDir().mkpath(userFile));
+        QVERIFY(QDir().mkpath(localFile));
         QVERIFY(writeContents(legacyFile, legacyContents));
-        if (userDirectoryInsteadOfFile)
-            QVERIFY(QDir().mkpath(userFile));
-        if (localDirectoryInsteadOfFile)
-            QVERIFY(QDir().mkpath(localFile));
         const QString selected = Settings::configurationFilePath(applicationDirectory, userDirectory);
-        QCOMPARE(selected, QDir(programData).absoluteFilePath("MediaBox/MediaBoxManager.conf"));
+        QCOMPARE(selected, managerConfigurationFile());
         QFile file(selected);
         QVERIFY(file.open(QIODevice::ReadOnly));
         QCOMPARE(file.readAll(), legacyContents);
-        QCOMPARE(QFileInfo(userFile).isDir(), userDirectoryInsteadOfFile);
-        QCOMPARE(QFileInfo(localFile).isDir(), localDirectoryInsteadOfFile);
+        QVERIFY(QFileInfo(commonFile).isDir());
+        QVERIFY(QFileInfo(userFile).isDir());
+        QVERIFY(QFileInfo(localFile).isDir());
         QVERIFY(QFileInfo(legacyFile).isFile());
     }
 
-    void installedConfigurationDirectoryFailure()
+    void configurationDirectoryFailure()
     {
+        const SettingsEnvironment environment;
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        const QString programFiles = directory.filePath("Program Files");
-        const QString programData = directory.filePath("ProgramData");
-        const QString userDirectory = directory.filePath("AppConfigLocation");
-        const QString applicationDirectory = programFiles + "/MediaBox/bin";
-        const SettingsEnvironment environment(programData, programFiles);
-        const QString source = QDir(applicationDirectory).filePath("MediaBoxManager.conf");
-        QVERIFY(writeContents(source, "source=current\n"));
-        QVERIFY(writeContents(programData, "blocked\n"));
-        QTest::ignoreMessage(QtWarningMsg, QRegularExpression("^Не удалось создать каталог настроек: .*"));
-        QCOMPARE(Settings::configurationFilePath(applicationDirectory, userDirectory),
-                 QDir(programData).absoluteFilePath("MediaBox/MediaBoxManager.conf"));
-        QVERIFY(QFileInfo(programData).isFile());
+        const QString configurationDirectory = QFileInfo(managerConfigurationFile()).absolutePath();
+        const QString source = directory.filePath("MediaBoxManager.conf");
+        QVERIFY(writeContents(source, "source=local\n"));
+        QVERIFY(writeContents(configurationDirectory, "blocked\n"));
+        QVERIFY_EXCEPTION_THROWN(Settings::configurationFilePath(directory.path(), QString()), std::runtime_error);
+        QVERIFY(QFileInfo(configurationDirectory).isFile());
         QVERIFY(QFileInfo(source).isFile());
     }
 
-    void installedConfigurationCopyFailure()
+#ifdef Q_OS_WIN
+    void configurationCopyFailure()
     {
+        const SettingsEnvironment environment;
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        const QString programFiles = directory.filePath("Program Files");
-        const QString programData = directory.filePath("ProgramData");
-        const QString userDirectory = directory.filePath("AppConfigLocation");
-        const QString applicationDirectory = programFiles + "/MediaBox/bin";
-        const SettingsEnvironment environment(programData, programFiles);
-        const QString source = QDir(applicationDirectory).filePath("MediaBoxManager.conf");
+        const QString source = directory.filePath("MediaBoxManager.conf");
         const QByteArray contents("source=locked\n");
         QVERIFY(writeContents(source, contents));
         HANDLE sourceHandle = CreateFileW(reinterpret_cast<LPCWSTR>(QDir::toNativeSeparators(source).utf16()),
@@ -456,43 +396,70 @@ private slots:
                 CloseHandle(sourceHandle);
         });
         QVERIFY(QFileInfo(source).isFile());
-        QTest::ignoreMessage(QtWarningMsg, QRegularExpression("^Не удалось скопировать настройки из .*"));
-        const QString selected = Settings::configurationFilePath(applicationDirectory, userDirectory);
-        QCOMPARE(selected, QDir(programData).absoluteFilePath("MediaBox/MediaBoxManager.conf"));
+        QVERIFY_EXCEPTION_THROWN(Settings(Settings::configurationFilePath(directory.path(), QString()), nullptr),
+                                 std::runtime_error);
+        const QString selected = managerConfigurationFile();
         QVERIFY(!QFileInfo::exists(selected));
         CloseHandle(sourceHandle);
         sourceHandle = INVALID_HANDLE_VALUE;
         QFile file(source);
         QVERIFY(file.open(QIODevice::ReadOnly));
         QCOMPARE(file.readAll(), contents);
+        QCOMPARE(Settings::configurationFilePath(directory.path(), QString()), selected);
+        QFile migrated(selected);
+        QVERIFY(migrated.open(QIODevice::ReadOnly));
+        QCOMPARE(migrated.readAll(), contents);
     }
+#endif
 
-    void sharedConfigurationPathIsDirectory()
+#ifdef Q_OS_UNIX
+    void configurationCopyFailureRetriesAfterPermissionsAreRestored()
     {
+        const SettingsEnvironment environment;
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        const QString programFiles = directory.filePath("Program Files");
-        const QString programData = directory.filePath("ProgramData");
-        const QString userDirectory = directory.filePath("AppConfigLocation");
-        const QString applicationDirectory = programFiles + "/MediaBox/bin";
-        const SettingsEnvironment environment(programData, programFiles);
-        const QString sharedFile = QDir(programData).absoluteFilePath("MediaBox/MediaBoxManager.conf");
-        QVERIFY(QDir().mkpath(sharedFile));
-        QTest::ignoreMessage(QtWarningMsg, QRegularExpression("^Путь настроек не является файлом: .*"));
-        QCOMPARE(Settings::configurationFilePath(applicationDirectory, userDirectory), sharedFile);
-        QVERIFY(QFileInfo(sharedFile).isDir());
+        const QString source = directory.filePath("MediaBoxManager.conf");
+        const QByteArray contents("source=unreadable\n");
+        QVERIFY(writeContents(source, contents));
+        const auto originalPermissions = QFile::permissions(source);
+        const auto restorePermissions = qScopeGuard([&] { QFile::setPermissions(source, originalPermissions); });
+        QVERIFY(QFile::setPermissions(source, {}));
+        QFile readableProbe(source);
+        if (readableProbe.open(QIODevice::ReadOnly))
+            QSKIP("The current user can read files with no permissions; run this test without root privileges.");
+        QVERIFY_EXCEPTION_THROWN(Settings(Settings::configurationFilePath(directory.path(), QString()), nullptr),
+                                 std::runtime_error);
+        const QString selected = managerConfigurationFile();
+        QVERIFY(!QFileInfo::exists(selected));
+        QVERIFY(QFileInfo(source).isFile());
+        QVERIFY(QFile::setPermissions(source, originalPermissions));
+        QCOMPARE(Settings::configurationFilePath(directory.path(), QString()), selected);
+        QFile migrated(selected);
+        QVERIFY(migrated.open(QIODevice::ReadOnly));
+        QCOMPARE(migrated.readAll(), contents);
+        QFile original(source);
+        QVERIFY(original.open(QIODevice::ReadOnly));
+        QCOMPARE(original.readAll(), contents);
     }
+#endif
 
-    void sharedConfigurationWriteFailureIsReported()
+    void configurationPathIsDirectory()
     {
+        const SettingsEnvironment environment;
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        const QString programFiles = directory.filePath("Program Files");
-        const QString programData = directory.filePath("ProgramData");
-        const QString userDirectory = directory.filePath("AppConfigLocation");
-        const QString applicationDirectory = programFiles + "/MediaBox/bin";
-        const SettingsEnvironment environment(programData, programFiles);
-        const QString selected = Settings::configurationFilePath(applicationDirectory, userDirectory);
+        const QString selected = managerConfigurationFile();
+        QVERIFY(QDir().mkpath(selected));
+        QVERIFY_EXCEPTION_THROWN(Settings::configurationFilePath(directory.path(), QString()), std::runtime_error);
+        QVERIFY(QFileInfo(selected).isDir());
+    }
+
+    void configurationWriteFailureIsReported()
+    {
+        const SettingsEnvironment environment;
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString selected = Settings::configurationFilePath(directory.path(), QString());
         Settings settings(selected, nullptr);
         QVERIFY(QFileInfo(selected).isFile());
         QVERIFY(QFile::remove(selected));
@@ -501,34 +468,15 @@ private slots:
         settings.writeStringSettings("blocked-write", "value");
         QVERIFY(QFileInfo(selected).isDir());
     }
-#endif
-    void logUsesUserDataDirectory()
+
+    void logUsesManagerDataDirectory()
     {
-        const QString originalName = QCoreApplication::applicationName();
-        const QString originalOrganization = QCoreApplication::organizationName();
-        const bool originalTestMode = QStandardPaths::isTestModeEnabled();
-        const QString testOrganization = "MediaBoxManagerLogTest_"
-                + QUuid::createUuid().toString(QUuid::Id128);
-        QString logDirectory;
-        bool mayCleanLogDirectory = false;
-        const auto restoreApplication = qScopeGuard([&] {
-            if (mayCleanLogDirectory && logDirectory.contains(testOrganization)) {
-                QDir(logDirectory).removeRecursively();
-                QDir().rmdir(QFileInfo(logDirectory).dir().absolutePath());
-            }
-            QCoreApplication::setApplicationName(originalName);
-            QCoreApplication::setOrganizationName(originalOrganization);
-            QStandardPaths::setTestModeEnabled(originalTestMode);
-        });
-        QStandardPaths::setTestModeEnabled(true);
-        QCoreApplication::setOrganizationName(testOrganization);
-        QCoreApplication::setApplicationName("MediaBoxManager");
-        logDirectory = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+        const SettingsEnvironment environment;
+        const QString logDirectory = MediaBox::StoragePaths::dataDirectory(
+                MediaBox::StoragePaths::Application::Manager);
         QVERIFY(QDir::isAbsolutePath(logDirectory));
-        QVERIFY(logDirectory.contains(testOrganization));
         QVERIFY(!QDir(logDirectory).exists());
-        mayCleanLogDirectory = true;
-        const QString marker = "ordinary user log test";
+        const QString marker = "manager data directory log test";
         { BoxLog log(marker); }
         QFile file(QDir(logDirectory).absoluteFilePath("MediaBoxManager.log"));
         QVERIFY(file.open(QIODevice::ReadOnly));

@@ -3,6 +3,7 @@
 #include <QByteArray>
 #include <QHostAddress>
 #include <QObject>
+#include <QStringList>
 #include <QTcpServer>
 
 namespace MediaBox {
@@ -27,7 +28,9 @@ private:
     int m_connections = 0;
 };
 
-// Creates a random token atomically on first start; never logs its contents.
-bool loadControlToken(const QString &dataDirectory, QByteArray *token, QString *error);
+// Validates and reuses the first existing legacy token when the current token
+// is absent, or creates a random token. New files are private; sources stay intact.
+bool loadControlToken(const QString &dataDirectory, QByteArray *token, QString *error,
+                      const QStringList &legacyTokenPaths = {});
 
 } // namespace MediaBox

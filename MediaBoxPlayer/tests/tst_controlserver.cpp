@@ -2,6 +2,7 @@
 #include "controlserver.h"
 #include "playerengine.h"
 
+#include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QJsonArray>
@@ -10,6 +11,16 @@
 #include <QTcpSocket>
 #include <QTemporaryDir>
 #include <QtTest>
+
+#ifdef Q_OS_WIN
+#include <QScopeGuard>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#include <Aclapi.h>
+#include <Sddl.h>
+#endif
 
 using namespace MediaBox;
 
@@ -213,6 +224,155 @@ private slots:
         QVERIFY(file.open(QIODevice::ReadOnly));
         QCOMPARE(file.readAll(), QByteArray("invalid-token\n"));
     }
+
+    void tokenMigrationPreservesValueAndSource()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString legacyPath = directory.filePath("legacy.token");
+        const QString targetDirectory = directory.filePath("current");
+        QVERIFY(QDir().mkpath(targetDirectory));
+        const QByteArray original(64, 'a');
+        QFile legacy(legacyPath);
+        QVERIFY(legacy.open(QIODevice::WriteOnly));
+        QCOMPARE(legacy.write(original + '\n'), 65);
+        legacy.close();
+#ifdef Q_OS_UNIX
+        QVERIFY(legacy.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner
+                                      | QFileDevice::ReadGroup | QFileDevice::ReadOther));
+#endif
+        QByteArray token;
+        QString error;
+        const QStringList sources{directory.filePath("missing.token"), legacyPath};
+        QVERIFY2(loadControlToken(targetDirectory, &token, &error, sources), qPrintable(error));
+        QCOMPARE(token, original);
+        QVERIFY(legacy.open(QIODevice::ReadOnly));
+        QCOMPARE(legacy.readAll(), original + '\n');
+        legacy.close();
+        const QString currentPath = QDir(targetDirectory).filePath("control.token");
+#ifdef Q_OS_UNIX
+        QVERIFY(!(QFile::permissions(currentPath) & (QFileDevice::ReadGroup | QFileDevice::WriteGroup
+                                                    | QFileDevice::ReadOther | QFileDevice::WriteOther)));
+        QVERIFY(legacy.permissions() & QFileDevice::ReadOther);
+#endif
+        QVERIFY(legacy.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        QCOMPARE(legacy.write(QByteArray(64, 'b') + '\n'), 65);
+        legacy.close();
+        QVERIFY2(loadControlToken(targetDirectory, &token, &error, sources), qPrintable(error));
+        QCOMPARE(token, original);
+    }
+
+    void invalidLegacyTokenDoesNotCreateOrReplaceToken()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString legacyPath = directory.filePath("legacy.token");
+        QFile legacy(legacyPath);
+        QVERIFY(legacy.open(QIODevice::WriteOnly));
+        QCOMPARE(legacy.write("invalid-token\n"), 14);
+        legacy.close();
+        QByteArray token;
+        QString error;
+        QVERIFY(!loadControlToken(directory.path(), &token, &error, {legacyPath}));
+        QVERIFY(!error.isEmpty());
+        QVERIFY(!QFile::exists(directory.filePath("control.token")));
+        QVERIFY(legacy.open(QIODevice::ReadOnly));
+        QCOMPARE(legacy.readAll(), QByteArray("invalid-token\n"));
+    }
+
+#ifdef Q_OS_WIN
+    void newTokenDoesNotInheritSharedDirectoryAccess_data()
+    {
+        QTest::addColumn<bool>("migrate");
+        QTest::newRow("generated") << false;
+        QTest::newRow("migrated") << true;
+    }
+
+    void newTokenDoesNotInheritSharedDirectoryAccess()
+    {
+        QFETCH(bool, migrate);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        // A readable shared parent models ProgramData without modifying the
+        // machine's real directories or depending on the runner's normal ACLs.
+        PSECURITY_DESCRIPTOR parentDescriptor = nullptr;
+        QVERIFY(ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            L"D:P(A;OICI;FA;;;OW)(A;OICI;FA;;;SY)(A;OICI;FR;;;WD)",
+            SDDL_REVISION_1, &parentDescriptor, nullptr));
+        const auto freeParentDescriptor = qScopeGuard([&] { LocalFree(parentDescriptor); });
+        PACL parentAcl = nullptr;
+        BOOL present = FALSE;
+        BOOL defaulted = FALSE;
+        QVERIFY(GetSecurityDescriptorDacl(parentDescriptor, &present, &parentAcl, &defaulted));
+        QVERIFY(present && parentAcl);
+        QString parentPath = QDir::toNativeSeparators(directory.path());
+        QCOMPARE(SetNamedSecurityInfoW(reinterpret_cast<LPWSTR>(parentPath.data()), SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+            nullptr, nullptr, parentAcl, nullptr), DWORD(ERROR_SUCCESS));
+
+        QByteArray token;
+        QString error;
+        QStringList sources;
+        if (migrate) {
+            QFile source(directory.filePath("legacy.token"));
+            QVERIFY(source.open(QIODevice::WriteOnly));
+            QCOMPARE(source.write(QByteArray(64, 'c') + '\n'), 65);
+            source.close();
+            sources.append(source.fileName());
+        }
+        QVERIFY2(loadControlToken(directory.path(), &token, &error, sources), qPrintable(error));
+        if (migrate)
+            QCOMPARE(token, QByteArray(64, 'c'));
+        QString path = QDir::toNativeSeparators(directory.filePath("control.token"));
+        PACL tokenAcl = nullptr;
+        PSECURITY_DESCRIPTOR tokenDescriptor = nullptr;
+        QCOMPARE(GetNamedSecurityInfoW(reinterpret_cast<LPWSTR>(path.data()), SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION, nullptr, nullptr, &tokenAcl, nullptr, &tokenDescriptor),
+            DWORD(ERROR_SUCCESS));
+        const auto freeTokenDescriptor = qScopeGuard([&] { LocalFree(tokenDescriptor); });
+        SECURITY_DESCRIPTOR_CONTROL control = 0;
+        DWORD revision = 0;
+        QVERIFY(GetSecurityDescriptorControl(tokenDescriptor, &control, &revision));
+        QVERIFY(control & SE_DACL_PROTECTED);
+        QVERIFY(tokenAcl && tokenAcl->AceCount > 0);
+
+        HANDLE processToken = nullptr;
+        QVERIFY(OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &processToken));
+        const auto closeToken = qScopeGuard([&] { CloseHandle(processToken); });
+        DWORD tokenSize = 0;
+        GetTokenInformation(processToken, TokenUser, nullptr, 0, &tokenSize);
+        QVERIFY(tokenSize > 0);
+        QByteArray tokenInformation(tokenSize, Qt::Uninitialized);
+        QVERIFY(GetTokenInformation(processToken, TokenUser, tokenInformation.data(), tokenSize, &tokenSize));
+        const auto user = reinterpret_cast<TOKEN_USER *>(tokenInformation.data());
+        for (DWORD index = 0; index < tokenAcl->AceCount; ++index) {
+            void *entry = nullptr;
+            QVERIFY(GetAce(tokenAcl, index, &entry));
+            const auto ace = static_cast<ACCESS_ALLOWED_ACE *>(entry);
+            QCOMPARE(ace->Header.AceType, BYTE(ACCESS_ALLOWED_ACE_TYPE));
+            QVERIFY(!(ace->Header.AceFlags & INHERITED_ACE));
+            auto sid = &ace->SidStart;
+            QVERIFY(EqualSid(sid, user->User.Sid)
+                    || IsWellKnownSid(sid, WinLocalSystemSid)
+                    || IsWellKnownSid(sid, WinBuiltinAdministratorsSid));
+        }
+        QByteArray second;
+        QVERIFY2(loadControlToken(directory.path(), &second, &error), qPrintable(error));
+        QCOMPARE(second, token);
+
+        // Token protection must leave the caller-provided parent ACL intact.
+        PACL unchangedAcl = nullptr;
+        PSECURITY_DESCRIPTOR unchangedDescriptor = nullptr;
+        QCOMPARE(GetNamedSecurityInfoW(reinterpret_cast<LPWSTR>(parentPath.data()), SE_FILE_OBJECT,
+            DACL_SECURITY_INFORMATION, nullptr, nullptr, &unchangedAcl, nullptr, &unchangedDescriptor),
+            DWORD(ERROR_SUCCESS));
+        const auto freeUnchangedDescriptor = qScopeGuard([&] { LocalFree(unchangedDescriptor); });
+        QVERIFY(unchangedAcl);
+        QCOMPARE(unchangedAcl->AclSize, parentAcl->AclSize);
+        QCOMPARE(QByteArray(reinterpret_cast<const char *>(unchangedAcl), unchangedAcl->AclSize),
+                 QByteArray(reinterpret_cast<const char *>(parentAcl), parentAcl->AclSize));
+    }
+#endif
 };
 
 QTEST_GUILESS_MAIN(ControlTests)

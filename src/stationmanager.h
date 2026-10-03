@@ -19,7 +19,7 @@ private:
 
     bool loadConfiguration(const QString &stationPath, TypeStation stationType, bool isTrial);
     bool initializeStandaloneConfiguration();
-    static QString standaloneDataPath(const QString &appLocalDataPath, const QDir &homeDirectory);
+    bool initializeStandaloneConfiguration(const QString &dataPath, const QStringList &legacyPaths);
 
     StationManager() :
         QObject(nullptr),

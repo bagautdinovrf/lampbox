@@ -42,12 +42,26 @@ CPU wake lock удерживается во время воспроизведе�
 На desktop обычный запуск оставляет процесс в основном потоке без окна:
 
 ```sh
-MediaBoxPlayer --data-dir /var/lib/mediabox-player --listen 127.0.0.1 --port 17655
+MediaBoxPlayer --listen 127.0.0.1 --port 17655
 ```
 
-Каталог должен быть доступен учётной записи плеера. По умолчанию используется
-`QStandardPaths::AppLocalDataLocation`; Android использует закрытый каталог
-`files` приложения. Плеер создаёт `player.lock` и случайный `control.token`.
+Каталог должен быть доступен учётной записи плеера. Каталог настроек по умолчанию:
+
+| Платформа | Каталог |
+| --- | --- |
+| Windows | `%ProgramData%\MediaBox\MediaBoxPlayer` |
+| Linux | `/etc/mediabox/mediaboxplayer` |
+| Android | `files/mediabox/mediaboxplayer` в закрытом каталоге приложения |
+
+Плеер создаёт случайный `control.token` и блокировку `player.lock` в своём
+каталоге настроек. Перед первым запуском в Linux администратор должен
+[подготовить каталоги](deploy/linux/README.md) для учётной записи плеера.
+`--data-dir` переопределяет каталог токена и блокировки. При запуске без
+`--data-dir` старый токен копируется
+из прежнего `QStandardPaths::AppLocalDataLocation`, только если нового ещё нет;
+в Windows сначала проверяется `%ProgramData%\MediaBox\Player`.
+Исходный токен сохраняется. Перенос токена службы Windows описан в
+[инструкции установки](deploy/windows/README.md).
 Второй процесс с тем же каталогом данных или занятым адресом/портом завершится
 с ошибкой. Логи идут в stderr (в Linux — журнал systemd); ошибки воспроизведения
 также доступны в `status.error`. Токен в журнал не выводится.

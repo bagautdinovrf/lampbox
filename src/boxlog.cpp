@@ -1,4 +1,5 @@
 #include "boxlog.h"
+#include "storagepaths.h"
 
 
 #include <QTextStream>
@@ -6,7 +7,6 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QDir>
-#include <QStandardPaths>
 
 BoxLog::BoxLog() :
     mLogFile( new QFile() ),
@@ -59,9 +59,8 @@ void BoxLog::init()
 {
     if (!mLogFile)
         return;
-    QString logDirectory = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-    if (logDirectory.isEmpty())
-        logDirectory = QDir::home().absoluteFilePath(".mediaboxmanager");
+    const QString logDirectory = MediaBox::StoragePaths::dataDirectory(
+            MediaBox::StoragePaths::Application::Manager);
     const QDir directory(logDirectory);
     if (!directory.mkpath(".")) {
         qWarning().noquote() << QStringLiteral("Не удалось создать каталог журнала: %1").arg(logDirectory);

@@ -10,6 +10,7 @@
 #include "desktopservice.h"
 #include "playerengine.h"
 #include "qtaudiobackend.h"
+#include "storagepaths.h"
 
 #ifdef Q_OS_ANDROID
 #include <QtCore/private/qandroidextras_p.h>
@@ -18,6 +19,18 @@
 #endif
 
 namespace {
+QStringList legacyControlTokens()
+{
+    QStringList paths;
+#ifdef Q_OS_WIN
+    paths.append(QDir(MediaBox::StoragePaths::commonConfigurationDirectory())
+                     .filePath(QStringLiteral("Player/control.token")));
+#endif
+    paths.append(QDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation))
+                     .filePath(QStringLiteral("control.token")));
+    return paths;
+}
+
 int runPlayer(int argc, char *argv[])
 {
 #ifdef Q_OS_ANDROID
@@ -35,9 +48,12 @@ int runPlayer(int argc, char *argv[])
         QStringLiteral("Фоновый аудиоплеер MediaBoxPlayer. Управление: JSON/TCP API v1."));
     parser.addHelpOption();
     parser.addVersionOption();
+    const QString defaultDataDirectory = MediaBox::StoragePaths::configurationDirectory(
+        MediaBox::StoragePaths::Application::Player);
     parser.addOption({QStringLiteral("data-dir"),
-                      QStringLiteral("Каталог блокировки процесса и токена управления."), QStringLiteral("path"),
-                      QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)});
+                      QStringLiteral("Каталог блокировки процесса и токена управления (по умолчанию: %1).")
+                          .arg(defaultDataDirectory),
+                      QStringLiteral("path"), defaultDataDirectory});
     parser.addOption({QStringLiteral("listen"), QStringLiteral("IP-адрес API управления."),
                       QStringLiteral("address"), QStringLiteral("127.0.0.1")});
     parser.addOption({QStringLiteral("port"), QStringLiteral("TCP-порт API управления."),
@@ -72,7 +88,9 @@ int runPlayer(int argc, char *argv[])
 
     QString error;
     QByteArray token;
-    if (!MediaBox::loadControlToken(dataDirectory, &token, &error)) {
+    const QStringList legacyTokens = parser.isSet(QStringLiteral("data-dir"))
+        ? QStringList() : legacyControlTokens();
+    if (!MediaBox::loadControlToken(dataDirectory, &token, &error, legacyTokens)) {
         qCritical().noquote() << error;
         return 1;
     }

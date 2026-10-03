@@ -3,7 +3,9 @@
 #include <QMessageBox>
 #include <QStyleFactory>
 #include <QIcon>
+#include <QDebug>
 
+#include <exception>
 #include <iostream>
 #include "mainwindow.h"
 #include "stationmanager.h"
@@ -32,8 +34,13 @@ int main(int argc, char *argv[])
     QApplication::setApplicationDisplayName(QStringLiteral("MediaBoxManager"));
     QApplication::setWindowIcon(QIcon(QStringLiteral(":/player/icons/app.ico")));
 
-    Settings settings;
-    Restyle::install(a, settings.appearanceId(), settings.themeId());
+    try {
+        Settings settings;
+        Restyle::install(a, settings.appearanceId(), settings.themeId());
+    } catch (const std::exception &error) {
+        qCritical().noquote() << error.what();
+        return 1;
+    }
 
     // Keep the legacy key to prevent concurrent access by an older LampBox.
     QSharedMemory mem("LampBoxMemory");
@@ -46,7 +53,12 @@ int main(int argc, char *argv[])
         mem.create(1);
     }
 
-    if( StationManager::Instance().trial() )
+    auto &station = StationManager::Instance();
+    if (!station.lastError().isEmpty()) {
+        qCritical().noquote() << station.lastError();
+        return 1;
+    }
+    if( station.trial() )
         TrialMessageBox();
 
     MainWindow w;

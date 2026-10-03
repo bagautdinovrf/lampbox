@@ -17,6 +17,10 @@ if(PROJECT_IS_TOP_LEVEL)
     qt_standard_project_setup(REQUIRES 6.12)
 endif()
 
+if(NOT TARGET MediaBoxPaths)
+    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../common" "${CMAKE_CURRENT_BINARY_DIR}/common")
+endif()
+
 add_library(MediaBoxPlayerCore STATIC
     src/audiobackend.cpp src/audiobackend.h
     src/playerengine.cpp src/playerengine.h
@@ -38,7 +42,7 @@ qt_add_executable(MediaBoxPlayer
 target_compile_definitions(MediaBoxPlayer PRIVATE
     MEDIABOXPLAYER_VERSION="${PROJECT_VERSION}"
 )
-target_link_libraries(MediaBoxPlayer PRIVATE MediaBoxPlayerCore Qt6::Multimedia)
+target_link_libraries(MediaBoxPlayer PRIVATE MediaBoxPlayerCore MediaBoxPaths Qt6::Multimedia)
 if(ANDROID)
     target_link_libraries(MediaBoxPlayer PRIVATE Qt6::CorePrivate)
     set_target_properties(MediaBoxPlayer PROPERTIES

@@ -56,7 +56,14 @@ WelcomeFontName=Segoe UI
 WelcomeFontSize=14
 
 [Dirs]
-Name: "{commonappdata}\MediaBox"; Permissions: users-modify; Flags: uninsneveruninstall
+; Do not inherit broad Users permissions into the private player directory.
+; Root permissions are restricted in ConfigureSharedDataAccess below.
+Name: "{commonappdata}\MediaBox"; Flags: uninsneveruninstall
+Name: "{commonappdata}\MediaBox\MediaBoxManager"; Permissions: users-modify; Flags: uninsneveruninstall
+Name: "{commonappdata}\MediaBox\timetable"; Permissions: users-modify; Flags: uninsneveruninstall
+Name: "{commonappdata}\MediaBox\media"; Permissions: users-modify; Flags: uninsneveruninstall
+Name: "{commonappdata}\MediaBox\cron"; Permissions: users-modify; Flags: uninsneveruninstall
+Name: "{commonappdata}\MediaBox\nncronlt"; Permissions: users-modify; Flags: uninsneveruninstall
 
 [Files]
 ; Required entries prevent building a package with missing application binaries.
@@ -81,3 +88,29 @@ Name: "{autodesktop}\{#AppName} {#AppVersion}"; Filename: "{app}\bin\MediaBoxMan
 
 [Run]
 Filename: "{app}\bin\MediaBoxManager.exe"; WorkingDir: "{app}\bin"; Description: "Запустить MediaBoxManager"; Flags: postinstall nowait skipifsilent
+
+[Code]
+procedure ConfigureSharedDataAccess;
+var
+  ResultCode: Integer;
+  Arguments: String;
+begin
+  { Replace the inheritable Users Modify rule from earlier installers only.
+    These rights allow reading and creating files/directories on the root, but
+    do not include Delete/DeleteChild and do not propagate to Player. Keep other
+    principals' ACL entries and the service's protected directory untouched. }
+  Arguments := '"' + ExpandConstant('{commonappdata}\MediaBox') +
+    '" /grant:r "*S-1-5-32-545:(RD,WD,AD,REA,X,RA,RC,S)"';
+  ResultCode := -1;
+  if not Exec(ExpandConstant('{sys}\icacls.exe'), Arguments, '',
+    SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    RaiseException('Не удалось настроить права общего каталога MediaBox.');
+  if ResultCode <> 0 then
+    RaiseException('Не удалось настроить права общего каталога MediaBox. Код: ' + IntToStr(ResultCode));
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+    ConfigureSharedDataAccess;
+end;

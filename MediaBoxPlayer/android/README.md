@@ -34,14 +34,18 @@ Manifest не включает Activity и не требует собствен�
 adb shell am start-foreground-service \
   -n org.mediabox.player/org.mediabox.player.MediaBoxService
 adb forward tcp:17655 tcp:17655
-adb shell run-as org.mediabox.player cat files/control.token
+adb shell run-as org.mediabox.player cat files/mediabox/mediaboxplayer/control.token
 adb logcat -s MediaBoxPlayer Qt qt
 ```
 
 Токен из последней команды чтения используется в запросах API v1 на
 `127.0.0.1:17655`; формат описан в основной документации плеера. `run-as` работает
 только для отладочного APK. Токен не выводится плеером в журнал и не передаётся
-через Intent. Каталог по умолчанию — закрытый `Context.getFilesDir()` приложения.
+через Intent. Каталог настроек по умолчанию — `mediabox/mediaboxplayer` внутри закрытого
+`Context.getFilesDir()` приложения. Общие файлы могут храниться в `files/mediabox`
+того же приложения; Android не открывает этот каталог другим APK, включая
+MediaBoxManager. Прежний `files/control.token` копируется при первом запуске,
+если нового токена ещё нет; исходный файл сохраняется.
 Аудиофайлы также должны быть доступны процессу плеера: используйте его каталог
 файлов. Сетевые URL и `content://` в API этой версии не принимаются. Доступ ко всему хранилищу
 и разрешения чтения медиатеки не запрашиваются.

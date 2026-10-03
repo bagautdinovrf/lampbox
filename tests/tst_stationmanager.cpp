@@ -10,6 +10,7 @@
 #include <QUuid>
 
 #include "stationmanager.h"
+#include "storagepaths.h"
 
 class StationManagerTest final : public QObject
 {
@@ -24,7 +25,7 @@ private slots:
         QStandardPaths::setTestModeEnabled(true);
         QCoreApplication::setApplicationName("lampbox_station_test_"
                 + QUuid::createUuid().toString(QUuid::Id128));
-        mStandalonePath = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+        mStandalonePath = MediaBox::StoragePaths::commonDataDirectory();
         QVERIFY(QDir::isAbsolutePath(mStandalonePath));
         QVERIFY(mStandalonePath.contains(QCoreApplication::applicationName()));
         QVERIFY(!QDir(mStandalonePath).exists());
@@ -47,76 +48,151 @@ private slots:
         QVERIFY(QDir::isAbsolutePath(mStandalonePath));
         QVERIFY(mStandalonePath.contains(QCoreApplication::applicationName()));
         QCOMPARE(mStandalonePath,
-                 QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation));
+                 MediaBox::StoragePaths::commonDataDirectory());
         QVERIFY(QDir(mStandalonePath).removeRecursively());
     }
 
-    void standaloneDataCompatibility_data()
+    void standaloneDataMigration()
     {
-        QTest::addColumn<QString>("applicationName");
-        QTest::addColumn<bool>("emptyStandardPath");
-        QTest::addColumn<int>("legacyMarker");
-        QTest::addColumn<bool>("preferredExists");
-        QTest::addColumn<bool>("usesLegacy");
-
-        QTest::newRow("new-install") << QString("MediaBoxManager") << false << 0 << false << false;
-        QTest::newRow("legacy-timetable") << QString("MediaBoxManager") << false << 1 << false << true;
-        QTest::newRow("legacy-config") << QString("MediaBoxManager") << false << 2 << false << true;
-        QTest::newRow("new-directory-preferred") << QString("MediaBoxManager") << false << 2 << true << false;
-        QTest::newRow("other-application") << QString("StationTestApplication") << false << 2 << false << false;
-        QTest::newRow("fallback-new-install") << QString("MediaBoxManager") << true << 0 << false << false;
-        QTest::newRow("fallback-legacy-timetable") << QString("MediaBoxManager") << true << 1 << false << true;
-        QTest::newRow("fallback-legacy-config") << QString("MediaBoxManager") << true << 2 << false << true;
-        QTest::newRow("fallback-new-directory-preferred") << QString("MediaBoxManager") << true << 2 << true << false;
-    }
-
-    void standaloneDataCompatibility()
-    {
-        QFETCH(QString, applicationName);
-        QFETCH(bool, emptyStandardPath);
-        QFETCH(int, legacyMarker);
-        QFETCH(bool, preferredExists);
-        QFETCH(bool, usesLegacy);
-
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        const QString originalApplicationName = QCoreApplication::applicationName();
-        const auto restoreApplication = qScopeGuard([&] {
-            QCoreApplication::setApplicationName(originalApplicationName);
-        });
-        QCoreApplication::setApplicationName(applicationName);
+        const QDir source(directory.filePath("lampbox"));
+        const QDir destination(directory.filePath("mediabox"));
+        const QStringList publicFiles = {"timetable/1.xml", "media/music/song.mp3",
+                                         "cron/playlist.cron", "nncronlt/nncron.tab"};
+        for (const QString &path : publicFiles)
+            QVERIFY(writeFile(source.absoluteFilePath(path), path.toUtf8()));
+        const QStringList privateFiles = {"conf/mediaboxmanager.conf", "log/manager.log",
+                                          "MediaBoxPlayer.ini", "token.txt"};
+        for (const QString &path : privateFiles)
+            QVERIFY(writeFile(source.absoluteFilePath(path), QByteArrayLiteral("private")));
+        QVERIFY(writeFile(source.absoluteFilePath("mediabox.conf"),
+                          QByteArrayLiteral("[mediastation]\nmediabox_id=42\nalternative=true\n")));
+        // Windows installers may prepare these empty shared directories first.
+        for (const QString &path : {"timetable", "media", "cron", "nncronlt"})
+            QVERIFY(destination.mkpath(path));
 
-        const QDir home(directory.path());
-        const QString preferredPath = home.absoluteFilePath(emptyStandardPath
-                ? ".mediaboxmanager" : applicationName);
-        const QString legacyPath = home.absoluteFilePath(emptyStandardPath ? ".lampbox" : "lampbox");
-        QVERIFY(home.mkpath(legacyPath));
-        if (preferredExists)
-            QVERIFY(home.mkpath(preferredPath));
-
-        const QByteArray legacyContents("[mediastation]\nmediabox_id=42\n");
-        const QString legacyConfig = QDir(legacyPath).absoluteFilePath("mediabox.conf");
-        if (legacyMarker == 1)
-            QVERIFY(QDir(legacyPath).mkpath("timetable"));
-        else if (legacyMarker == 2) {
-            QFile file(legacyConfig);
-            QVERIFY(file.open(QIODevice::WriteOnly));
-            QCOMPARE(file.write(legacyContents), qint64(legacyContents.size()));
+        StationManager station;
+        QVERIFY2(station.initializeStandaloneConfiguration(destination.path(), {source.path()}),
+                 qPrintable(station.lastError()));
+        QCOMPARE(station.get(), destination.path());
+        QCOMPARE(station.id(), 42);
+        QVERIFY(station.isAlter());
+        for (const QString &path : publicFiles) {
+            QCOMPARE(readFile(destination.absoluteFilePath(path)), path.toUtf8());
+            QCOMPARE(readFile(source.absoluteFilePath(path)), path.toUtf8());
         }
-        const QStringList legacyEntries = QDir(legacyPath).entryList();
-        const QStringList preferredEntries = QDir(preferredPath).entryList();
+        for (const QString &path : privateFiles)
+            QVERIFY(!QFileInfo::exists(destination.absoluteFilePath(path)));
+        QVERIFY(QFileInfo::exists(destination.absoluteFilePath(".station-storage-initialized")));
+        QVERIFY(!QFileInfo::exists(destination.absoluteFilePath(".station-storage-migration")));
 
-        const QString selectedPath = StationManager::standaloneDataPath(
-                emptyStandardPath ? QString() : preferredPath, home);
-        QCOMPARE(selectedPath, usesLegacy ? legacyPath : preferredPath);
-        QCOMPARE(QDir(preferredPath).exists(), preferredExists);
-        QCOMPARE(QDir(preferredPath).entryList(), preferredEntries);
-        QCOMPARE(QDir(legacyPath).entryList(), legacyEntries);
-        if (legacyMarker == 2) {
-            QFile file(legacyConfig);
-            QVERIFY(file.open(QIODevice::ReadOnly));
-            QCOMPARE(file.readAll(), legacyContents);
+        QVERIFY(QFile::remove(destination.absoluteFilePath("timetable/1.xml")));
+        QVERIFY(station.initializeStandaloneConfiguration(destination.path(), {source.path()}));
+        QVERIFY(!QFileInfo::exists(destination.absoluteFilePath("timetable/1.xml")));
+    }
+
+    void existingStationAndInitializedEmptyStationAreNotReimported()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QDir source(directory.filePath("old"));
+        const QDir existing(directory.filePath("existing"));
+        const QDir empty(directory.filePath("empty"));
+        StationManager station;
+        QVERIFY(station.initializeStandaloneConfiguration(empty.path(), {source.path()}));
+        QVERIFY(writeFile(source.absoluteFilePath("timetable/old.xml"), QByteArrayLiteral("old")));
+        QVERIFY(writeFile(existing.absoluteFilePath("timetable/current.xml"), QByteArrayLiteral("current")));
+        QVERIFY(station.initializeStandaloneConfiguration(existing.path(), {source.path()}));
+        QCOMPARE(readFile(existing.absoluteFilePath("timetable/current.xml")), QByteArrayLiteral("current"));
+        QVERIFY(!QFileInfo::exists(existing.absoluteFilePath("timetable/old.xml")));
+        QVERIFY(station.initializeStandaloneConfiguration(empty.path(), {source.path()}));
+        QVERIFY(!QFileInfo::exists(empty.absoluteFilePath("timetable/old.xml")));
+    }
+
+    void migrationResumesAfterFailure()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QDir source(directory.filePath("old"));
+        const QDir destination(directory.filePath("shared"));
+        QVERIFY(writeFile(source.absoluteFilePath("timetable/1.xml"), QByteArrayLiteral("schedule")));
+        // A file where nncronlt must be a directory makes initialization fail
+        // after the first schedule has already been copied.
+        QVERIFY(writeFile(source.absoluteFilePath("nncronlt"), QByteArrayLiteral("invalid directory")));
+        StationManager station;
+        QVERIFY(!station.initializeStandaloneConfiguration(destination.path(), {source.path()}));
+        QVERIFY(!station.lastError().isEmpty());
+        QVERIFY(QFileInfo::exists(destination.absoluteFilePath(".station-storage-migration")));
+        QVERIFY(!QFileInfo::exists(destination.absoluteFilePath(".station-storage-initialized")));
+        QCOMPARE(readFile(destination.absoluteFilePath("timetable/1.xml")), QByteArrayLiteral("schedule"));
+
+        QVERIFY(QFile::remove(source.absoluteFilePath("nncronlt")));
+        QVERIFY(QFile::remove(destination.absoluteFilePath("nncronlt")));
+        QVERIFY(writeFile(source.absoluteFilePath("nncronlt/jobs.tab"), QByteArrayLiteral("jobs")));
+        QVERIFY2(station.initializeStandaloneConfiguration(destination.path(), {}),
+                 qPrintable(station.lastError()));
+        QCOMPARE(readFile(destination.absoluteFilePath("nncronlt/jobs.tab")), QByteArrayLiteral("jobs"));
+        QVERIFY(!QFileInfo::exists(destination.absoluteFilePath(".station-storage-migration")));
+    }
+
+    void migratedConfigurationPreservesContentPaths()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QDir source(directory.filePath("old"));
+        const QDir destination(directory.filePath("shared"));
+        QVERIFY(writeFile(source.absoluteFilePath("media/music/song.mp3"), QByteArrayLiteral("song")));
+        QVERIFY(writeFile(source.absoluteFilePath("custom_cron/jobs.tab"), QByteArrayLiteral("jobs")));
+        {
+            QSettings settings(source.absoluteFilePath("mediabox.conf"), QSettings::IniFormat);
+            settings.setValue("mediastation/media", source.absoluteFilePath("media"));
+            settings.setValue("mediastation/crondir", "custom_cron");
+            settings.sync();
+            QCOMPARE(settings.status(), QSettings::NoError);
         }
+        StationManager station;
+        QVERIFY2(station.initializeStandaloneConfiguration(destination.path(), {source.path()}),
+                 qPrintable(station.lastError()));
+        QCOMPARE(station.media("music/song.mp3"), destination.absoluteFilePath("media/music/song.mp3"));
+        QCOMPARE(station.getCronDir(), source.absoluteFilePath("custom_cron"));
+        QSettings original(source.absoluteFilePath("mediabox.conf"), QSettings::IniFormat);
+        QCOMPARE(original.value("mediastation/crondir").toString(), QStringLiteral("custom_cron"));
+    }
+
+    void migrationDoesNotFollowSymbolicLinks()
+    {
+#ifndef Q_OS_UNIX
+        QSKIP("Directory symbolic-link behavior is tested on Unix.");
+#else
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QDir source(directory.filePath("old"));
+        const QDir destination(directory.filePath("shared"));
+        QVERIFY(source.mkpath("media"));
+        QVERIFY(QFile::link(source.absoluteFilePath("media"), source.absoluteFilePath("media/loop")));
+        StationManager station;
+        QVERIFY(!station.initializeStandaloneConfiguration(destination.path(), {source.path()}));
+        QVERIFY(!station.lastError().isEmpty());
+        QVERIFY(!QFileInfo::exists(destination.absoluteFilePath(".station-storage-initialized")));
+        QVERIFY(!QFileInfo::exists(destination.absoluteFilePath("media/loop")));
+#endif
+    }
+
+    void invalidMigratedConfigurationDoesNotInitializeAnEmptyStation()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QDir source(directory.filePath("old"));
+        const QDir destination(directory.filePath("shared"));
+        const QByteArray invalidConfiguration("[invalid section\nmediabox_id=42\n");
+        QVERIFY(writeFile(source.absoluteFilePath("mediabox.conf"), invalidConfiguration));
+        StationManager station;
+        QVERIFY(!station.initializeStandaloneConfiguration(destination.path(), {source.path()}));
+        QVERIFY(!station.lastError().isEmpty());
+        QVERIFY(!QFileInfo::exists(destination.absoluteFilePath(".station-storage-initialized")));
+        QVERIFY(QFileInfo::exists(destination.absoluteFilePath(".station-storage-migration")));
+        QCOMPARE(readFile(source.absoluteFilePath("mediabox.conf")), invalidConfiguration);
     }
 
     void standalonePathsRemainStable()
@@ -228,6 +304,22 @@ private slots:
     }
 
 private:
+    static bool writeFile(const QString &path, const QByteArray &contents)
+    {
+        if (!QDir().mkpath(QFileInfo(path).absolutePath()))
+            return false;
+        QFile file(path);
+        return file.open(QIODevice::WriteOnly) && file.write(contents) == contents.size();
+    }
+
+    static QByteArray readFile(const QString &path)
+    {
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly))
+            return {};
+        return file.readAll();
+    }
+
     QString mOriginalWorkingDirectory;
     QString mOriginalApplicationName;
     QString mStandalonePath;

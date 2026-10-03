@@ -78,9 +78,9 @@ MediaBoxPlayer --data-dir /srv/mediabox/player --listen 192.168.10.25 --port 176
 
 | Платформа | Где хранится токен |
 | --- | --- |
-| Windows, предоставленный скрипт службы | `%ProgramData%\MediaBox\Player\control.token` |
-| Linux, предоставленный пользовательский systemd unit | `~/.local/share/MediaBoxPlayer/control.token` пользователя службы |
-| Android | `files/control.token` в закрытом каталоге APK |
+| Windows, предоставленный скрипт службы | `%ProgramData%\MediaBox\MediaBoxPlayer\control.token` |
+| Linux, предоставленный пользовательский systemd unit | `/etc/mediabox/mediaboxplayer/control.token` |
+| Android | `files/mediabox/mediaboxplayer/control.token` в закрытом каталоге APK |
 
 При другой настройке путь определяется `--data-dir`. Токен передаётся Manager
 при первоначальной доверенной настройке станции. В v1 нет команды получения,

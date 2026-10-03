@@ -15,6 +15,7 @@ qt_standard_project_setup(REQUIRES 6.12)
 include(CTest)
 include(GNUInstallDirs)
 include(cmake/TagLib.cmake)
+add_subdirectory(common)
 
 # An object library keeps resources linked into both the application and tests.
 add_library(MediaBoxManagerCore OBJECT
@@ -166,7 +167,7 @@ target_compile_definitions(MediaBoxManagerCore PUBLIC
     "$<$<CONFIG:Debug>:SHOW_DEBUG_OUTPUT>"
 )
 target_link_libraries(MediaBoxManagerCore PUBLIC
-    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Xml Qt6::Network LampBox::TagLib
+    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Xml Qt6::Network LampBox::TagLib MediaBoxPaths
 )
 if(WIN32)
     target_link_libraries(MediaBoxManagerCore PUBLIC shell32)

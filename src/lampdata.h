@@ -37,7 +37,7 @@ struct SPathData
         playMusicFile = STATIONPATHTO("lmplayer.exe");                  /// Плеер запуска музыки
         mediaPath = "";                                                 /// Директория автомонтирования флешки
 #elif defined(Q_OS_LINUX)
-        cronPath = "/etc/cron.d/";
+        cronPath = QDir(StationManager::Instance().getCronDir()).absolutePath() + '/';
         advertTask = cronPath + "rektask";                              /// cron файл рекламы
         playMusicFile = STATIONPATHTO("scripts/play_music.pl");         /// Скрипт запуска музыки
         mediaPath = "/media";                                           /// Директория автомонтирования флешки
