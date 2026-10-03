@@ -64,13 +64,14 @@ QString programDataDirectory()
     return {};
 }
 
-void syncSettings(QSettings &settings)
+bool syncSettings(QSettings &settings)
 {
     settings.sync();
     if (settings.status() != QSettings::NoError) {
         qWarning().noquote() << QStringLiteral("Не удалось сохранить настройки в %1 (код %2).")
                 .arg(settings.fileName()).arg(static_cast<int>(settings.status()));
     }
+    return settings.status() == QSettings::NoError;
 }
 }
 
@@ -261,6 +262,28 @@ void Settings::setThemeId(const QString &id)
                                            "graphite", "pearl", "dark"};
     if (supported.contains(id))
         writeStringSettings("Appearance/theme", id);
+}
+
+PlayerConnectionSettings Settings::playerConnection() const
+{
+    QSettings settings(mConfigFile, QSettings::IniFormat);
+    PlayerConnectionSettings connection;
+    connection.host = settings.value("Player/Host", connection.host).toString();
+    bool portValid = false;
+    const int port = settings.value("Player/Port", connection.port).toInt(&portValid);
+    if (portValid && port > 0 && port <= 65535)
+        connection.port = static_cast<quint16>(port);
+    connection.token = settings.value("Player/Token").toString();
+    return connection;
+}
+
+bool Settings::setPlayerConnection(const PlayerConnectionSettings &connection)
+{
+    QSettings settings(mConfigFile, QSettings::IniFormat);
+    settings.setValue("Player/Host", connection.host.trimmed());
+    settings.setValue("Player/Port", connection.port);
+    settings.setValue("Player/Token", connection.token.trimmed());
+    return syncSettings(settings);
 }
 
 const QMap<QString, bool> &Settings::fileFormats()

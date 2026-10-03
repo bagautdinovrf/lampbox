@@ -5,6 +5,9 @@
 
 
 class QListWidgetItem;
+class QLineEdit;
+class QSpinBox;
+class RestyleLabel;
 
 namespace Ui {
     class SettingsDialog;
@@ -41,6 +44,7 @@ private:
     void changeVideoTypesCheckState( Qt::CheckState state);
 
 private slots:
+    void savePlayerConnection();
 
     /**
      * @brief checkItem             - Выбор типов файлов
@@ -62,6 +66,7 @@ private slots:
 
 signals:
     void doneRequested();
+    void playerConnectionChanged();
     /**
      * @brief fileFormats
      */
@@ -73,6 +78,10 @@ private:
     Ui::SettingsDialog *ui;
     class QListWidget *mAudioFormats = nullptr;
     class QListWidget *mVideoFormats = nullptr;
+    QLineEdit *mPlayerHost = nullptr;
+    QSpinBox *mPlayerPort = nullptr;
+    QLineEdit *mPlayerToken = nullptr;
+    RestyleLabel *mPlayerConnectionMessage = nullptr;
 
 };
 

@@ -9,7 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
-find_package(Qt6 6.12 REQUIRED COMPONENTS Core Gui Widgets Xml)
+find_package(Qt6 6.12 REQUIRED COMPONENTS Core Gui Widgets Xml Network)
 qt_standard_project_setup(REQUIRES 6.12)
 
 include(CTest)
@@ -60,6 +60,10 @@ add_library(MediaBoxManagerCore OBJECT
     src/mainwindow.h
     src/mediacontroller.cpp
     src/mediacontroller.h
+    src/mediaboxplayerclient.cpp
+    src/mediaboxplayerclient.h
+    src/playercontrolwidget.cpp
+    src/playercontrolwidget.h
     src/mediadata.cpp
     src/mediadata.h
     src/mediamanager.cpp
@@ -162,7 +166,7 @@ target_compile_definitions(MediaBoxManagerCore PUBLIC
     "$<$<CONFIG:Debug>:SHOW_DEBUG_OUTPUT>"
 )
 target_link_libraries(MediaBoxManagerCore PUBLIC
-    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Xml LampBox::TagLib
+    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Xml Qt6::Network LampBox::TagLib
 )
 if(WIN32)
     target_link_libraries(MediaBoxManagerCore PUBLIC shell32)

@@ -6,6 +6,7 @@
 #include "channelmodel.h"
 #include "informer.h"
 #include "mediacontroller.h"
+#include "playercontrolwidget.h"
 #include "medialibrarydelegate.h"
 #include "mediamanager.h"
 #include "mediamodel.h"
@@ -188,8 +189,42 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     updatePage(2);
     if (qApp->property("restylePreviewStation").toString().isEmpty()) {
         mMediaController = new MediaController(this);
-        connect(mMediaController, &MediaController::playingState, this, &MainWindow::setPlayingButtonsState);
+        connect(settings, &SettingsDialog::playerConnectionChanged,
+                mMediaController, &MediaController::reloadConnection);
+        connect(mMediaController, &MediaBoxPlayerClient::connectionStateChanged,
+                this, &MainWindow::updatePlayerState);
+        connect(mMediaController, &MediaBoxPlayerClient::statusChanged,
+                this, &MainWindow::updatePlayerState);
+        auto report = [this](const QString &message) {
+            const QString text = mUnknownPlayerCommand.isEmpty() ? message
+                : QStringLiteral("Результат %1 неизвестен. %2").arg(mUnknownPlayerCommand, message);
+            mOperationState->setText(text);
+            mOperationState->setToolTip(text);
+        };
+        connect(mMediaController, &MediaBoxPlayerClient::connectionError, this, report);
+        connect(mMediaController, &MediaBoxPlayerClient::commandFailed, this,
+                [report](const QString &, const QString &command, const QString &code, const QString &message) {
+            report(QStringLiteral("Команда %1: %2 (%3)").arg(command, message, code));
+        });
+        connect(mMediaController, &MediaBoxPlayerClient::commandOutcomeUnknown, this,
+                [this, report](const QString &, const QString &command) {
+            mUnknownPlayerCommand = command;
+            report(QStringLiteral("Ответ потерян. Проверьте состояние плеера перед новым действием."));
+        });
+        connect(mMediaController, &MediaBoxPlayerClient::commandCancelled, this,
+                [report](const QString &, const QString &command) {
+            if (command != "status")
+                report(QStringLiteral("Неотправленная команда %1 отменена.").arg(command));
+        });
+        connect(mMediaController, &MediaBoxPlayerClient::commandSucceeded, this,
+                [this, report](const QString &, const QString &command) {
+            if (command != "status") {
+                mUnknownPlayerCommand.clear();
+                report(QStringLiteral("Плеер обработал команду %1").arg(command));
+            }
+        });
     }
+    updatePlayerState();
     connect(&Informer::Instance(), &Informer::infoEventSignal, this, [this](const QString &s) {
         mOperationState->setText(s);
         mOperationState->setToolTip(s);
@@ -310,50 +345,46 @@ void MainWindow::buildShell() {
     t->setSpacing(10);
     auto *v = iconButton("volume", "Сведения о MediaBoxPlayer");
     t->addWidget(v);
-    connect(v, &QPushButton::clicked, this, &MainWindow::showStationInfo);
+    connect(v, &QPushButton::clicked, this, &MainWindow::showPlayerControls);
     auto *status = new QVBoxLayout;
     status->setSpacing(4);
     mPlayerState = label("Состояние плеера не подтверждено", 11);
+    mPlayerState->setObjectName("playerState");
     mPlayerState->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     status->addWidget(mPlayerState);
-    auto *playerDetail = label("MediaBoxPlayer · данные о текущем файле недоступны", 10);
-    playerDetail->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
-    status->addWidget(playerDetail);
+    mPlayerDetail = label("MediaBoxPlayer · данные о текущем файле недоступны", 10);
+    mPlayerDetail->setObjectName("playerTrack");
+    mPlayerDetail->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    status->addWidget(mPlayerDetail);
     t->addLayout(status, 1);
     mPlay = button({}, "play", "play");
     mPlay->setFixedSize(34, 34);
-    mPlay->setToolTip("Запустить MediaBoxPlayer");
+    mPlay->setObjectName("playerPlayButton");
+    mPlay->setToolTip("Продолжить воспроизведение очереди");
     mPlay->setAccessibleName(mPlay->toolTip());
     t->addWidget(mPlay);
     mStop = button({}, "stop", "stop");
     mStop->setFixedSize(30, 30);
-    mStop->setToolTip("Остановить MediaBoxPlayer");
+    mStop->setObjectName("playerStopButton");
+    mStop->setToolTip("Остановить воспроизведение");
     mStop->setAccessibleName(mStop->toolTip());
     t->addWidget(mStop);
     connect(mPlay, &QPushButton::clicked, this, [this] {
         if (!playerAvailable())
             return;
-        QSignalBlocker blocker(mMediaController);
-        if (!mMediaController->play())
-            showError("Не удалось запустить MediaBoxPlayer.");
-        else
-            mOperationState->setText("Команда запуска отправлена");
+        mMediaController->play();
     });
     connect(mStop, &QPushButton::clicked, this, [this] {
         if (!playerAvailable())
             return;
-        QSignalBlocker blocker(mMediaController);
-        if (!mMediaController->stop())
-            showError("Не удалось остановить MediaBoxPlayer.");
-        else
-            mOperationState->setText("Команда остановки отправлена");
+        mMediaController->stop();
     });
     mOperationState = label("Расчёт плана не подтверждает воспроизведение", 10);
     mOperationState->setMinimumWidth(80);
     mOperationState->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     t->addWidget(mOperationState, 1);
-    auto *refresh = button("Обновить расписание", "refresh", "quiet");
-    auto *show = button("Показать плеер", "eye", "quiet");
+    auto *refresh = button("Обновить состояние", "refresh", "quiet");
+    auto *show = button("Управление плеером", "eye", "quiet");
     refresh->setObjectName("refreshPlayerButton");
     show->setObjectName("showPlayerButton");
     refresh->setFixedHeight(29);
@@ -366,20 +397,8 @@ void MainWindow::buildShell() {
         if (!playerAvailable())
             return;
         mMediaController->refreshPlayer();
-        mOperationState->setText("Отправлен запрос обновления расписания");
     });
-    connect(show, &QPushButton::clicked, this, [this, show] {
-        if (!playerAvailable())
-            return;
-        bool hiding = show->property("playerShown").toBool();
-        bool ok = hiding ? mMediaController->hidePlayer() : mMediaController->showPlayer();
-        if (!ok) {
-            showError("MediaBoxPlayer недоступен.");
-            return;
-        }
-        show->setProperty("playerShown", !hiding);
-        show->setText(hiding ? "Показать плеер" : "Скрыть плеер");
-    });
+    connect(show, &QPushButton::clicked, this, &MainWindow::showPlayerControls);
     if (!qApp->property("restylePreviewStation").toString().isEmpty())
         for (auto *b : {mPlay, mStop, refresh, show}) {
             b->setEnabled(false);
@@ -677,8 +696,8 @@ QWidget *MainWindow::buildMediaPage(int page) {
                 auto *info = menu.addAction(Restyle::icon("info"), "Все сведения");
                 connect(info, &QAction::triggered, this, &MainWindow::showFileInfo);
                 if (page != 1) {
-                    auto *preview = menu.addAction(Restyle::icon("play"), "Предпрослушать");
-                    preview->setEnabled(mMediaController);
+                    auto *preview = menu.addAction(Restyle::icon("play"), "Воспроизвести на плеере…");
+                    preview->setEnabled(playerAvailable());
                     connect(preview, &QAction::triggered, this, [this, index] { slot_playTrack(index); });
                 }
                 menu.addSeparator();
@@ -770,7 +789,8 @@ QWidget *MainWindow::buildMediaPage(int page) {
     il->addStretch();
     auto *actions = new QHBoxLayout;
     actions->setSpacing(5);
-    p.preview = button("Предпрослушать", "play", "quiet");
+    p.preview = button("На плеере…", "play", "quiet");
+    p.preview->setToolTip("Заменить очередь выбранным файлом и воспроизвести");
     p.preview->setFont(Restyle::font(10, QFont::DemiBold));
     p.preview->setVisible(page != 1);
     p.fileInfo = button("Все сведения", "info", "quiet");
@@ -936,7 +956,7 @@ void MainWindow::updateFileInfo(int page) {
     bool selected = manager && index.isValid() && p.files->selectionModel()->hasSelection() &&
                     index.row() < manager->count();
     p.deleteFiles->setEnabled(p.files->selectionModel()->hasSelection() && (page != 2 || advertWritable()));
-    p.preview->setEnabled(selected && mMediaController && page != 1);
+    p.preview->setEnabled(selected && playerAvailable() && page != 1);
     p.fileInfo->setEnabled(selected);
     if (page == 2)
         p.addAdvert->setEnabled(advertWritable() && p.files->selectionModel()->hasSelection());
@@ -961,22 +981,46 @@ void MainWindow::showError(const QString &message) {
     QMessageBox::warning(this, "MediaBoxManager", message);
 }
 bool MainWindow::playerAvailable() const {
-    if (!mMediaController)
-        return false;
-#ifdef Q_OS_WIN
-    if (!QFileInfo::exists(SPathData().playMusicFile)) {
-        QMessageBox::warning(const_cast<MainWindow *>(this), "MediaBoxPlayer",
-                             "Исполняемый файл MediaBoxPlayer недоступен. Проверьте подключение станции.");
-        return false;
-    }
-#endif
-    return true;
+    return mMediaController && mMediaController->isReady();
 }
-void MainWindow::setPlayingButtonsState(bool playing) {
-    // This is the controller's reported station flag, not track telemetry.
-    mPlayerState->setText(playing ? "По данным станции: эфир запущен" : "По данным станции: эфир остановлен");
-    mPlay->setDisabled(playing);
-    mStop->setEnabled(playing);
+void MainWindow::updatePlayerState() {
+    const bool ready = playerAvailable();
+    const PlayerStatus snapshot = mMediaController ? mMediaController->status() : PlayerStatus{};
+    QString state = "Нет связи с MediaBoxPlayer";
+    if (mMediaController) {
+        using Connection = MediaBoxPlayerClient::ConnectionState;
+        switch (mMediaController->connectionState()) {
+        case Connection::Connecting: state = "Подключение к MediaBoxPlayer…"; break;
+        case Connection::Synchronizing: state = "Получение состояния плеера…"; break;
+        case Connection::Reconnecting: state = "Нет связи · ожидается переподключение"; break;
+        case Connection::AuthenticationFailed: state = "Не принят токен плеера · проверьте настройки"; break;
+        case Connection::ProtocolMismatch: state = "Несовместимая версия протокола плеера"; break;
+        case Connection::Disconnected: break;
+        case Connection::Ready:
+            if (snapshot.state == "playing") state = "Воспроизведение";
+            else if (snapshot.state == "loading") state = "Загрузка аудио…";
+            else if (snapshot.state == "paused") state = "Пауза";
+            else if (snapshot.state == "error") state = "Ошибка воспроизведения";
+            else state = snapshot.playbackRequested ? "Переход к следующему файлу…" : "Остановлено";
+            if (snapshot.muted) state += " · звук выключен";
+            else state += QStringLiteral(" · %1 %").arg(snapshot.volumePercent);
+            break;
+        }
+    }
+    mPlayerState->setText(state);
+    mPlayerState->setToolTip(ready && !snapshot.error.isEmpty() ? snapshot.error : state);
+    QString track = snapshot.currentTrack;
+    if (track.isEmpty())
+        track = ready ? "Очередь пуста · загрузите файлы в управлении плеером" : "Настройте подключение в разделе «Настройки»";
+    else if (!ready)
+        track.prepend("Последние данные, связь потеряна: ");
+    mPlayerDetail->setText(track);
+    mPlayerDetail->setToolTip(track);
+    mPlay->setEnabled(ready && !snapshot.queue.isEmpty() && !snapshot.playbackRequested);
+    mStop->setEnabled(ready && (!snapshot.queue.isEmpty() || snapshot.state == "error"));
+    findChild<QPushButton *>("refreshPlayerButton")->setEnabled(ready);
+    for (int page = 0; page < 3; ++page)
+        updateFileInfo(page);
 }
 void MainWindow::slot_addMediaFiles() {
     if (mPage == 2 && !advertWritable())
@@ -1222,8 +1266,35 @@ void MainWindow::slot_playTrack(QModelIndex index) {
         showError("Выбранный файл больше недоступен.");
         return;
     }
+    QMessageBox confirmation(QMessageBox::Question, "Воспроизвести на MediaBoxPlayer",
+                             QStringLiteral("Заменить всю очередь этим файлом и начать воспроизведение?\n\n%1\n\n"
+                                            "Путь должен быть доступен на машине плеера. "
+                                            "Предыдущая очередь автоматически не восстановится.").arg(path),
+                             QMessageBox::Yes | QMessageBox::Cancel, this);
+    confirmation.setTextFormat(Qt::PlainText);
+    confirmation.button(QMessageBox::Yes)->setText("Заменить и воспроизвести");
+    confirmation.button(QMessageBox::Cancel)->setText("Отмена");
+    confirmation.setDefaultButton(QMessageBox::Cancel);
+    if (confirmation.exec() != QMessageBox::Yes || !playerAvailable())
+        return;
     mMediaController->playTrack(path);
-    mOperationState->setText("Отправлен запрос предпрослушивания");
+}
+void MainWindow::showPlayerControls() {
+    if (!mMediaController)
+        return;
+    QDialog dialog(this);
+    dialog.setObjectName("playerControlDialog");
+    dialog.setWindowTitle("Управление MediaBoxPlayer");
+    auto *layout = new QVBoxLayout(&dialog);
+    layout->setContentsMargins(0, 0, 0, 0);
+    auto *controls = new PlayerControlWidget(mMediaController, &dialog);
+    layout->addWidget(controls);
+    connect(controls, &PlayerControlWidget::settingsRequested, &dialog, [this, &dialog] {
+        dialog.accept();
+        changePage(4);
+    });
+    dialog.resize(QSize(780, 720).boundedTo(screen()->availableGeometry().size() - QSize(40, 60)));
+    dialog.exec();
 }
 void MainWindow::showFileInfo() {
     auto &p = mPages[mPage];
@@ -1267,9 +1338,9 @@ void MainWindow::showStationInfo() {
     l->addWidget(label("Сведения о станции", 22, QFont::DemiBold));
     auto &s = StationManager::Instance();
     auto *body =
-        label(QStringLiteral("%1\nИдентификатор: %2\nПуть: %3\nКонфигурация: %4\n\n%5\nMediaBoxPlayer: "
-                             "данные о текущем файле недоступны.")
-                  .arg(s.typeText(), QString::number(s.id()), s.get(), s.configFile(), s.lastError()),
+        label(QStringLiteral("%1\nИдентификатор: %2\nПуть: %3\nКонфигурация: %4\n\n%5\nMediaBoxPlayer: %6\n%7")
+                  .arg(s.typeText(), QString::number(s.id()), s.get(), s.configFile(), s.lastError(),
+                       mPlayerState->text(), mPlayerDetail->text()),
               12);
     body->setWordWrap(true);
     body->setTextInteractionFlags(Qt::TextSelectableByMouse);
@@ -1351,9 +1422,7 @@ void MainWindow::adaptLayout(int width) {
         auto *control = findChild<QPushButton *>(name);
         if (!control)
             continue;
-        QString title = name == "refreshPlayerButton"               ? "Обновить расписание"
-                        : control->property("playerShown").toBool() ? "Скрыть плеер"
-                                                                    : "Показать плеер";
+        QString title = name == "refreshPlayerButton" ? "Обновить состояние" : "Управление плеером";
         control->setText(compact ? QString() : title);
         control->setToolTip(title);
         control->setMinimumWidth(compact ? 32 : 0);

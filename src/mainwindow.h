@@ -49,7 +49,7 @@ class MainWindow : public QMainWindow {
     void slot_deleteAdvert();
     void copyFiles(const QStringList &files);
     void slot_playTrack(QModelIndex index);
-    void setPlayingButtonsState(bool playing);
+    void updatePlayerState();
 
   private:
     friend void seedRestyleWindow(MainWindow &window);
@@ -91,6 +91,7 @@ class MainWindow : public QMainWindow {
     void updateSummary(int page);
     void showFileInfo();
     void showStationInfo();
+    void showPlayerControls();
     void showAllSchedules();
     void showError(const QString &message);
     void selectChannel(int page, int row);
@@ -111,7 +112,9 @@ class MainWindow : public QMainWindow {
     QPushButton *mPlay = nullptr;
     QPushButton *mStop = nullptr;
     QLabel *mPlayerState = nullptr;
+    QLabel *mPlayerDetail = nullptr;
     QLabel *mOperationState = nullptr;
+    QString mUnknownPlayerCommand;
     int mPage = PAGE_MUSIC;
 };
 #endif

@@ -4,13 +4,17 @@
 #include "restylewidgets.h"
 
 #include <QApplication>
+#include <QGridLayout>
 #include <QHBoxLayout>
+#include <QLineEdit>
 #include <QListWidget>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPushButton>
+#include <QRegularExpression>
 #include <QScrollArea>
 #include <QSignalBlocker>
+#include <QSpinBox>
 #include <QStyledItemDelegate>
 #include <QStyleOptionButton>
 #include <QVBoxLayout>
@@ -173,10 +177,69 @@ SettingsDialog::SettingsDialog(QWidget *parent, Qt::WindowFlags f) :
     title->setFixedHeight(33);
     page->addWidget(title);
     page->addSpacing(3);
-    auto *subtitle = caption(tr("Форматы медиафайлов и удобство работы."), body);
+    auto *subtitle = caption(tr("Подключение плеера, медиаформаты и оформление."), body);
     subtitle->setMinimumHeight(16);
     page->addWidget(subtitle);
     page->addSpacing(12);
+
+    auto *player = new RestylePanel(body);
+    player->setObjectName(QStringLiteral("playerConnectionCard"));
+    player->setMaximumWidth(1080);
+    auto *playerLayout = new QVBoxLayout(player);
+    playerLayout->setContentsMargins(21, 20, 21, 21);
+    playerLayout->setSpacing(12);
+    playerLayout->addWidget(new RestyleLabel(tr("MediaBoxPlayer"), 20, QFont::DemiBold, player));
+    playerLayout->addWidget(caption(tr("MediaBoxPlayer должен быть запущен на указанной машине. "
+                                       "Пути медиафайлов относятся к машине плеера."), player));
+
+    auto *fields = new QGridLayout;
+    fields->setHorizontalSpacing(12);
+    fields->setVerticalSpacing(6);
+    fields->setColumnStretch(0, 1);
+    mPlayerHost = new QLineEdit(player);
+    mPlayerHost->setObjectName(QStringLiteral("playerHost"));
+    mPlayerHost->setAccessibleName(tr("Адрес машины плеера"));
+    mPlayerHost->setPlaceholderText(QStringLiteral("127.0.0.1"));
+    mPlayerHost->setMinimumHeight(32);
+    mPlayerPort = new QSpinBox(player);
+    mPlayerPort->setObjectName(QStringLiteral("playerPort"));
+    mPlayerPort->setAccessibleName(tr("TCP-порт плеера"));
+    mPlayerPort->setRange(1, 65535);
+    mPlayerPort->setMinimumHeight(32);
+    mPlayerPort->setFixedWidth(112);
+    mPlayerToken = new QLineEdit(player);
+    mPlayerToken->setObjectName(QStringLiteral("playerToken"));
+    mPlayerToken->setAccessibleName(tr("Токен доступа к плееру"));
+    mPlayerToken->setEchoMode(QLineEdit::Password);
+    mPlayerToken->setPlaceholderText(tr("Токен из control.token"));
+    mPlayerToken->setMinimumHeight(32);
+    auto *hostLabel = caption(tr("Адрес / DNS-имя"), player);
+    hostLabel->setBuddy(mPlayerHost);
+    auto *portLabel = caption(tr("TCP-порт"), player);
+    portLabel->setBuddy(mPlayerPort);
+    auto *tokenLabel = caption(tr("Токен доступа"), player);
+    tokenLabel->setBuddy(mPlayerToken);
+    fields->addWidget(hostLabel, 0, 0);
+    fields->addWidget(portLabel, 0, 1);
+    fields->addWidget(mPlayerHost, 1, 0);
+    fields->addWidget(mPlayerPort, 1, 1);
+    fields->addWidget(tokenLabel, 2, 0, 1, 2);
+    fields->addWidget(mPlayerToken, 3, 0, 1, 2);
+    playerLayout->addLayout(fields);
+    playerLayout->addWidget(caption(tr("Скопируйте 64 символа из файла control.token в каталоге данных плеера."), player));
+    mPlayerConnectionMessage = caption({}, player);
+    mPlayerConnectionMessage->setObjectName(QStringLiteral("playerConnectionMessage"));
+    mPlayerConnectionMessage->setTextFormat(Qt::PlainText);
+    mPlayerConnectionMessage->hide();
+    playerLayout->addWidget(mPlayerConnectionMessage);
+    auto *saveConnection = new QPushButton(tr("Сохранить подключение"), player);
+    saveConnection->setObjectName(QStringLiteral("savePlayerConnection"));
+    Restyle::button(saveConnection, QStringLiteral("primary"));
+    saveConnection->setAutoDefault(false);
+    saveConnection->setFixedHeight(32);
+    playerLayout->addWidget(saveConnection, 0, Qt::AlignLeft);
+    page->addWidget(player);
+    page->addSpacing(16);
 
     auto *card = new RestylePanel(body);
     card->setObjectName(QStringLiteral("mediaFormatsCard"));
@@ -255,6 +318,17 @@ SettingsDialog::SettingsDialog(QWidget *parent, Qt::WindowFlags f) :
     outer->addWidget(scroll);
 
     init();
+    connect(saveConnection, &QPushButton::clicked, this, &SettingsDialog::savePlayerConnection);
+    connect(mPlayerHost, &QLineEdit::returnPressed, this, &SettingsDialog::savePlayerConnection);
+    connect(mPlayerToken, &QLineEdit::returnPressed, this, &SettingsDialog::savePlayerConnection);
+    const auto connectionEdited = [this] {
+        mPlayerConnectionMessage->setColorRole(QStringLiteral("muted"));
+        mPlayerConnectionMessage->setText(tr("Изменения ещё не сохранены."));
+        mPlayerConnectionMessage->show();
+    };
+    connect(mPlayerHost, &QLineEdit::textEdited, this, connectionEdited);
+    connect(mPlayerPort, &QSpinBox::valueChanged, this, connectionEdited);
+    connect(mPlayerToken, &QLineEdit::textEdited, this, connectionEdited);
     connect(none, &QPushButton::clicked, this, &SettingsDialog::deselectAllFileFormats);
     connect(all, &QPushButton::clicked, this, &SettingsDialog::selectAllFileFormats);
     connect(done, &QPushButton::clicked, this, [this] {
@@ -268,6 +342,10 @@ SettingsDialog::~SettingsDialog() { delete ui; }
 void SettingsDialog::init()
 {
     Settings settings;
+    const PlayerConnectionSettings connection = settings.playerConnection();
+    mPlayerHost->setText(connection.host);
+    mPlayerPort->setValue(connection.port);
+    mPlayerToken->setText(connection.token);
     const auto fill = [](QListWidget *list, const QMap<QString, bool> &formats, QStringList order) {
         for (auto it = formats.cbegin(); it != formats.cend(); ++it)
             if (!order.contains(it.key())) order.append(it.key());
@@ -282,6 +360,44 @@ void SettingsDialog::init()
     fill(mVideoFormats, settings.fileFormatsVideo(), {"mp4", "avi", "mkv", "wmv"});
     connect(mAudioFormats, &QListWidget::itemChanged, this, &SettingsDialog::checkAudioItem);
     connect(mVideoFormats, &QListWidget::itemChanged, this, &SettingsDialog::checkVideoItem);
+}
+
+void SettingsDialog::savePlayerConnection()
+{
+    const auto showError = [this](const QString &message, QWidget *field) {
+        mPlayerConnectionMessage->setColorRole(QStringLiteral("error"));
+        mPlayerConnectionMessage->setText(message);
+        mPlayerConnectionMessage->show();
+        if (field)
+            field->setFocus();
+    };
+    PlayerConnectionSettings connection;
+    connection.host = mPlayerHost->text().trimmed();
+    if (connection.host.isEmpty()) {
+        showError(tr("Укажите адрес машины, на которой запущен MediaBoxPlayer."), mPlayerHost);
+        return;
+    }
+    if (!mPlayerPort->hasAcceptableInput()) {
+        showError(tr("Укажите TCP-порт от 1 до 65535."), mPlayerPort);
+        return;
+    }
+    connection.port = static_cast<quint16>(mPlayerPort->value());
+    connection.token = mPlayerToken->text().trimmed();
+    static const QRegularExpression tokenPattern(QStringLiteral("\\A[0-9a-f]{64}\\z"));
+    if (!tokenPattern.match(connection.token).hasMatch()) {
+        showError(tr("Токен должен содержать 64 символа: цифры 0–9 и строчные буквы a–f."), mPlayerToken);
+        return;
+    }
+    if (!Settings().setPlayerConnection(connection)) {
+        showError(tr("Не удалось сохранить подключение. Проверьте доступ к файлу настроек."), nullptr);
+        return;
+    }
+    mPlayerHost->setText(connection.host);
+    mPlayerToken->setText(connection.token);
+    mPlayerConnectionMessage->setColorRole(QStringLiteral("success"));
+    mPlayerConnectionMessage->setText(tr("Подключение сохранено."));
+    mPlayerConnectionMessage->show();
+    emit playerConnectionChanged();
 }
 
 void SettingsDialog::checkAudioItem(QListWidgetItem *item)

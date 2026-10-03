@@ -4,6 +4,8 @@
 #include <QObject>
 #include <QMap>
 
+#include "mediaboxplayerclient.h"
+
 namespace {
 const QString DEFAULT_AUDIO_FORMAT = "*.mp3";
 const QString DEFAULT_VIDEO_FORMAT = "*.mp4";
@@ -66,6 +68,9 @@ public:
     QString themeId() const;
     void setAppearanceId(const QString &id);
     void setThemeId(const QString &id);
+
+    PlayerConnectionSettings playerConnection() const;
+    bool setPlayerConnection(const PlayerConnectionSettings &connection);
 
 private:
     friend class SettingsTest;
