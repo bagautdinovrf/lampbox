@@ -50,3 +50,17 @@ if(WIN32)
     set_property(TEST MediaBoxManager_migration MediaBoxManager_distribution MediaBoxManager_stationmanager MediaBoxManager_settings MediaBoxManager_version APPEND PROPERTY
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${_qt_bin}")
 endif()
+
+foreach(_suite IN ITEMS restyle schedulepreview ruleeditors secondary)
+    qt_add_executable(MediaBoxManager_${_suite}Tests tst_${_suite}.cpp)
+    target_link_libraries(MediaBoxManager_${_suite}Tests PRIVATE MediaBoxManagerCore Qt6::Test)
+    add_test(NAME MediaBoxManager_${_suite} COMMAND "${CMAKE_COMMAND}"
+        "-DTEST_EXECUTABLE=$<TARGET_FILE:MediaBoxManager_${_suite}Tests>"
+        "-DTEST_REPORT=${CMAKE_CURRENT_BINARY_DIR}/${_suite}-results.txt"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/run_qt_test.cmake")
+    set_tests_properties(MediaBoxManager_${_suite} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
+    if(WIN32)
+        set_property(TEST MediaBoxManager_${_suite} APPEND PROPERTY
+            ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${_qt_bin}")
+    endif()
+endforeach()

@@ -8,6 +8,8 @@
 #include <QFileInfo>
 #include <QStringList>
 #include <QDir>
+#include <QCoreApplication>
+#include <QVariant>
 
 namespace {
     QString LAMP_DATE_FORMAT = "dd.MM.yyyy";
@@ -40,6 +42,12 @@ struct SPathData
         playMusicFile = STATIONPATHTO("scripts/play_music.pl");         /// Скрипт запуска музыки
         mediaPath = "/media";                                           /// Директория автомонтирования флешки
 #endif
+        if (QCoreApplication::instance()
+                && !QCoreApplication::instance()->property("restylePreviewStation").toString().isEmpty()) {
+            // A visual/integration fixture must not reach the system cron directory.
+            cronPath = STATIONPATHTO("cron/");
+            advertTask = cronPath + "rektask";
+        }
         advertTableFile = STATIONPATHTO( "timetable/adverttable");      /// Файл с расписанием рекламы в csv
         advertViewFile = STATIONPATHTO( "timetable/advertView");        /// Файл с расписанием рекламы в csv для представления
         advertDir = STATIONMEDIATO("ads/");                             /// Директория с рекламным контентом

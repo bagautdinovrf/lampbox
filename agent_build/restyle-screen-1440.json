@@ -1,0 +1,14 @@
+{
+  "windowFrameMargins": true,
+  "screens": [
+    {
+      "name": "AvailableGeometrySimulation",
+      "width": 1440,
+      "height": 900,
+      "availableGeometry": {"x": 0, "y": 0, "width": 1440, "height": 860},
+      "logicalDpi": 96,
+      "logicalBaseDpi": 96,
+      "devicePixelRatio": 1
+    }
+  ]
+}

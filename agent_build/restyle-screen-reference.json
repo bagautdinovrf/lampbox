@@ -1,0 +1,13 @@
+{
+  "windowFrameMargins": true,
+  "screens": [
+    {
+      "name": "ReferenceCapture",
+      "width": 1920,
+      "height": 1200,
+      "logicalDpi": 96,
+      "logicalBaseDpi": 96,
+      "devicePixelRatio": 1
+    }
+  ]
+}

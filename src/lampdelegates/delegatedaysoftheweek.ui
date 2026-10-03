@@ -321,9 +321,6 @@
      <property name="whatsThis">
       <string>6</string>
      </property>
-     <property name="styleSheet">
-      <string notr="true">color: rgb(255, 0, 0);</string>
-     </property>
      <property name="text">
       <string>Сб</string>
      </property>
@@ -354,9 +351,6 @@
      </property>
      <property name="whatsThis">
       <string>0</string>
-     </property>
-     <property name="styleSheet">
-      <string notr="true">color: rgb(255, 0, 0);</string>
      </property>
      <property name="text">
       <string>Вс</string>

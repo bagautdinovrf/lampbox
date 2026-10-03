@@ -1,120 +1,149 @@
-
 #include "mediamodel.h"
 #include "mediamanager.h"
 
+#include <QFileInfo>
 #include <QMimeData>
-#include <QColor>
 #include <QUrl>
-#include <QDebug>
 
+namespace {
+QString durationText(uint seconds)
+{
+    if (!seconds)
+        return QStringLiteral("—");
+    const uint minutes = seconds / 60;
+    if (minutes < 60)
+        return QStringLiteral("%1:%2").arg(minutes).arg(seconds % 60, 2, 10, QLatin1Char('0'));
+    return QStringLiteral("%1:%2:%3")
+        .arg(minutes / 60)
+        .arg(minutes % 60, 2, 10, QLatin1Char('0'))
+        .arg(seconds % 60, 2, 10, QLatin1Char('0'));
+}
+
+QString availableText(const QString &text)
+{
+    return text.trimmed().isEmpty() ? QStringLiteral("—") : text;
+}
+}
 
 MediaModel::MediaModel(MediaManager *mediaManager, CHANNEL_TYPE type, QObject *parent) :
     QAbstractTableModel(parent),
     mMediaManager_(mediaManager),
     mManagerType(type)
 {
-    if(parent)
-        connect( this, SIGNAL(dropFileList( QStringList )), parent, SLOT(copyFiles( QStringList ) ));
+    if (mMediaManager_)
+        mMediaManager_->setMediaModel(this);
+    if (parent)
+        connect(this, SIGNAL(dropFileList(QStringList)), parent, SLOT(copyFiles(QStringList)));
 }
 
 MediaModel::~MediaModel()
 {
-//    qDebug() << Q_FUNC_INFO;
+    if (mMediaManager_)
+        mMediaManager_->setMediaModel(nullptr);
 }
 
 void MediaModel::setMediaManager(MediaManager *mediaManager)
 {
+    if (mMediaManager_ == mediaManager)
+        return;
     beginCollect();
+    if (mMediaManager_ && mMediaManager_ != mediaManager)
+        mMediaManager_->setMediaModel(nullptr);
     mMediaManager_ = mediaManager;
-    if(mediaManager)
+    if (mMediaManager_)
         mMediaManager_->setMediaModel(this);
     endCollect();
 }
 
-/**
-  */
-QVariant MediaModel::headerData(int section, Qt::Orientation orientation, int nRole ) const
+QVariant MediaModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
-//    qDebug() << Q_FUNC_INFO;
-    if( nRole != Qt::DisplayRole )
-        return QVariant();
-
+    if (role != Qt::DisplayRole)
+        return {};
     if (orientation == Qt::Vertical)
-        return QVariant(section + 1);
-    else
-        switch (section)
-        {
-            case 0:
-                 if( mMediaManager_) {
-                     QString name = mMediaManager_->getDirMediaFiles().dirName();
-                     if( ADVERT == mManagerType )
-                         name = "Реклама";
-                     return QVariant( name );
-                 }
-                return QVariant( tr("Файлы") );
-            default:
-                return QVariant();
-        }
-}
-
-/**
-  */
-QVariant MediaModel::data(const QModelIndex &index, int nRole) const
-{
-//    qDebug() << Q_FUNC_INFO;
-    if( !index.isValid() || !mMediaManager_)
-        return QVariant();
-
-    if( nRole == Qt::DisplayRole ) {
-        switch( index.column() )
-        {
-            case 0:
-                return QVariant( mMediaManager_->mediaData(index.row()).fileName() );
-            default:
-                return QVariant();
-        }
-    } else if( nRole == Qt::BackgroundRole ) {
-        switch( index.row() % 2 ) {
-        case 1:
-            // Snow3
-//            return QVariant(QColor(205, 201, 201) );
-            return QVariant(QColor(220, 220, 220) );
-        default:
-           return QVariant();
-        }
+        return section >= 0 && section < rowCount() ? QVariant(section + 1) : QVariant();
+    switch (section) {
+    case FileNameColumn: return tr("Название");
+    case TitleColumn: return tr("Название в тегах");
+    case ArtistColumn: return tr("Исполнитель");
+    case AlbumColumn: return tr("Альбом");
+    case DurationColumn: return tr("Время");
+    case FormatColumn: return tr("Формат");
+    default: return {};
     }
-    return QVariant();
 }
 
-/**
-  */
-int MediaModel::rowCount(const QModelIndex &) const
+QVariant MediaModel::data(const QModelIndex &index, int role) const
 {
-//    qDebug() << Q_FUNC_INFO;
-    if(!mMediaManager_)
-        return 0;
-//    qDebug() << Q_FUNC_INFO;
-    return mMediaManager_->mediaCount();
+    if (!index.isValid() || index.model() != this || !mMediaManager_
+        || index.row() < 0 || index.row() >= rowCount()
+        || index.column() < 0 || index.column() >= ColumnCount)
+        return {};
+
+    const MediaData &media = mMediaManager_->mediaData(index.row());
+    switch (role) {
+    case FileNameRole: return media.fileName();
+    case TitleRole: return media.title();
+    case ArtistRole: return media.artist();
+    case AlbumRole: return media.album();
+    case GenreRole: return media.genre();
+    case YearRole: return media.year();
+    case DurationSecondsRole: return media.length();
+    case FormatRole: return QFileInfo(media.fileName()).suffix().toUpper();
+    case FileSizeRole: return media.fileSize();
+    case MediaTypeRole: return static_cast<int>(mManagerType);
+    case Qt::TextAlignmentRole:
+        return static_cast<int>(Qt::AlignLeft | Qt::AlignVCenter);
+    case Qt::ToolTipRole:
+    case Qt::AccessibleDescriptionRole:
+        return tr("Файл: %1\nНазвание: %2\nИсполнитель: %3\nАльбом: %4\nЖанр: %5\nГод: %6\nДлительность: %7\nФормат: %8")
+            .arg(media.fileName(), availableText(media.title()), availableText(media.artist()),
+                 availableText(media.album()), availableText(media.genre()),
+                 media.year() ? QString::number(media.year()) : QStringLiteral("—"),
+                 durationText(media.length()), availableText(QFileInfo(media.fileName()).suffix().toUpper()));
+    default:
+        break;
+    }
+
+    if (role == SortRole) {
+        if (index.column() == DurationColumn)
+            return media.length();
+        if (index.column() == FileNameColumn)
+            return media.title().trimmed().isEmpty() ? media.fileName() : media.title();
+    }
+    if (role != Qt::DisplayRole && role != SortRole && role != Qt::AccessibleTextRole)
+        return {};
+
+    switch (index.column()) {
+    // Keep this raw identity: legacy actions use the file name to address disk files.
+    // The delegate obtains the human-readable title from TitleRole instead.
+    case FileNameColumn: return media.fileName();
+    case TitleColumn: return availableText(media.title());
+    case ArtistColumn: return availableText(media.artist());
+    case AlbumColumn: return availableText(media.album());
+    case DurationColumn: return durationText(media.length());
+    case FormatColumn: return availableText(QFileInfo(media.fileName()).suffix().toUpper());
+    default: return {};
+    }
 }
 
-/**
-  */
-int MediaModel::columnCount(const QModelIndex &) const
+int MediaModel::rowCount(const QModelIndex &parent) const
 {
-//    qDebug() << Q_FUNC_INFO;
-    if(!mMediaManager_)
-        return 1; //NOTE было 0
-//    qDebug() << Q_FUNC_INFO;
-    return mMediaManager_->columnCount();
+    return parent.isValid() || !mMediaManager_ ? 0 : mMediaManager_->mediaCount();
 }
 
-/**
-  */
+int MediaModel::columnCount(const QModelIndex &parent) const
+{
+    return parent.isValid() ? 0 : ColumnCount;
+}
+
 Qt::ItemFlags MediaModel::flags(const QModelIndex &index) const
 {
-//    qDebug() << Q_FUNC_INFO;
-    Qt::ItemFlags flags = QAbstractTableModel::flags(index) |  Qt::ItemIsDropEnabled;
-    return index.isValid() ? ( flags | Qt::ItemIsEnabled | Qt::ItemIsSelectable /*| Qt::ItemIsEditable*/ ) : flags;
+    if (!index.isValid())
+        return Qt::ItemIsDropEnabled;
+    if (index.model() != this || index.row() < 0 || index.row() >= rowCount()
+        || index.column() < 0 || index.column() >= ColumnCount)
+        return Qt::NoItemFlags;
+    return Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDropEnabled;
 }
 
 void MediaModel::beginCollect()
@@ -129,7 +158,11 @@ void MediaModel::endCollect()
 
 void MediaModel::setManagerType(CHANNEL_TYPE type)
 {
+    if (mManagerType == type)
+        return;
     mManagerType = type;
+    if (rowCount())
+        emit dataChanged(index(0, 0), index(rowCount() - 1, ColumnCount - 1), {MediaTypeRole});
 }
 
 CHANNEL_TYPE MediaModel::type()
@@ -139,41 +172,43 @@ CHANNEL_TYPE MediaModel::type()
 
 Qt::DropActions MediaModel::supportedDropActions() const
 {
-//qDebug() << Q_FUNC_INFO;
     return Qt::CopyAction;
 }
 
 QStringList MediaModel::mimeTypes() const
 {
-    QStringList types;
-    types << "text/uri-list";
-    return types;
+    return {QStringLiteral("text/uri-list")};
 }
 
-bool MediaModel::canDropMimeData(const QMimeData *data, Qt::DropAction action, int row, int column, const QModelIndex &parent) const
+bool MediaModel::canDropMimeData(const QMimeData *data, Qt::DropAction action,
+                               int row, int column, const QModelIndex &parent) const
 {
-//qDebug() << Q_FUNC_INFO;
-    Q_UNUSED(action);
     Q_UNUSED(row);
     Q_UNUSED(column);
     Q_UNUSED(parent);
-    return data->hasUrls();
- }
+    if (!data || (action != Qt::CopyAction && action != Qt::IgnoreAction))
+        return false;
+    for (const QUrl &url : data->urls()) {
+        if (url.isLocalFile() && !url.toLocalFile().isEmpty())
+            return true;
+    }
+    return false;
+}
 
-bool MediaModel::dropMimeData(const QMimeData *data, Qt::DropAction action, int row, int column, const QModelIndex &parent)
+bool MediaModel::dropMimeData(const QMimeData *data, Qt::DropAction action,
+                            int row, int column, const QModelIndex &parent)
 {
-//qDebug() << Q_FUNC_INFO;
-    Q_UNUSED(action);
-    Q_UNUSED(row);
-    Q_UNUSED(column);
-    Q_UNUSED(parent);
-    if( !data->hasUrls() )
+    if (action == Qt::IgnoreAction)
+        return true;
+    if (!canDropMimeData(data, action, row, column, parent))
         return false;
 
     QStringList files;
     for (const QUrl &url : data->urls()) {
-       files <<  url.toLocalFile();
+        if (url.isLocalFile() && !url.toLocalFile().isEmpty())
+            files.append(url.toLocalFile());
     }
+    files.removeDuplicates();
     emit dropFileList(files);
     return true;
- }
+}

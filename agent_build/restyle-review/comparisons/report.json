@@ -1,0 +1,8467 @@
+{
+  "fontFamily": "DejaVu Sans",
+  "comparisons": [
+    {
+      "capture": "tide-relief-denim-music-1440x900",
+      "reference": "01-music-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.897,
+            6.362,
+            5.759
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.047,
+            6.487,
+            5.745
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.303,
+            7.564,
+            6.381
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            12.668,
+            11.905,
+            11.16
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            359,
+            227,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            11.165,
+            9.826,
+            8.924
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "bbox": [
+            241,
+            262,
+            1418,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            4.924,
+            4.432,
+            3.923
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            623,
+            1129,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.527,
+            4.953,
+            4.283
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            678,
+            1114,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.476,
+            4.894,
+            4.198
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            623,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            9.695,
+            8.927,
+            8.213
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.535,
+            6.612,
+            5.367
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "qtObject": "planSummary",
+          "expected": [
+            22,
+            181.125,
+            1396,
+            71.09375
+          ],
+          "actual": [
+            22,
+            181,
+            1396,
+            71
+          ],
+          "delta": [
+            0,
+            -0.125,
+            0,
+            -0.094
+          ]
+        },
+        {
+          "selector": ".feature.ops-selection",
+          "qtObject": "selectedChannel",
+          "expected": [
+            22,
+            262.21875,
+            205,
+            84.6875
+          ],
+          "actual": [
+            22,
+            262,
+            205,
+            85
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.312
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "qtObject": "channelPanel",
+          "expected": [
+            22,
+            358.90625,
+            205,
+            252.125
+          ],
+          "actual": [
+            22,
+            359,
+            205,
+            252
+          ],
+          "delta": [
+            0,
+            0.094,
+            0,
+            -0.125
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "qtObject": "schedulePanel",
+          "expected": [
+            241,
+            262.21875,
+            1177,
+            348.8125
+          ],
+          "actual": [
+            241,
+            262,
+            1177,
+            349
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.188
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "qtObject": "libraryPanel",
+          "expected": [
+            22,
+            623.03125,
+            1107,
+            347.5
+          ],
+          "actual": [
+            22,
+            623,
+            1107,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -136.5
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "qtObject": "fileInspector",
+          "expected": [
+            1143,
+            623.03125,
+            275,
+            532.34375
+          ],
+          "actual": [
+            1143,
+            623,
+            275,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -321.344
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-relief-denim-music-1600x1000",
+      "reference": "02-music-1600x1000",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1600,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.227,
+            5.742,
+            5.194
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1600,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.469,
+            5.949,
+            5.268
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1578,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.451,
+            6.794,
+            5.731
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1578,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            11.647,
+            10.945,
+            10.243
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            359,
+            227,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            11.165,
+            9.826,
+            8.924
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "bbox": [
+            241,
+            262,
+            1578,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            4.502,
+            4.045,
+            3.577
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            623,
+            1289,
+            971
+          ],
+          "meanAbsoluteRgbDifference": [
+            4.98,
+            4.494,
+            3.955
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            678,
+            1274,
+            936
+          ],
+          "meanAbsoluteRgbDifference": [
+            4.644,
+            4.214,
+            3.769
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1303,
+            623,
+            1578,
+            1000
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.724,
+            7.969,
+            7.261
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            934,
+            1600,
+            1000
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.781,
+            5.951,
+            4.83
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1600,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1600,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1600,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1600,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "qtObject": "planSummary",
+          "expected": [
+            22,
+            181.125,
+            1556,
+            71.09375
+          ],
+          "actual": [
+            22,
+            181,
+            1556,
+            71
+          ],
+          "delta": [
+            0,
+            -0.125,
+            0,
+            -0.094
+          ]
+        },
+        {
+          "selector": ".feature.ops-selection",
+          "qtObject": "selectedChannel",
+          "expected": [
+            22,
+            262.21875,
+            205,
+            84.6875
+          ],
+          "actual": [
+            22,
+            262,
+            205,
+            85
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.312
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "qtObject": "channelPanel",
+          "expected": [
+            22,
+            358.90625,
+            205,
+            252.125
+          ],
+          "actual": [
+            22,
+            359,
+            205,
+            252
+          ],
+          "delta": [
+            0,
+            0.094,
+            0,
+            -0.125
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "qtObject": "schedulePanel",
+          "expected": [
+            241,
+            262.21875,
+            1337,
+            348.8125
+          ],
+          "actual": [
+            241,
+            262,
+            1337,
+            349
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.188
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "qtObject": "libraryPanel",
+          "expected": [
+            22,
+            623.03125,
+            1267,
+            347.5
+          ],
+          "actual": [
+            22,
+            623,
+            1267,
+            311
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -36.5
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "qtObject": "fileInspector",
+          "expected": [
+            1303,
+            623.03125,
+            275,
+            532.34375
+          ],
+          "actual": [
+            1303,
+            623,
+            275,
+            311
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -221.344
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            934,
+            1600,
+            66
+          ],
+          "actual": [
+            0,
+            934,
+            1600,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-relief-denim-video-1440x900",
+      "reference": "03-video-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.897,
+            6.362,
+            5.759
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.037,
+            6.572,
+            5.86
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.939,
+            7.208,
+            6.025
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            12.96,
+            12.156,
+            11.41
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            379,
+            227,
+            566
+          ],
+          "meanAbsoluteRgbDifference": [
+            16.364,
+            14.251,
+            12.682
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "bbox": [
+            241,
+            262,
+            1418,
+            566
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.946,
+            6.112,
+            5.238
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            578,
+            1129,
+            811
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.936,
+            6.137,
+            5.053
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            633,
+            1114,
+            777
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.244,
+            7.326,
+            5.799
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            578,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            10.177,
+            9.39,
+            8.669
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.535,
+            6.612,
+            5.367
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-relief-denim-advert-1440x900",
+      "reference": "04-ads-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.897,
+            6.362,
+            5.759
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.153,
+            6.68,
+            5.956
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            14.682,
+            12.731,
+            9.356
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            11.827,
+            11.164,
+            10.466
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            262,
+            227,
+            376
+          ],
+          "meanAbsoluteRgbDifference": [
+            16.21,
+            14.596,
+            12.597
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            506,
+            1129,
+            740
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.159,
+            7.043,
+            5.807
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            561,
+            1114,
+            705
+          ],
+          "meanAbsoluteRgbDifference": [
+            9.973,
+            8.523,
+            6.771
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            506,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            21.356,
+            18.354,
+            13.41
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.535,
+            6.612,
+            5.367
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-relief-denim-reports-1440x900",
+      "reference": "05-report-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.897,
+            6.362,
+            5.759
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.151,
+            6.585,
+            5.829
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            4.207,
+            4.038,
+            3.809
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.619,
+            6.678,
+            5.478
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-relief-denim-settings-1440x900",
+      "reference": "06-settings-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.897,
+            6.362,
+            5.759
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.598,
+            6.973,
+            6.122
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.128,
+            4.974,
+            4.803
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.619,
+            6.678,
+            5.478
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-relief-denim-about-1440x900",
+      "reference": "07-about-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.897,
+            6.362,
+            5.759
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.57,
+            6.917,
+            6.074
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.31,
+            6.005,
+            5.71
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.619,
+            6.678,
+            5.478
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-relief-denim-channel-editor-1440x900",
+      "reference": "08-channel-editor-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            2.758,
+            2.592,
+            2.422
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            2.784,
+            2.552,
+            2.312
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.746,
+            8.142,
+            7.324
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            11.063,
+            9.484,
+            6.686
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            359,
+            227,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            3.792,
+            3.381,
+            3.114
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "bbox": [
+            241,
+            262,
+            1418,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            4.34,
+            3.744,
+            2.86
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            623,
+            1129,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.468,
+            4.949,
+            3.93
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            678,
+            1114,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            4.923,
+            4.572,
+            3.826
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            623,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            4.212,
+            3.986,
+            3.73
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            3.956,
+            3.42,
+            2.729
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "qtObject": "planSummary",
+          "expected": [
+            22,
+            181.125,
+            1396,
+            71.09375
+          ],
+          "actual": [
+            22,
+            181,
+            1396,
+            71
+          ],
+          "delta": [
+            0,
+            -0.125,
+            0,
+            -0.094
+          ]
+        },
+        {
+          "selector": ".feature.ops-selection",
+          "qtObject": "selectedChannel",
+          "expected": [
+            22,
+            262.21875,
+            205,
+            84.6875
+          ],
+          "actual": [
+            22,
+            262,
+            205,
+            85
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.312
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "qtObject": "channelPanel",
+          "expected": [
+            22,
+            358.90625,
+            205,
+            252.125
+          ],
+          "actual": [
+            22,
+            359,
+            205,
+            252
+          ],
+          "delta": [
+            0,
+            0.094,
+            0,
+            -0.125
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "qtObject": "schedulePanel",
+          "expected": [
+            241,
+            262.21875,
+            1177,
+            348.8125
+          ],
+          "actual": [
+            241,
+            262,
+            1177,
+            349
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.188
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "qtObject": "libraryPanel",
+          "expected": [
+            22,
+            623.03125,
+            1107,
+            347.5
+          ],
+          "actual": [
+            22,
+            623,
+            1107,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -136.5
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "qtObject": "fileInspector",
+          "expected": [
+            1143,
+            623.03125,
+            275,
+            532.34375
+          ],
+          "actual": [
+            1143,
+            623,
+            275,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -321.344
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-relief-denim-all-schedules-1440x900",
+      "reference": "09-all-schedules-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            2.758,
+            2.592,
+            2.422
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            2.512,
+            2.274,
+            2.01
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            29.655,
+            26.985,
+            23.769
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            48.543,
+            44.147,
+            39.691
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            359,
+            227,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.711,
+            5.133,
+            4.672
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "bbox": [
+            241,
+            262,
+            1418,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            27.246,
+            24.123,
+            21.556
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            623,
+            1129,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            26.864,
+            24.201,
+            21.333
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            678,
+            1114,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            22.984,
+            20.818,
+            18.309
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            623,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            14.166,
+            12.627,
+            10.547
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            3.704,
+            3.214,
+            2.532
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "qtObject": "planSummary",
+          "expected": [
+            22,
+            181.125,
+            1396,
+            71.09375
+          ],
+          "actual": [
+            22,
+            181,
+            1396,
+            71
+          ],
+          "delta": [
+            0,
+            -0.125,
+            0,
+            -0.094
+          ]
+        },
+        {
+          "selector": ".feature.ops-selection",
+          "qtObject": "selectedChannel",
+          "expected": [
+            22,
+            262.21875,
+            205,
+            84.6875
+          ],
+          "actual": [
+            22,
+            262,
+            205,
+            85
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.312
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "qtObject": "channelPanel",
+          "expected": [
+            22,
+            358.90625,
+            205,
+            252.125
+          ],
+          "actual": [
+            22,
+            359,
+            205,
+            252
+          ],
+          "delta": [
+            0,
+            0.094,
+            0,
+            -0.125
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "qtObject": "schedulePanel",
+          "expected": [
+            241,
+            262.21875,
+            1177,
+            348.8125
+          ],
+          "actual": [
+            241,
+            262,
+            1177,
+            349
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.188
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "qtObject": "libraryPanel",
+          "expected": [
+            22,
+            623.03125,
+            1107,
+            347.5
+          ],
+          "actual": [
+            22,
+            623,
+            1107,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -136.5
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "qtObject": "fileInspector",
+          "expected": [
+            1143,
+            623.03125,
+            275,
+            532.34375
+          ],
+          "actual": [
+            1143,
+            623,
+            275,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -321.344
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-relief-denim-file-info-1440x900",
+      "reference": "10-file-info-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            2.758,
+            2.592,
+            2.422
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            2.512,
+            2.274,
+            2.01
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            3.291,
+            2.928,
+            2.365
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            10.133,
+            9.495,
+            8.72
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            359,
+            227,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            3.792,
+            3.381,
+            3.114
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "bbox": [
+            241,
+            262,
+            1418,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.245,
+            7.7,
+            7.073
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            623,
+            1129,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.929,
+            5.309,
+            4.445
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            678,
+            1114,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            2.633,
+            2.393,
+            2.031
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            623,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            4.212,
+            3.986,
+            3.73
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            3.704,
+            3.214,
+            2.532
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "qtObject": "planSummary",
+          "expected": [
+            22,
+            181.125,
+            1396,
+            71.09375
+          ],
+          "actual": [
+            22,
+            181,
+            1396,
+            71
+          ],
+          "delta": [
+            0,
+            -0.125,
+            0,
+            -0.094
+          ]
+        },
+        {
+          "selector": ".feature.ops-selection",
+          "qtObject": "selectedChannel",
+          "expected": [
+            22,
+            262.21875,
+            205,
+            84.6875
+          ],
+          "actual": [
+            22,
+            262,
+            205,
+            85
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.312
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "qtObject": "channelPanel",
+          "expected": [
+            22,
+            358.90625,
+            205,
+            252.125
+          ],
+          "actual": [
+            22,
+            359,
+            205,
+            252
+          ],
+          "delta": [
+            0,
+            0.094,
+            0,
+            -0.125
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "qtObject": "schedulePanel",
+          "expected": [
+            241,
+            262.21875,
+            1177,
+            348.8125
+          ],
+          "actual": [
+            241,
+            262,
+            1177,
+            349
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.188
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "qtObject": "libraryPanel",
+          "expected": [
+            22,
+            623.03125,
+            1107,
+            347.5
+          ],
+          "actual": [
+            22,
+            623,
+            1107,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -136.5
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "qtObject": "fileInspector",
+          "expected": [
+            1143,
+            623.03125,
+            275,
+            532.34375
+          ],
+          "actual": [
+            1143,
+            623,
+            275,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -321.344
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-relief-denim-station-1440x900",
+      "reference": "11-station-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            2.758,
+            2.592,
+            2.422
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            2.512,
+            2.274,
+            2.01
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            3.291,
+            2.928,
+            2.365
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.128,
+            5.008,
+            4.719
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            359,
+            227,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            3.792,
+            3.381,
+            3.114
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "bbox": [
+            241,
+            262,
+            1418,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            10.441,
+            9.448,
+            8.09
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            623,
+            1129,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            3.236,
+            2.933,
+            2.566
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            678,
+            1114,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            2.27,
+            2.054,
+            1.758
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            623,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            4.212,
+            3.986,
+            3.73
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            3.704,
+            3.214,
+            2.532
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "qtObject": "planSummary",
+          "expected": [
+            22,
+            181.125,
+            1396,
+            71.09375
+          ],
+          "actual": [
+            22,
+            181,
+            1396,
+            71
+          ],
+          "delta": [
+            0,
+            -0.125,
+            0,
+            -0.094
+          ]
+        },
+        {
+          "selector": ".feature.ops-selection",
+          "qtObject": "selectedChannel",
+          "expected": [
+            22,
+            262.21875,
+            205,
+            84.6875
+          ],
+          "actual": [
+            22,
+            262,
+            205,
+            85
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.312
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "qtObject": "channelPanel",
+          "expected": [
+            22,
+            358.90625,
+            205,
+            252.125
+          ],
+          "actual": [
+            22,
+            359,
+            205,
+            252
+          ],
+          "delta": [
+            0,
+            0.094,
+            0,
+            -0.125
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "qtObject": "schedulePanel",
+          "expected": [
+            241,
+            262.21875,
+            1177,
+            348.8125
+          ],
+          "actual": [
+            241,
+            262,
+            1177,
+            349
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.188
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "qtObject": "libraryPanel",
+          "expected": [
+            22,
+            623.03125,
+            1107,
+            347.5
+          ],
+          "actual": [
+            22,
+            623,
+            1107,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -136.5
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "qtObject": "fileInspector",
+          "expected": [
+            1143,
+            623.03125,
+            275,
+            532.34375
+          ],
+          "actual": [
+            1143,
+            623,
+            275,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -321.344
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-relief-denim-ad-exact-1440x900",
+      "reference": "13-ad-exact-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            2.758,
+            2.592,
+            2.422
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            2.613,
+            2.358,
+            2.046
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            11.166,
+            9.615,
+            7.046
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            4.823,
+            4.623,
+            4.327
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            262,
+            227,
+            376
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.334,
+            6.653,
+            5.688
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            506,
+            1129,
+            740
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.535,
+            5.783,
+            4.477
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            561,
+            1114,
+            705
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.07,
+            6.173,
+            4.652
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            506,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            13.411,
+            11.683,
+            8.417
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            3.864,
+            3.349,
+            2.631
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-relief-denim-ad-frequency-1440x900",
+      "reference": "14-ad-frequency-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            2.758,
+            2.592,
+            2.422
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            2.613,
+            2.358,
+            2.046
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            11.166,
+            9.615,
+            7.046
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            4.683,
+            4.487,
+            4.196
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            262,
+            227,
+            376
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.334,
+            6.653,
+            5.688
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            506,
+            1129,
+            740
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.468,
+            5.737,
+            4.467
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            561,
+            1114,
+            705
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.939,
+            6.078,
+            4.616
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            506,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            13.411,
+            11.683,
+            8.417
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            3.864,
+            3.349,
+            2.631
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-relief-denim-plan-details-1440x900",
+      "reference": "15-plan-details-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            2.758,
+            2.592,
+            2.422
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            2.512,
+            2.274,
+            2.01
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            3.291,
+            2.928,
+            2.365
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            12.906,
+            11.831,
+            10.868
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            359,
+            227,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            3.792,
+            3.381,
+            3.114
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "bbox": [
+            241,
+            262,
+            1418,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            16.806,
+            15.353,
+            14.29
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            623,
+            1129,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.702,
+            5.955,
+            4.943
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            678,
+            1114,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.404,
+            5.764,
+            4.885
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            623,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            4.212,
+            3.986,
+            3.73
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            3.704,
+            3.214,
+            2.532
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "qtObject": "planSummary",
+          "expected": [
+            22,
+            181.125,
+            1396,
+            71.09375
+          ],
+          "actual": [
+            22,
+            181,
+            1396,
+            71
+          ],
+          "delta": [
+            0,
+            -0.125,
+            0,
+            -0.094
+          ]
+        },
+        {
+          "selector": ".feature.ops-selection",
+          "qtObject": "selectedChannel",
+          "expected": [
+            22,
+            262.21875,
+            205,
+            84.6875
+          ],
+          "actual": [
+            22,
+            262,
+            205,
+            85
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.312
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "qtObject": "channelPanel",
+          "expected": [
+            22,
+            358.90625,
+            205,
+            252.125
+          ],
+          "actual": [
+            22,
+            359,
+            205,
+            252
+          ],
+          "delta": [
+            0,
+            0.094,
+            0,
+            -0.125
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "qtObject": "schedulePanel",
+          "expected": [
+            241,
+            262.21875,
+            1177,
+            348.8125
+          ],
+          "actual": [
+            241,
+            262,
+            1177,
+            349
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.188
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "qtObject": "libraryPanel",
+          "expected": [
+            22,
+            623.03125,
+            1107,
+            347.5
+          ],
+          "actual": [
+            22,
+            623,
+            1107,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -136.5
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "qtObject": "fileInspector",
+          "expected": [
+            1143,
+            623.03125,
+            275,
+            532.34375
+          ],
+          "actual": [
+            1143,
+            623,
+            275,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -321.344
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-relief-slate-music-1440x900",
+      "reference": "16-slate-music-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.855,
+            6.329,
+            5.795
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.894,
+            6.4,
+            5.931
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.885,
+            7.334,
+            6.908
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            12.668,
+            11.905,
+            11.16
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            359,
+            227,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            10.89,
+            9.699,
+            9.248
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "bbox": [
+            241,
+            262,
+            1418,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            4.943,
+            4.475,
+            3.913
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            623,
+            1129,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.431,
+            4.899,
+            4.403
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            678,
+            1114,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.353,
+            4.825,
+            4.352
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            623,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            9.695,
+            8.927,
+            8.213
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.225,
+            6.437,
+            5.754
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "qtObject": "planSummary",
+          "expected": [
+            22,
+            181.125,
+            1396,
+            71.09375
+          ],
+          "actual": [
+            22,
+            181,
+            1396,
+            71
+          ],
+          "delta": [
+            0,
+            -0.125,
+            0,
+            -0.094
+          ]
+        },
+        {
+          "selector": ".feature.ops-selection",
+          "qtObject": "selectedChannel",
+          "expected": [
+            22,
+            262.21875,
+            205,
+            84.6875
+          ],
+          "actual": [
+            22,
+            262,
+            205,
+            85
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.312
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "qtObject": "channelPanel",
+          "expected": [
+            22,
+            358.90625,
+            205,
+            252.125
+          ],
+          "actual": [
+            22,
+            359,
+            205,
+            252
+          ],
+          "delta": [
+            0,
+            0.094,
+            0,
+            -0.125
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "qtObject": "schedulePanel",
+          "expected": [
+            241,
+            262.21875,
+            1177,
+            348.8125
+          ],
+          "actual": [
+            241,
+            262,
+            1177,
+            349
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.188
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "qtObject": "libraryPanel",
+          "expected": [
+            22,
+            623.03125,
+            1107,
+            347.5
+          ],
+          "actual": [
+            22,
+            623,
+            1107,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -136.5
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "qtObject": "fileInspector",
+          "expected": [
+            1143,
+            623.03125,
+            275,
+            532.34375
+          ],
+          "actual": [
+            1143,
+            623,
+            275,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -321.344
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-relief-pine-music-1440x900",
+      "reference": "19-pine-music-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.821,
+            6.269,
+            5.774
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.078,
+            6.426,
+            6.076
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.383,
+            7.386,
+            7.328
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            12.668,
+            11.905,
+            11.16
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            359,
+            227,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            11.211,
+            9.738,
+            9.49
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "bbox": [
+            241,
+            262,
+            1418,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            4.933,
+            4.481,
+            3.891
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            623,
+            1129,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.544,
+            4.915,
+            4.5
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            678,
+            1114,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.498,
+            4.846,
+            4.476
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            623,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            9.695,
+            8.927,
+            8.213
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.59,
+            6.49,
+            6.066
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "qtObject": "planSummary",
+          "expected": [
+            22,
+            181.125,
+            1396,
+            71.09375
+          ],
+          "actual": [
+            22,
+            181,
+            1396,
+            71
+          ],
+          "delta": [
+            0,
+            -0.125,
+            0,
+            -0.094
+          ]
+        },
+        {
+          "selector": ".feature.ops-selection",
+          "qtObject": "selectedChannel",
+          "expected": [
+            22,
+            262.21875,
+            205,
+            84.6875
+          ],
+          "actual": [
+            22,
+            262,
+            205,
+            85
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.312
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "qtObject": "channelPanel",
+          "expected": [
+            22,
+            358.90625,
+            205,
+            252.125
+          ],
+          "actual": [
+            22,
+            359,
+            205,
+            252
+          ],
+          "delta": [
+            0,
+            0.094,
+            0,
+            -0.125
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "qtObject": "schedulePanel",
+          "expected": [
+            241,
+            262.21875,
+            1177,
+            348.8125
+          ],
+          "actual": [
+            241,
+            262,
+            1177,
+            349
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.188
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "qtObject": "libraryPanel",
+          "expected": [
+            22,
+            623.03125,
+            1107,
+            347.5
+          ],
+          "actual": [
+            22,
+            623,
+            1107,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -136.5
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "qtObject": "fileInspector",
+          "expected": [
+            1143,
+            623.03125,
+            275,
+            532.34375
+          ],
+          "actual": [
+            1143,
+            623,
+            275,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -321.344
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-relief-berry-music-1440x900",
+      "reference": "20-berry-music-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.808,
+            6.425,
+            5.851
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.547,
+            6.664,
+            6.0
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.963,
+            8.069,
+            7.108
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            12.668,
+            11.905,
+            11.16
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            359,
+            227,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            10.352,
+            10.15,
+            9.372
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "bbox": [
+            241,
+            262,
+            1418,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            4.996,
+            4.489,
+            3.937
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            623,
+            1129,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.221,
+            5.064,
+            4.45
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            678,
+            1114,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.085,
+            5.036,
+            4.412
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            623,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            9.695,
+            8.927,
+            8.213
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.55,
+            6.969,
+            5.905
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "qtObject": "planSummary",
+          "expected": [
+            22,
+            181.125,
+            1396,
+            71.09375
+          ],
+          "actual": [
+            22,
+            181,
+            1396,
+            71
+          ],
+          "delta": [
+            0,
+            -0.125,
+            0,
+            -0.094
+          ]
+        },
+        {
+          "selector": ".feature.ops-selection",
+          "qtObject": "selectedChannel",
+          "expected": [
+            22,
+            262.21875,
+            205,
+            84.6875
+          ],
+          "actual": [
+            22,
+            262,
+            205,
+            85
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.312
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "qtObject": "channelPanel",
+          "expected": [
+            22,
+            358.90625,
+            205,
+            252.125
+          ],
+          "actual": [
+            22,
+            359,
+            205,
+            252
+          ],
+          "delta": [
+            0,
+            0.094,
+            0,
+            -0.125
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "qtObject": "schedulePanel",
+          "expected": [
+            241,
+            262.21875,
+            1177,
+            348.8125
+          ],
+          "actual": [
+            241,
+            262,
+            1177,
+            349
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.188
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "qtObject": "libraryPanel",
+          "expected": [
+            22,
+            623.03125,
+            1107,
+            347.5
+          ],
+          "actual": [
+            22,
+            623,
+            1107,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -136.5
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "qtObject": "fileInspector",
+          "expected": [
+            1143,
+            623.03125,
+            275,
+            532.34375
+          ],
+          "actual": [
+            1143,
+            623,
+            275,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -321.344
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-relief-graphite-music-1440x900",
+      "reference": "21-graphite-music-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.913,
+            6.424,
+            5.902
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.908,
+            6.499,
+            6.028
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.911,
+            7.588,
+            7.208
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            12.668,
+            11.905,
+            11.16
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            359,
+            227,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            10.927,
+            9.846,
+            9.428
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "bbox": [
+            241,
+            262,
+            1418,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            4.949,
+            4.435,
+            3.948
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            623,
+            1129,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.439,
+            4.962,
+            4.469
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            678,
+            1114,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.364,
+            4.906,
+            4.437
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            623,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            9.695,
+            8.927,
+            8.213
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.253,
+            6.642,
+            5.967
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "qtObject": "planSummary",
+          "expected": [
+            22,
+            181.125,
+            1396,
+            71.09375
+          ],
+          "actual": [
+            22,
+            181,
+            1396,
+            71
+          ],
+          "delta": [
+            0,
+            -0.125,
+            0,
+            -0.094
+          ]
+        },
+        {
+          "selector": ".feature.ops-selection",
+          "qtObject": "selectedChannel",
+          "expected": [
+            22,
+            262.21875,
+            205,
+            84.6875
+          ],
+          "actual": [
+            22,
+            262,
+            205,
+            85
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.312
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "qtObject": "channelPanel",
+          "expected": [
+            22,
+            358.90625,
+            205,
+            252.125
+          ],
+          "actual": [
+            22,
+            359,
+            205,
+            252
+          ],
+          "delta": [
+            0,
+            0.094,
+            0,
+            -0.125
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "qtObject": "schedulePanel",
+          "expected": [
+            241,
+            262.21875,
+            1177,
+            348.8125
+          ],
+          "actual": [
+            241,
+            262,
+            1177,
+            349
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.188
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "qtObject": "libraryPanel",
+          "expected": [
+            22,
+            623.03125,
+            1107,
+            347.5
+          ],
+          "actual": [
+            22,
+            623,
+            1107,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -136.5
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "qtObject": "fileInspector",
+          "expected": [
+            1143,
+            623.03125,
+            275,
+            532.34375
+          ],
+          "actual": [
+            1143,
+            623,
+            275,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -321.344
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-relief-pearl-music-1440x900",
+      "reference": "22-pearl-music-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.972,
+            6.337,
+            5.814
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.23,
+            6.341,
+            5.872
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.948,
+            7.152,
+            6.75
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            12.668,
+            11.905,
+            11.16
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            359,
+            227,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            11.476,
+            9.59,
+            9.148
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "bbox": [
+            241,
+            262,
+            1418,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            4.983,
+            4.455,
+            3.897
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            623,
+            1129,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.624,
+            4.861,
+            4.365
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            678,
+            1114,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.602,
+            4.776,
+            4.303
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            623,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            9.695,
+            8.927,
+            8.213
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.85,
+            6.315,
+            5.631
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "qtObject": "planSummary",
+          "expected": [
+            22,
+            181.125,
+            1396,
+            71.09375
+          ],
+          "actual": [
+            22,
+            181,
+            1396,
+            71
+          ],
+          "delta": [
+            0,
+            -0.125,
+            0,
+            -0.094
+          ]
+        },
+        {
+          "selector": ".feature.ops-selection",
+          "qtObject": "selectedChannel",
+          "expected": [
+            22,
+            262.21875,
+            205,
+            84.6875
+          ],
+          "actual": [
+            22,
+            262,
+            205,
+            85
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.312
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "qtObject": "channelPanel",
+          "expected": [
+            22,
+            358.90625,
+            205,
+            252.125
+          ],
+          "actual": [
+            22,
+            359,
+            205,
+            252
+          ],
+          "delta": [
+            0,
+            0.094,
+            0,
+            -0.125
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "qtObject": "schedulePanel",
+          "expected": [
+            241,
+            262.21875,
+            1177,
+            348.8125
+          ],
+          "actual": [
+            241,
+            262,
+            1177,
+            349
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.188
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "qtObject": "libraryPanel",
+          "expected": [
+            22,
+            623.03125,
+            1107,
+            347.5
+          ],
+          "actual": [
+            22,
+            623,
+            1107,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -136.5
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "qtObject": "fileInspector",
+          "expected": [
+            1143,
+            623.03125,
+            275,
+            532.34375
+          ],
+          "actual": [
+            1143,
+            623,
+            275,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -321.344
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-denim-music-1440x900",
+      "reference": "01-music-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.676,
+            7.914,
+            6.734
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.869,
+            6.365,
+            5.617
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.571,
+            7.877,
+            6.726
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            12.99,
+            12.434,
+            11.743
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            359,
+            227,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            11.814,
+            10.502,
+            9.385
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "bbox": [
+            241,
+            262,
+            1418,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.989,
+            5.291,
+            4.67
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            623,
+            1129,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.761,
+            6.789,
+            5.312
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            678,
+            1114,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.455,
+            7.326,
+            5.568
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            623,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            9.233,
+            8.846,
+            8.295
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.862,
+            7.004,
+            5.712
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "qtObject": "planSummary",
+          "expected": [
+            22,
+            181.125,
+            1396,
+            71.09375
+          ],
+          "actual": [
+            22,
+            181,
+            1396,
+            71
+          ],
+          "delta": [
+            0,
+            -0.125,
+            0,
+            -0.094
+          ]
+        },
+        {
+          "selector": ".feature.ops-selection",
+          "qtObject": "selectedChannel",
+          "expected": [
+            22,
+            262.21875,
+            205,
+            84.6875
+          ],
+          "actual": [
+            22,
+            262,
+            205,
+            85
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.312
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "qtObject": "channelPanel",
+          "expected": [
+            22,
+            358.90625,
+            205,
+            252.125
+          ],
+          "actual": [
+            22,
+            359,
+            205,
+            252
+          ],
+          "delta": [
+            0,
+            0.094,
+            0,
+            -0.125
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "qtObject": "schedulePanel",
+          "expected": [
+            241,
+            262.21875,
+            1177,
+            348.8125
+          ],
+          "actual": [
+            241,
+            262,
+            1177,
+            349
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.188
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "qtObject": "libraryPanel",
+          "expected": [
+            22,
+            623.03125,
+            1107,
+            347.5
+          ],
+          "actual": [
+            22,
+            623,
+            1107,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -136.5
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "qtObject": "fileInspector",
+          "expected": [
+            1143,
+            623.03125,
+            275,
+            532.34375
+          ],
+          "actual": [
+            1143,
+            623,
+            275,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -321.344
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-denim-music-1600x1000",
+      "reference": "02-music-1600x1000",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1600,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.862,
+            7.169,
+            6.1
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1600,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.249,
+            5.786,
+            5.104
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1578,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.69,
+            7.067,
+            6.034
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1578,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            11.94,
+            11.429,
+            10.789
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            359,
+            227,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            11.814,
+            10.502,
+            9.385
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "bbox": [
+            241,
+            262,
+            1578,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.554,
+            4.884,
+            4.307
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            623,
+            1289,
+            971
+          ],
+          "meanAbsoluteRgbDifference": [
+            4.84,
+            4.443,
+            3.937
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            678,
+            1274,
+            936
+          ],
+          "meanAbsoluteRgbDifference": [
+            4.441,
+            4.115,
+            3.717
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1303,
+            623,
+            1578,
+            1000
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.973,
+            7.61,
+            7.103
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            934,
+            1600,
+            1000
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.076,
+            6.304,
+            5.141
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1600,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1600,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1600,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1600,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "qtObject": "planSummary",
+          "expected": [
+            22,
+            181.125,
+            1556,
+            71.09375
+          ],
+          "actual": [
+            22,
+            181,
+            1556,
+            71
+          ],
+          "delta": [
+            0,
+            -0.125,
+            0,
+            -0.094
+          ]
+        },
+        {
+          "selector": ".feature.ops-selection",
+          "qtObject": "selectedChannel",
+          "expected": [
+            22,
+            262.21875,
+            205,
+            84.6875
+          ],
+          "actual": [
+            22,
+            262,
+            205,
+            85
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.312
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "qtObject": "channelPanel",
+          "expected": [
+            22,
+            358.90625,
+            205,
+            252.125
+          ],
+          "actual": [
+            22,
+            359,
+            205,
+            252
+          ],
+          "delta": [
+            0,
+            0.094,
+            0,
+            -0.125
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "qtObject": "schedulePanel",
+          "expected": [
+            241,
+            262.21875,
+            1337,
+            348.8125
+          ],
+          "actual": [
+            241,
+            262,
+            1337,
+            349
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.188
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "qtObject": "libraryPanel",
+          "expected": [
+            22,
+            623.03125,
+            1267,
+            347.5
+          ],
+          "actual": [
+            22,
+            623,
+            1267,
+            311
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -36.5
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "qtObject": "fileInspector",
+          "expected": [
+            1303,
+            623.03125,
+            275,
+            532.34375
+          ],
+          "actual": [
+            1303,
+            623,
+            275,
+            311
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -221.344
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            934,
+            1600,
+            66
+          ],
+          "actual": [
+            0,
+            934,
+            1600,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-denim-channel-editor-1440x900",
+      "reference": "03-channel-editor-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.687,
+            9.893,
+            11.948
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            9.08,
+            10.254,
+            12.446
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            13.765,
+            13.748,
+            13.221
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            14.986,
+            13.821,
+            11.708
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            359,
+            227,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            9.451,
+            9.846,
+            11.449
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "bbox": [
+            241,
+            262,
+            1418,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.634,
+            7.786,
+            8.209
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            623,
+            1129,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            10.415,
+            10.773,
+            10.983
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            678,
+            1114,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.696,
+            9.659,
+            10.698
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            623,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.296,
+            9.237,
+            11.023
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            9.498,
+            10.428,
+            12.022
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "qtObject": "planSummary",
+          "expected": [
+            22,
+            181.125,
+            1396,
+            71.09375
+          ],
+          "actual": [
+            22,
+            181,
+            1396,
+            71
+          ],
+          "delta": [
+            0,
+            -0.125,
+            0,
+            -0.094
+          ]
+        },
+        {
+          "selector": ".feature.ops-selection",
+          "qtObject": "selectedChannel",
+          "expected": [
+            22,
+            262.21875,
+            205,
+            84.6875
+          ],
+          "actual": [
+            22,
+            262,
+            205,
+            85
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.312
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "qtObject": "channelPanel",
+          "expected": [
+            22,
+            358.90625,
+            205,
+            252.125
+          ],
+          "actual": [
+            22,
+            359,
+            205,
+            252
+          ],
+          "delta": [
+            0,
+            0.094,
+            0,
+            -0.125
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "qtObject": "schedulePanel",
+          "expected": [
+            241,
+            262.21875,
+            1177,
+            348.8125
+          ],
+          "actual": [
+            241,
+            262,
+            1177,
+            349
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.188
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "qtObject": "libraryPanel",
+          "expected": [
+            22,
+            623.03125,
+            1107,
+            347.5
+          ],
+          "actual": [
+            22,
+            623,
+            1107,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -136.5
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "qtObject": "fileInspector",
+          "expected": [
+            1143,
+            623.03125,
+            275,
+            532.34375
+          ],
+          "actual": [
+            1143,
+            623,
+            275,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -321.344
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-denim-settings-1440x900",
+      "reference": "04-settings-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.676,
+            7.914,
+            6.734
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            9.016,
+            8.303,
+            7.167
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.284,
+            5.203,
+            5.099
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.862,
+            7.004,
+            5.712
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-denim-advert-1440x900",
+      "reference": "05-ads-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.676,
+            7.914,
+            6.734
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.238,
+            6.895,
+            6.379
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            17.011,
+            14.634,
+            10.661
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            12.055,
+            11.599,
+            10.955
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            262,
+            227,
+            376
+          ],
+          "meanAbsoluteRgbDifference": [
+            19.319,
+            17.184,
+            13.654
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            506,
+            1129,
+            740
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.2,
+            7.241,
+            5.718
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            561,
+            1114,
+            705
+          ],
+          "meanAbsoluteRgbDifference": [
+            10.511,
+            9.125,
+            6.853
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            506,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            23.338,
+            20.077,
+            14.415
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.862,
+            7.004,
+            5.712
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-slate-music-1440x900",
+      "reference": "06-slate-music-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.3,
+            7.695,
+            7.186
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.7,
+            6.266,
+            5.831
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.135,
+            7.627,
+            7.29
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            12.99,
+            12.434,
+            11.743
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            359,
+            227,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            11.472,
+            10.286,
+            9.83
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "bbox": [
+            241,
+            262,
+            1418,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.934,
+            5.261,
+            4.735
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            623,
+            1129,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.175,
+            6.487,
+            5.929
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            678,
+            1114,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.704,
+            6.939,
+            6.359
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            623,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            9.233,
+            8.846,
+            8.295
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.465,
+            6.778,
+            6.211
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "qtObject": "planSummary",
+          "expected": [
+            22,
+            181.125,
+            1396,
+            71.09375
+          ],
+          "actual": [
+            22,
+            181,
+            1396,
+            71
+          ],
+          "delta": [
+            0,
+            -0.125,
+            0,
+            -0.094
+          ]
+        },
+        {
+          "selector": ".feature.ops-selection",
+          "qtObject": "selectedChannel",
+          "expected": [
+            22,
+            262.21875,
+            205,
+            84.6875
+          ],
+          "actual": [
+            22,
+            262,
+            205,
+            85
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.312
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "qtObject": "channelPanel",
+          "expected": [
+            22,
+            358.90625,
+            205,
+            252.125
+          ],
+          "actual": [
+            22,
+            359,
+            205,
+            252
+          ],
+          "delta": [
+            0,
+            0.094,
+            0,
+            -0.125
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "qtObject": "schedulePanel",
+          "expected": [
+            241,
+            262.21875,
+            1177,
+            348.8125
+          ],
+          "actual": [
+            241,
+            262,
+            1177,
+            349
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.188
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "qtObject": "libraryPanel",
+          "expected": [
+            22,
+            623.03125,
+            1107,
+            347.5
+          ],
+          "actual": [
+            22,
+            623,
+            1107,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -136.5
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "qtObject": "fileInspector",
+          "expected": [
+            1143,
+            623.03125,
+            275,
+            532.34375
+          ],
+          "actual": [
+            1143,
+            623,
+            275,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -321.344
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-pine-music-1440x900",
+      "reference": "07-pine-music-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.66,
+            7.682,
+            7.48
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.907,
+            6.299,
+            5.999
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.658,
+            7.701,
+            7.729
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            12.99,
+            12.434,
+            11.743
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            359,
+            227,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            11.892,
+            10.359,
+            10.179
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "bbox": [
+            241,
+            262,
+            1418,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.999,
+            5.27,
+            4.786
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            623,
+            1129,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.788,
+            6.509,
+            6.407
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            678,
+            1114,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.489,
+            6.968,
+            6.972
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            623,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            9.233,
+            8.846,
+            8.295
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.941,
+            6.846,
+            6.608
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "qtObject": "planSummary",
+          "expected": [
+            22,
+            181.125,
+            1396,
+            71.09375
+          ],
+          "actual": [
+            22,
+            181,
+            1396,
+            71
+          ],
+          "delta": [
+            0,
+            -0.125,
+            0,
+            -0.094
+          ]
+        },
+        {
+          "selector": ".feature.ops-selection",
+          "qtObject": "selectedChannel",
+          "expected": [
+            22,
+            262.21875,
+            205,
+            84.6875
+          ],
+          "actual": [
+            22,
+            262,
+            205,
+            85
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.312
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "qtObject": "channelPanel",
+          "expected": [
+            22,
+            358.90625,
+            205,
+            252.125
+          ],
+          "actual": [
+            22,
+            359,
+            205,
+            252
+          ],
+          "delta": [
+            0,
+            0.094,
+            0,
+            -0.125
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "qtObject": "schedulePanel",
+          "expected": [
+            241,
+            262.21875,
+            1177,
+            348.8125
+          ],
+          "actual": [
+            241,
+            262,
+            1177,
+            349
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.188
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "qtObject": "libraryPanel",
+          "expected": [
+            22,
+            623.03125,
+            1107,
+            347.5
+          ],
+          "actual": [
+            22,
+            623,
+            1107,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -136.5
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "qtObject": "fileInspector",
+          "expected": [
+            1143,
+            623.03125,
+            275,
+            532.34375
+          ],
+          "actual": [
+            1143,
+            623,
+            275,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -321.344
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-berry-music-1440x900",
+      "reference": "08-berry-music-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.537,
+            8.371,
+            7.402
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.308,
+            6.568,
+            5.914
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.15,
+            8.394,
+            7.503
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            12.99,
+            12.434,
+            11.743
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            359,
+            227,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            10.71,
+            10.934,
+            10.013
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "bbox": [
+            241,
+            262,
+            1418,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.819,
+            5.351,
+            4.76
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            623,
+            1129,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.093,
+            7.283,
+            6.105
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            678,
+            1114,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.317,
+            7.959,
+            6.585
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            623,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            9.233,
+            8.846,
+            8.295
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.588,
+            7.47,
+            6.404
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "qtObject": "planSummary",
+          "expected": [
+            22,
+            181.125,
+            1396,
+            71.09375
+          ],
+          "actual": [
+            22,
+            181,
+            1396,
+            71
+          ],
+          "delta": [
+            0,
+            -0.125,
+            0,
+            -0.094
+          ]
+        },
+        {
+          "selector": ".feature.ops-selection",
+          "qtObject": "selectedChannel",
+          "expected": [
+            22,
+            262.21875,
+            205,
+            84.6875
+          ],
+          "actual": [
+            22,
+            262,
+            205,
+            85
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.312
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "qtObject": "channelPanel",
+          "expected": [
+            22,
+            358.90625,
+            205,
+            252.125
+          ],
+          "actual": [
+            22,
+            359,
+            205,
+            252
+          ],
+          "delta": [
+            0,
+            0.094,
+            0,
+            -0.125
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "qtObject": "schedulePanel",
+          "expected": [
+            241,
+            262.21875,
+            1177,
+            348.8125
+          ],
+          "actual": [
+            241,
+            262,
+            1177,
+            349
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.188
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "qtObject": "libraryPanel",
+          "expected": [
+            22,
+            623.03125,
+            1107,
+            347.5
+          ],
+          "actual": [
+            22,
+            623,
+            1107,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -136.5
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "qtObject": "fileInspector",
+          "expected": [
+            1143,
+            623.03125,
+            275,
+            532.34375
+          ],
+          "actual": [
+            1143,
+            623,
+            275,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -321.344
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-graphite-music-1440x900",
+      "reference": "09-graphite-music-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.397,
+            8.009,
+            7.525
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.712,
+            6.378,
+            5.945
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.173,
+            7.914,
+            7.591
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            12.99,
+            12.434,
+            11.743
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            359,
+            227,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            11.496,
+            10.522,
+            10.081
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "bbox": [
+            241,
+            262,
+            1418,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            5.94,
+            5.294,
+            4.771
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            623,
+            1129,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.3,
+            6.8,
+            6.245
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            678,
+            1114,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.864,
+            7.34,
+            6.764
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            623,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            9.233,
+            8.846,
+            8.295
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.499,
+            7.038,
+            6.483
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "qtObject": "planSummary",
+          "expected": [
+            22,
+            181.125,
+            1396,
+            71.09375
+          ],
+          "actual": [
+            22,
+            181,
+            1396,
+            71
+          ],
+          "delta": [
+            0,
+            -0.125,
+            0,
+            -0.094
+          ]
+        },
+        {
+          "selector": ".feature.ops-selection",
+          "qtObject": "selectedChannel",
+          "expected": [
+            22,
+            262.21875,
+            205,
+            84.6875
+          ],
+          "actual": [
+            22,
+            262,
+            205,
+            85
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.312
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "qtObject": "channelPanel",
+          "expected": [
+            22,
+            358.90625,
+            205,
+            252.125
+          ],
+          "actual": [
+            22,
+            359,
+            205,
+            252
+          ],
+          "delta": [
+            0,
+            0.094,
+            0,
+            -0.125
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "qtObject": "schedulePanel",
+          "expected": [
+            241,
+            262.21875,
+            1177,
+            348.8125
+          ],
+          "actual": [
+            241,
+            262,
+            1177,
+            349
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.188
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "qtObject": "libraryPanel",
+          "expected": [
+            22,
+            623.03125,
+            1107,
+            347.5
+          ],
+          "actual": [
+            22,
+            623,
+            1107,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -136.5
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "qtObject": "fileInspector",
+          "expected": [
+            1143,
+            623.03125,
+            275,
+            532.34375
+          ],
+          "actual": [
+            1143,
+            623,
+            275,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -321.344
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "capture": "tide-pearl-music-1440x900",
+      "reference": "10-pearl-music-1440x900",
+      "regions": [
+        {
+          "selector": ".app-header",
+          "bbox": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "meanAbsoluteRgbDifference": [
+            9.134,
+            7.575,
+            7.079
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "bbox": [
+            0,
+            56,
+            1440,
+            101
+          ],
+          "meanAbsoluteRgbDifference": [
+            7.078,
+            6.197,
+            5.763
+          ]
+        },
+        {
+          "selector": ".page-heading",
+          "bbox": [
+            22,
+            117,
+            1418,
+            169
+          ],
+          "meanAbsoluteRgbDifference": [
+            9.086,
+            7.451,
+            7.114
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "bbox": [
+            22,
+            181,
+            1418,
+            252
+          ],
+          "meanAbsoluteRgbDifference": [
+            12.99,
+            12.434,
+            11.743
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "bbox": [
+            22,
+            359,
+            227,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            12.254,
+            10.132,
+            9.693
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "bbox": [
+            241,
+            262,
+            1418,
+            611
+          ],
+          "meanAbsoluteRgbDifference": [
+            6.052,
+            5.24,
+            4.715
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "bbox": [
+            22,
+            623,
+            1129,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.256,
+            6.322,
+            5.764
+          ]
+        },
+        {
+          "selector": ".media-table",
+          "bbox": [
+            37,
+            678,
+            1114,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            9.09,
+            6.727,
+            6.147
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "bbox": [
+            1143,
+            623,
+            1418,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            9.233,
+            8.846,
+            8.295
+          ]
+        },
+        {
+          "selector": ".transport",
+          "bbox": [
+            0,
+            834,
+            1440,
+            900
+          ],
+          "meanAbsoluteRgbDifference": [
+            8.328,
+            6.62,
+            6.053
+          ]
+        }
+      ],
+      "geometry": [
+        {
+          "selector": ".app-header",
+          "qtObject": "appHeader",
+          "expected": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "actual": [
+            0,
+            0,
+            1440,
+            56
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".primary-nav",
+          "qtObject": "navigation",
+          "expected": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "actual": [
+            0,
+            56,
+            1440,
+            45
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "selector": ".ops-overview",
+          "qtObject": "planSummary",
+          "expected": [
+            22,
+            181.125,
+            1396,
+            71.09375
+          ],
+          "actual": [
+            22,
+            181,
+            1396,
+            71
+          ],
+          "delta": [
+            0,
+            -0.125,
+            0,
+            -0.094
+          ]
+        },
+        {
+          "selector": ".feature.ops-selection",
+          "qtObject": "selectedChannel",
+          "expected": [
+            22,
+            262.21875,
+            205,
+            84.6875
+          ],
+          "actual": [
+            22,
+            262,
+            205,
+            85
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.312
+          ]
+        },
+        {
+          "selector": ".channel-panel",
+          "qtObject": "channelPanel",
+          "expected": [
+            22,
+            358.90625,
+            205,
+            252.125
+          ],
+          "actual": [
+            22,
+            359,
+            205,
+            252
+          ],
+          "delta": [
+            0,
+            0.094,
+            0,
+            -0.125
+          ]
+        },
+        {
+          "selector": ".schedule-panel",
+          "qtObject": "schedulePanel",
+          "expected": [
+            241,
+            262.21875,
+            1177,
+            348.8125
+          ],
+          "actual": [
+            241,
+            262,
+            1177,
+            349
+          ],
+          "delta": [
+            0,
+            -0.219,
+            0,
+            0.188
+          ]
+        },
+        {
+          "selector": ".media-panel",
+          "qtObject": "libraryPanel",
+          "expected": [
+            22,
+            623.03125,
+            1107,
+            347.5
+          ],
+          "actual": [
+            22,
+            623,
+            1107,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -136.5
+          ]
+        },
+        {
+          "selector": ".inspector-panel",
+          "qtObject": "fileInspector",
+          "expected": [
+            1143,
+            623.03125,
+            275,
+            532.34375
+          ],
+          "actual": [
+            1143,
+            623,
+            275,
+            211
+          ],
+          "delta": [
+            0,
+            -0.031,
+            0,
+            -321.344
+          ]
+        },
+        {
+          "selector": ".transport",
+          "qtObject": "transport",
+          "expected": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "actual": [
+            0,
+            834,
+            1440,
+            66
+          ],
+          "delta": [
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    }
+  ],
+  "skipped": [
+    {
+      "reference": "tide-relief/12-delete-confirm-1440x900",
+      "reason": "The Qt capture confirms file deletion; the frozen reference confirms channel deletion. These are different actions, so an overlay is not an equivalent-state comparison."
+    }
+  ],
+  "interpretation": "Unmasked visual differences, not a pass/fail score. Production text and underscore names differ from browser fixtures; Qt and browser glyph rasterization differ. The reference library/inspector extend below the viewport; Qt confines those surfaces and scrolls their contents to preserve access. Assess individual panels; no global similarity percentage is reported.",
+  "unsupportedValidation": "The Linux offscreen renderer cannot verify physical Windows desktop/taskbar geometry or Segoe UI installed on Windows. Dark captures have no approved browser reference."
+}

@@ -54,31 +54,35 @@ QVariant CompositionsList::headerData(int section, Qt ::Orientation orientation,
   //  return mListOfCompositions[index.row()];
 //}
 
-bool CompositionsList::Init(QString fileName){
-    Parser csv;
-    if( csv.Init(fileName)){
-
-        qDebug()<<"file inift";
-    }
-    else{
-
-        qDebug()<<"not open";
+bool CompositionsList::Init(QString fileName)
+{
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
         return false;
+    QTextStream stream(&file);
+    QList<Composition> compositions;
+    while (!stream.atEnd()) {
+        const QString line = stream.readLine();
+        if (line.trimmed().isEmpty())
+            continue;
+        const QStringList fields = line.split(QLatin1Char(';'));
+        // Historical reports may append extra columns; only the first two
+        // belong to the manager's composition/frequency contract.
+        if (fields.size() < 2 || fields.at(0).trimmed().isEmpty())
+            return false;
+        bool valid = false;
+        const int frequency = fields.at(1).toInt(&valid);
+        if (!valid || frequency < 0)
+            return false;
+        Composition composition;
+        composition.setCompositionName(fields.at(0));
+        composition.setFrequency(frequency);
+        compositions.append(composition);
     }
-    if ( csv.Parse()){
-        qDebug()<<"Parsered ok!";
-    }
-    else{
-        qDebug()<<"parser failed!";
-    }
-
-    for(int i =0; i<csv.mList.size(); i++){
-        Composition cmp1;
-
-        cmp1.setCompositionName(csv.mList[i][0]);
-        cmp1.setFrequency(csv.mList[i][1].toInt());
-        mListOfCompositions.append(cmp1);
-    };
-
+    if (stream.status() != QTextStream::Ok)
+        return false;
+    beginResetModel();
+    mListOfCompositions = std::move(compositions);
+    endResetModel();
     return true;
 }

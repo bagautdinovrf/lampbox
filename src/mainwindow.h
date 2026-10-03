@@ -1,231 +1,117 @@
-
-
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
-
-
 #include <QMainWindow>
 #include <QModelIndex>
-#include <QMap>
-#include <QPointer>
+#include <array>
 #include <memory>
-
-
-class QModelIndex;
-class QFileSystemModel;
-class QAction;
-class QTableView;
-class QTreeView;
 
 class ChannelManager;
 class ChannelModel;
-class MediaModel;
-class MediaManager;
-class MediaController;
-class Report;
 class AdvertManager;
+class AdvertModel;
+class MediaManager;
+class MediaModel;
+class MediaController;
+class QStackedWidget;
+class QComboBox;
+class QPushButton;
+class QLabel;
+class QTreeView;
+class QTableView;
+class QSortFilterProxyModel;
+class QLineEdit;
+class SchedulePreviewWidget;
 
-
-namespace Ui {
-class MainWindow;
-}
-
-class MainWindow : public QMainWindow
-{
+class MainWindow : public QMainWindow {
     Q_OBJECT
-
-public:
+  public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override;
+    enum MainWindowPage {
+        PAGE_MUSIC,
+        PAGE_VIDEO,
+        PAGE_ADVERT
+    };
+  public slots:
+    void changePage(int page);
+    void openChannelEditor();
+    void openAdvertEditor();
+    void slotChangeChannel(const QModelIndex &index, const QModelIndex &previous = {});
 
-
-    enum MainWindowPage { PAGE_MUSIC, PAGE_VIDEO, PAGE_ADVERT };
-
-public slots:
-    /**
-     * @brief slotChangeChannel                 - Слот изменение текущего канала
-     * @param index     - текущий индекс
-     * @param prev      - предыдущий индекс
-     */
-    void slotChangeChannel(const QModelIndex &index, const QModelIndex &prev );
-
-private:
-    /**
-     * @brief MainWindow::setInfoHeader         - Формирование информационного заголовка
-     */
-    void setInfoHeader();
-
-    /**
-     * @brief clearInfoHeader                   - Очистка информационного заголовка
-     */
-    void clearInfoHeader();
-
-    /**
-     * @brief clearFileInfoHeader
-     */
-    void clearFileInfoHeader();
-
-    /**
-     * @brief currentMediaManager
-     * @return
-     */
-    MediaManager *currentPageMediaManager();
-
-    /**
-     * @brief currenChannelManager
-     * @return
-     */
-    ChannelManager *currentPageChannelManager();
-
-    /**
-     * @brief currentTableView
-     * @return
-     */
-    QTableView *currentTableView();
-
-    /**
-     * @brief currentMediaManagerTree
-     * @return
-     */
-    QTreeView * currentPageMediaManagerTree();
-
-private slots:
-    /**
-     * @brief channelDataChanged                - Измененние данных канала
-     * @param index             - новое значение
-     * @param cindex            - новое значение
-     */
-    void channelDataChanged(QModelIndex index, QModelIndex cindex);
-
-    /**
-     * @brief slot_addMediaFiles
-     */
+  protected:
+    void resizeEvent(QResizeEvent *event) override;
+  private slots:
     void slot_addMediaFiles();
     void slot_removeMediaFiles();
-
-    /**
-     * @brief slot_addChannel
-     */
     void slot_addChannel();
     void slot_deleteChannel();
-
-    /**
-     * @brief slot_addAdvert
-     */
     void slot_addAdvert();
     void slot_deleteAdvert();
-
-    /// Остановка воспроизведения
-    void slot_stop();
-
-    /// Запуск воспроизведения
-    void slot_play();
-
-    /// Установка состояния кнопок
-    void setPlayingButtonsState(bool state);
-
-    ///
-    void slot_createReport();
-
-    /**
-     * @brief slot_settings             - Вызов окна отображения настроек
-     */
-    void slot_settings();
-
-    /**
-     * @brief changePage                - Изменение текущей страницы
-     */
-    void changePage(const int page);
-
-    /**
-     * @brief setDeleteButtonsState     - Установка состояний кнопок
-     */
-    /// Кнопка удаления каналов
-    void setDeleteChannelButtonState();
-    /// Кнопка удаления рекламы из таблицы
-    void setDeleteButtonAdvertState();
-    /// Кнопка добавление рекламы в таблицу
-    void setAddButtonAdvertState();
-    /// Кнопка удаления файлов из хранилища
-    void setRemoveFilesButtonState();
-    /// Кнопка добавления файлов в хранилище
-    void setAddFilesButtonState();
-    /// Кнопка "обновить"
-    void setRefreshButtonState();
-
-    /**
-     * @brief slot_playTrack            - Воспроизведение текущей композиции
-     */
+    void copyFiles(const QStringList &files);
     void slot_playTrack(QModelIndex index);
+    void setPlayingButtonsState(bool playing);
 
-    /**
-     * @brief changeFileFormat          - Изменение доступных форматов файлов
-     */
-    void changeFileFormats();
-
-    /**
-     * @brief about -                   - О программе
-     */
-    void about();
-
-    /**
-     * @brief setSelectFileInfoHeader   - Информация о фалах
-     * @param index
-     * @param i
-     */
-    void setSelectFileInfoHeader(QModelIndex index, QModelIndex i = QModelIndex() );
-
-    /**
-     * @brief selectionFileInfoHeaderChanged    - Информация о файлах
-     */
-    void selectionFileInfoHeaderChanged();
-
-    /**
-     * @brief copyFiles                 - Копирование файлов
-     * @param fileList
-     */
-    void copyFiles(const QStringList &fileList);
-
-private:
-    Ui::MainWindow *ui;
-
-    ChannelManager          *mChannelManagerMusic;
-    ChannelManager          *mChannelManagerVideo;
-    ChannelModel            *mChannelModelMusic;
-    ChannelModel            *mChannelModelVideo;
-    MediaModel              *mMediaModelMusic;
-    MediaModel              *mMediaModelVideo;
-
-    ///
-    std::unique_ptr<MediaManager>       mMediaAdvertManager;
-    std::unique_ptr<AdvertManager>      mAdvertManager;
-
-    QFileSystemModel        *mFileSystemModel_;
-
-//    QModelIndex             mCurrentIndex;
-
-    QAction                 *mAct_stop;
-    QAction                 *mAct_play;
-    QAction                 *mAct_music;
-    QAction                 *mAct_ads;
-    QAction                 *mAct_video;
-    QAction                 *mAct_RefreshTimetable;
-
-    //
-    QPointer<QTimer>        mStopPlayTimer;
-
-    ///
-    MediaController         *mMediaController;
-
-    /// Форма отчетов
-    Report                            *mReport;
-
-    /// Текущее окно
-    MainWindowPage                     mPage;
-
-    ///
-    bool                                mFileInfoHeaderIsClear;
-
+  private:
+    friend void seedRestyleWindow(MainWindow &window);
+    struct MediaPage {
+        QWidget *root = nullptr;
+        QTableView *channels = nullptr;
+        QTableView *adverts = nullptr;
+        QTreeView *files = nullptr;
+        QSortFilterProxyModel *proxy = nullptr;
+        MediaModel *source = nullptr;
+        SchedulePreviewWidget *schedule = nullptr;
+        QLineEdit *search = nullptr;
+        QLabel *subtitle = nullptr;
+        QLabel *channelTitle = nullptr;
+        QLabel *channelDetail = nullptr;
+        QLabel *channelConditions = nullptr;
+        QLabel *fileTitle = nullptr;
+        QLabel *fileArtist = nullptr;
+        std::array<QLabel *, 4> fileFields{};
+        QLabel *fileCount = nullptr;
+        QLabel *libraryEmpty = nullptr;
+        QLabel *planNow = nullptr;
+        QLabel *planNext = nullptr;
+        QLabel *planAd = nullptr;
+        QPushButton *addFiles = nullptr;
+        QPushButton *deleteFiles = nullptr;
+        QPushButton *editChannel = nullptr;
+        QPushButton *addAdvert = nullptr;
+        QPushButton *editAdvert = nullptr;
+        QPushButton *deleteAdvert = nullptr;
+        QPushButton *preview = nullptr;
+        QPushButton *fileInfo = nullptr;
+    };
+    QWidget *buildMediaPage(int page);
+    void buildShell();
+    void adaptLayout(int width);
+    void updatePage(int page);
+    void updateFileInfo(int page);
+    void updateSummary(int page);
+    void showFileInfo();
+    void showStationInfo();
+    void showAllSchedules();
+    void showError(const QString &message);
+    void selectChannel(int page, int row);
+    MediaManager *mediaManager(int page) const;
+    bool advertWritable() const;
+    bool playerAvailable() const;
+    std::array<MediaPage, 3> mPages;
+    ChannelManager *mChannelManagers[2] = {nullptr, nullptr};
+    ChannelModel *mChannelModels[2] = {nullptr, nullptr};
+    std::unique_ptr<MediaManager> mMediaAdvertManager;
+    std::unique_ptr<AdvertManager> mAdvertManager;
+    AdvertModel *mAdvertModel = nullptr;
+    MediaController *mMediaController = nullptr;
+    QStackedWidget *mStack = nullptr;
+    QComboBox *mAppearance = nullptr;
+    QComboBox *mTheme = nullptr;
+    std::array<QPushButton *, 6> mNavigation{};
+    QPushButton *mPlay = nullptr;
+    QPushButton *mStop = nullptr;
+    QLabel *mPlayerState = nullptr;
+    QLabel *mOperationState = nullptr;
+    int mPage = PAGE_MUSIC;
 };
-
-#endif // MAINWINDOW_H
+#endif

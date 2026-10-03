@@ -71,6 +71,34 @@ class SettingsTest final : public QObject
     Q_OBJECT
 
 private slots:
+    void appearanceSettingsPersistIndependently()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString file = directory.filePath("appearance.conf");
+        Settings settings(file, nullptr);
+        QCOMPARE(settings.appearanceId(), QString("tide-relief"));
+        QCOMPARE(settings.themeId(), QString("denim"));
+        settings.setThemeId("dark");
+        QCOMPARE(settings.appearanceId(), QString("tide-relief"));
+        settings.setAppearanceId("tide");
+        QCOMPARE(settings.themeId(), QString("dark"));
+        settings.setThemeId("not-a-theme");
+        settings.setAppearanceId("not-an-appearance");
+        Settings reopened(file, nullptr);
+        QCOMPARE(reopened.appearanceId(), QString("tide"));
+        QCOMPARE(reopened.themeId(), QString("dark"));
+        QVERIFY(reopened.fileFormatsAudio().value("mp3"));
+        QVERIFY(reopened.fileFormatsVideo().value("mp4"));
+
+        QSettings external(file, QSettings::IniFormat);
+        external.setValue("Appearance/style", "unknown");
+        external.setValue("Appearance/theme", "unknown");
+        external.sync();
+        QCOMPARE(reopened.appearanceId(), QString("tide-relief"));
+        QCOMPARE(reopened.themeId(), QString("denim"));
+    }
+
     void configurationFileSelection_data()
     {
         QTest::addColumn<QString>("applicationName");

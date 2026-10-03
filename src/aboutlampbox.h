@@ -15,8 +15,8 @@ public:
     explicit AboutLampbox(QWidget *parent = nullptr, Qt::WindowFlags f = Qt::WindowFlags() );
     ~AboutLampbox();
 
-private:
-    void mousePressEvent(QMouseEvent * event) override;
+signals:
+    void doneRequested();
 
 private:
     Ui::AboutLampbox *ui;

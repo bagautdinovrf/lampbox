@@ -1,0 +1,2983 @@
+{
+    "availableGeometry": [
+        0,
+        0,
+        960,
+        573
+    ],
+    "captures": [
+        {
+            "appearance": "tide",
+            "dpr": 1.5,
+            "fitsAvailableScreen": true,
+            "floatingWindows": [
+            ],
+            "frame": [
+                0,
+                0,
+                938,
+                527
+            ],
+            "geometry": {
+                "addFilesButton": [
+                    177,
+                    557,
+                    104,
+                    32
+                ],
+                "addFolderButton": [
+                    287,
+                    558,
+                    29,
+                    29
+                ],
+                "allSchedulesButton": [
+                    692,
+                    127,
+                    141,
+                    32
+                ],
+                "appHeader": [
+                    0,
+                    0,
+                    936,
+                    56
+                ],
+                "appearancePicker": [
+                    603,
+                    13,
+                    112,
+                    30
+                ],
+                "channelList": [
+                    30,
+                    403,
+                    189,
+                    121
+                ],
+                "channelPanel": [
+                    22,
+                    359,
+                    205,
+                    173
+                ],
+                "channelsSidebar": [
+                    22,
+                    262,
+                    205,
+                    270
+                ],
+                "createChannelButton": [
+                    841,
+                    127,
+                    137,
+                    32
+                ],
+                "deleteFilesButton": [
+                    646,
+                    558,
+                    29,
+                    29
+                ],
+                "editChannelButton": [
+                    187,
+                    273,
+                    29,
+                    29
+                ],
+                "fileInfoButton": [
+                    867,
+                    738,
+                    121,
+                    32
+                ],
+                "fileInspector": [
+                    703,
+                    544,
+                    275,
+                    211
+                ],
+                "libraryPanel": [
+                    22,
+                    544,
+                    667,
+                    211
+                ],
+                "mediaTable": [
+                    36,
+                    597,
+                    639,
+                    158
+                ],
+                "nav_about": [
+                    876,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_advert": [
+                    108,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_music": [
+                    22,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_reports": [
+                    790,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_settings": [
+                    833,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_video": [
+                    65,
+                    62,
+                    38,
+                    32
+                ],
+                "navigation": [
+                    0,
+                    56,
+                    936,
+                    45
+                ],
+                "pageStack": [
+                    0,
+                    101,
+                    936,
+                    358
+                ],
+                "planDateTime": [
+                    36,
+                    216,
+                    110,
+                    28
+                ],
+                "planSummary": [
+                    22,
+                    181,
+                    956,
+                    71
+                ],
+                "planTime": [
+                    153,
+                    216,
+                    66,
+                    28
+                ],
+                "qt_scrollarea_hcontainer": [
+                    0,
+                    449,
+                    926,
+                    10
+                ],
+                "qt_scrollarea_vcontainer": [
+                    926,
+                    101,
+                    10,
+                    348
+                ],
+                "qt_scrollarea_viewport": [
+                    257,
+                    454,
+                    695,
+                    26
+                ],
+                "qt_spinbox_lineedit": [
+                    157,
+                    218,
+                    40,
+                    24
+                ],
+                "refreshPlayerButton": [
+                    840,
+                    477,
+                    32,
+                    29
+                ],
+                "scheduleConditions": [
+                    257,
+                    454,
+                    705,
+                    63
+                ],
+                "schedulePanel": [
+                    241,
+                    262,
+                    737,
+                    270
+                ],
+                "scheduleTimeline": [
+                    257,
+                    341,
+                    705,
+                    64
+                ],
+                "searchEdit": [
+                    322,
+                    557,
+                    318,
+                    32
+                ],
+                "selectedChannel": [
+                    22,
+                    262,
+                    205,
+                    85
+                ],
+                "showPlayerButton": [
+                    882,
+                    477,
+                    32,
+                    29
+                ],
+                "sidebarAddButton": [
+                    187,
+                    369,
+                    29,
+                    29
+                ],
+                "themePicker": [
+                    768,
+                    13,
+                    105,
+                    30
+                ],
+                "transport": [
+                    0,
+                    459,
+                    936,
+                    66
+                ],
+                "workspace": [
+                    0,
+                    101,
+                    1000,
+                    654
+                ]
+            },
+            "height": 525,
+            "id": "tide-denim-music-936x525",
+            "pixelHeight": 788,
+            "pixelWidth": 1404,
+            "theme": "denim",
+            "width": 936
+        },
+        {
+            "appearance": "tide",
+            "dpr": 1.5,
+            "fitsAvailableScreen": true,
+            "floatingWindows": [
+                {
+                    "fitsAvailableScreen": true,
+                    "frame": [
+                        167,
+                        6,
+                        602,
+                        515
+                    ],
+                    "objectName": "channelRuleDialog"
+                }
+            ],
+            "frame": [
+                0,
+                0,
+                938,
+                527
+            ],
+            "geometry": {
+                "addFilesButton": [
+                    177,
+                    557,
+                    104,
+                    32
+                ],
+                "addFolderButton": [
+                    287,
+                    558,
+                    29,
+                    29
+                ],
+                "allSchedulesButton": [
+                    692,
+                    127,
+                    141,
+                    32
+                ],
+                "appHeader": [
+                    0,
+                    0,
+                    936,
+                    56
+                ],
+                "appearancePicker": [
+                    603,
+                    13,
+                    112,
+                    30
+                ],
+                "cancelRule": [
+                    575,
+                    463,
+                    70,
+                    32
+                ],
+                "channelDays": [
+                    193,
+                    329,
+                    540,
+                    35
+                ],
+                "channelEnd": [
+                    472,
+                    181,
+                    261,
+                    35
+                ],
+                "channelList": [
+                    30,
+                    403,
+                    189,
+                    121
+                ],
+                "channelName": [
+                    193,
+                    106,
+                    540,
+                    35
+                ],
+                "channelPanel": [
+                    22,
+                    359,
+                    205,
+                    173
+                ],
+                "channelRuleDialog": [
+                    168,
+                    7,
+                    600,
+                    513
+                ],
+                "channelStart": [
+                    193,
+                    181,
+                    262,
+                    35
+                ],
+                "channelsSidebar": [
+                    22,
+                    262,
+                    205,
+                    270
+                ],
+                "closeRule": [
+                    714,
+                    32,
+                    29,
+                    29
+                ],
+                "createChannelButton": [
+                    841,
+                    127,
+                    137,
+                    32
+                ],
+                "deleteChannel": [
+                    427,
+                    463,
+                    139,
+                    32
+                ],
+                "deleteFilesButton": [
+                    646,
+                    558,
+                    29,
+                    29
+                ],
+                "editChannelButton": [
+                    187,
+                    273,
+                    29,
+                    29
+                ],
+                "fileInfoButton": [
+                    867,
+                    738,
+                    121,
+                    32
+                ],
+                "fileInspector": [
+                    703,
+                    544,
+                    275,
+                    211
+                ],
+                "formError": [
+                    193,
+                    423,
+                    550,
+                    18
+                ],
+                "libraryPanel": [
+                    22,
+                    544,
+                    667,
+                    211
+                ],
+                "mediaTable": [
+                    36,
+                    597,
+                    639,
+                    158
+                ],
+                "modalBackdrop": [
+                    0,
+                    0,
+                    936,
+                    525
+                ],
+                "month1": [
+                    193,
+                    428,
+                    62,
+                    33
+                ],
+                "month10": [
+                    327,
+                    466,
+                    63,
+                    33
+                ],
+                "month11": [
+                    395,
+                    466,
+                    63,
+                    33
+                ],
+                "month12": [
+                    463,
+                    466,
+                    63,
+                    33
+                ],
+                "month2": [
+                    260,
+                    428,
+                    64,
+                    33
+                ],
+                "month3": [
+                    329,
+                    428,
+                    64,
+                    33
+                ],
+                "month4": [
+                    398,
+                    428,
+                    63,
+                    33
+                ],
+                "month5": [
+                    466,
+                    428,
+                    64,
+                    33
+                ],
+                "month6": [
+                    535,
+                    428,
+                    66,
+                    33
+                ],
+                "month7": [
+                    606,
+                    428,
+                    65,
+                    33
+                ],
+                "month8": [
+                    193,
+                    466,
+                    61,
+                    33
+                ],
+                "month9": [
+                    259,
+                    466,
+                    63,
+                    33
+                ],
+                "monthPicker": [
+                    193,
+                    428,
+                    540,
+                    71
+                ],
+                "nav_about": [
+                    876,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_advert": [
+                    108,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_music": [
+                    22,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_reports": [
+                    790,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_settings": [
+                    833,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_video": [
+                    65,
+                    62,
+                    38,
+                    32
+                ],
+                "navigation": [
+                    0,
+                    56,
+                    936,
+                    45
+                ],
+                "pageStack": [
+                    0,
+                    101,
+                    936,
+                    358
+                ],
+                "planDateTime": [
+                    36,
+                    216,
+                    110,
+                    28
+                ],
+                "planSummary": [
+                    22,
+                    181,
+                    956,
+                    71
+                ],
+                "planTime": [
+                    153,
+                    216,
+                    66,
+                    28
+                ],
+                "qt_scrollarea_hcontainer": [
+                    0,
+                    449,
+                    926,
+                    10
+                ],
+                "qt_scrollarea_vcontainer": [
+                    733,
+                    83,
+                    10,
+                    326
+                ],
+                "qt_scrollarea_viewport": [
+                    193,
+                    83,
+                    540,
+                    326
+                ],
+                "qt_spinbox_lineedit": [
+                    476,
+                    183,
+                    235,
+                    31
+                ],
+                "refreshPlayerButton": [
+                    840,
+                    477,
+                    32,
+                    29
+                ],
+                "ruleVolume": [
+                    193,
+                    556,
+                    540,
+                    26
+                ],
+                "saveRule": [
+                    654,
+                    463,
+                    89,
+                    32
+                ],
+                "scheduleConditions": [
+                    257,
+                    454,
+                    705,
+                    63
+                ],
+                "schedulePanel": [
+                    241,
+                    262,
+                    737,
+                    270
+                ],
+                "scheduleTimeline": [
+                    257,
+                    341,
+                    705,
+                    64
+                ],
+                "searchEdit": [
+                    322,
+                    557,
+                    318,
+                    32
+                ],
+                "selectedChannel": [
+                    22,
+                    262,
+                    205,
+                    85
+                ],
+                "showPlayerButton": [
+                    882,
+                    477,
+                    32,
+                    29
+                ],
+                "sidebarAddButton": [
+                    187,
+                    369,
+                    29,
+                    29
+                ],
+                "themePicker": [
+                    768,
+                    13,
+                    105,
+                    30
+                ],
+                "transport": [
+                    0,
+                    459,
+                    936,
+                    66
+                ],
+                "weekday0": [
+                    556,
+                    256,
+                    55,
+                    33
+                ],
+                "weekday1": [
+                    193,
+                    256,
+                    56,
+                    33
+                ],
+                "weekday2": [
+                    254,
+                    256,
+                    55,
+                    33
+                ],
+                "weekday3": [
+                    314,
+                    256,
+                    56,
+                    33
+                ],
+                "weekday4": [
+                    375,
+                    256,
+                    55,
+                    33
+                ],
+                "weekday5": [
+                    435,
+                    256,
+                    56,
+                    33
+                ],
+                "weekday6": [
+                    496,
+                    256,
+                    55,
+                    33
+                ],
+                "weekdayPicker": [
+                    193,
+                    256,
+                    540,
+                    33
+                ],
+                "workspace": [
+                    0,
+                    101,
+                    1000,
+                    654
+                ]
+            },
+            "height": 525,
+            "id": "tide-denim-channel-editor-screen-fit",
+            "pixelHeight": 788,
+            "pixelWidth": 1404,
+            "theme": "denim",
+            "width": 936
+        },
+        {
+            "appearance": "tide",
+            "dpr": 1.5,
+            "fitsAvailableScreen": true,
+            "floatingWindows": [
+            ],
+            "frame": [
+                0,
+                0,
+                938,
+                527
+            ],
+            "geometry": {
+                "addFilesButton": [
+                    177,
+                    557,
+                    104,
+                    32
+                ],
+                "addFolderButton": [
+                    287,
+                    558,
+                    29,
+                    29
+                ],
+                "allSchedulesButton": [
+                    692,
+                    127,
+                    141,
+                    32
+                ],
+                "appHeader": [
+                    0,
+                    0,
+                    936,
+                    56
+                ],
+                "appearancePicker": [
+                    603,
+                    13,
+                    112,
+                    30
+                ],
+                "channelList": [
+                    30,
+                    403,
+                    189,
+                    121
+                ],
+                "channelPanel": [
+                    22,
+                    359,
+                    205,
+                    173
+                ],
+                "channelsSidebar": [
+                    22,
+                    262,
+                    205,
+                    270
+                ],
+                "createChannelButton": [
+                    841,
+                    127,
+                    137,
+                    32
+                ],
+                "deleteFilesButton": [
+                    646,
+                    558,
+                    29,
+                    29
+                ],
+                "editChannelButton": [
+                    187,
+                    273,
+                    29,
+                    29
+                ],
+                "fileInfoButton": [
+                    867,
+                    738,
+                    121,
+                    32
+                ],
+                "fileInspector": [
+                    703,
+                    544,
+                    275,
+                    211
+                ],
+                "libraryPanel": [
+                    22,
+                    544,
+                    667,
+                    211
+                ],
+                "mediaTable": [
+                    36,
+                    597,
+                    639,
+                    158
+                ],
+                "nav_about": [
+                    876,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_advert": [
+                    108,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_music": [
+                    22,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_reports": [
+                    790,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_settings": [
+                    833,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_video": [
+                    65,
+                    62,
+                    38,
+                    32
+                ],
+                "navigation": [
+                    0,
+                    56,
+                    936,
+                    45
+                ],
+                "pageStack": [
+                    0,
+                    101,
+                    936,
+                    358
+                ],
+                "planDateTime": [
+                    36,
+                    216,
+                    110,
+                    28
+                ],
+                "planSummary": [
+                    22,
+                    181,
+                    956,
+                    71
+                ],
+                "planTime": [
+                    153,
+                    216,
+                    66,
+                    28
+                ],
+                "qt_scrollarea_hcontainer": [
+                    0,
+                    449,
+                    926,
+                    10
+                ],
+                "qt_scrollarea_vcontainer": [
+                    926,
+                    101,
+                    10,
+                    348
+                ],
+                "qt_scrollarea_viewport": [
+                    257,
+                    454,
+                    695,
+                    26
+                ],
+                "qt_spinbox_lineedit": [
+                    157,
+                    218,
+                    40,
+                    24
+                ],
+                "refreshPlayerButton": [
+                    840,
+                    477,
+                    32,
+                    29
+                ],
+                "scheduleConditions": [
+                    257,
+                    454,
+                    705,
+                    63
+                ],
+                "schedulePanel": [
+                    241,
+                    262,
+                    737,
+                    270
+                ],
+                "scheduleTimeline": [
+                    257,
+                    341,
+                    705,
+                    64
+                ],
+                "searchEdit": [
+                    322,
+                    557,
+                    318,
+                    32
+                ],
+                "selectedChannel": [
+                    22,
+                    262,
+                    205,
+                    85
+                ],
+                "showPlayerButton": [
+                    882,
+                    477,
+                    32,
+                    29
+                ],
+                "sidebarAddButton": [
+                    187,
+                    369,
+                    29,
+                    29
+                ],
+                "themePicker": [
+                    768,
+                    13,
+                    105,
+                    30
+                ],
+                "transport": [
+                    0,
+                    459,
+                    936,
+                    66
+                ],
+                "workspace": [
+                    0,
+                    101,
+                    1000,
+                    654
+                ]
+            },
+            "height": 525,
+            "id": "tide-dark-music-936x525",
+            "pixelHeight": 788,
+            "pixelWidth": 1404,
+            "theme": "dark",
+            "width": 936
+        },
+        {
+            "appearance": "tide",
+            "dpr": 1.5,
+            "fitsAvailableScreen": true,
+            "floatingWindows": [
+                {
+                    "fitsAvailableScreen": true,
+                    "frame": [
+                        167,
+                        6,
+                        602,
+                        515
+                    ],
+                    "objectName": "channelRuleDialog"
+                }
+            ],
+            "frame": [
+                0,
+                0,
+                938,
+                527
+            ],
+            "geometry": {
+                "addFilesButton": [
+                    177,
+                    557,
+                    104,
+                    32
+                ],
+                "addFolderButton": [
+                    287,
+                    558,
+                    29,
+                    29
+                ],
+                "allSchedulesButton": [
+                    692,
+                    127,
+                    141,
+                    32
+                ],
+                "appHeader": [
+                    0,
+                    0,
+                    936,
+                    56
+                ],
+                "appearancePicker": [
+                    603,
+                    13,
+                    112,
+                    30
+                ],
+                "cancelRule": [
+                    575,
+                    463,
+                    70,
+                    32
+                ],
+                "channelDays": [
+                    193,
+                    329,
+                    540,
+                    35
+                ],
+                "channelEnd": [
+                    472,
+                    181,
+                    261,
+                    35
+                ],
+                "channelList": [
+                    30,
+                    403,
+                    189,
+                    121
+                ],
+                "channelName": [
+                    193,
+                    106,
+                    540,
+                    35
+                ],
+                "channelPanel": [
+                    22,
+                    359,
+                    205,
+                    173
+                ],
+                "channelRuleDialog": [
+                    168,
+                    7,
+                    600,
+                    513
+                ],
+                "channelStart": [
+                    193,
+                    181,
+                    262,
+                    35
+                ],
+                "channelsSidebar": [
+                    22,
+                    262,
+                    205,
+                    270
+                ],
+                "closeRule": [
+                    714,
+                    32,
+                    29,
+                    29
+                ],
+                "createChannelButton": [
+                    841,
+                    127,
+                    137,
+                    32
+                ],
+                "deleteChannel": [
+                    427,
+                    463,
+                    139,
+                    32
+                ],
+                "deleteFilesButton": [
+                    646,
+                    558,
+                    29,
+                    29
+                ],
+                "editChannelButton": [
+                    187,
+                    273,
+                    29,
+                    29
+                ],
+                "fileInfoButton": [
+                    867,
+                    738,
+                    121,
+                    32
+                ],
+                "fileInspector": [
+                    703,
+                    544,
+                    275,
+                    211
+                ],
+                "formError": [
+                    193,
+                    423,
+                    550,
+                    18
+                ],
+                "libraryPanel": [
+                    22,
+                    544,
+                    667,
+                    211
+                ],
+                "mediaTable": [
+                    36,
+                    597,
+                    639,
+                    158
+                ],
+                "modalBackdrop": [
+                    0,
+                    0,
+                    936,
+                    525
+                ],
+                "month1": [
+                    193,
+                    428,
+                    62,
+                    33
+                ],
+                "month10": [
+                    327,
+                    466,
+                    63,
+                    33
+                ],
+                "month11": [
+                    395,
+                    466,
+                    63,
+                    33
+                ],
+                "month12": [
+                    463,
+                    466,
+                    63,
+                    33
+                ],
+                "month2": [
+                    260,
+                    428,
+                    64,
+                    33
+                ],
+                "month3": [
+                    329,
+                    428,
+                    64,
+                    33
+                ],
+                "month4": [
+                    398,
+                    428,
+                    63,
+                    33
+                ],
+                "month5": [
+                    466,
+                    428,
+                    64,
+                    33
+                ],
+                "month6": [
+                    535,
+                    428,
+                    66,
+                    33
+                ],
+                "month7": [
+                    606,
+                    428,
+                    65,
+                    33
+                ],
+                "month8": [
+                    193,
+                    466,
+                    61,
+                    33
+                ],
+                "month9": [
+                    259,
+                    466,
+                    63,
+                    33
+                ],
+                "monthPicker": [
+                    193,
+                    428,
+                    540,
+                    71
+                ],
+                "nav_about": [
+                    876,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_advert": [
+                    108,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_music": [
+                    22,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_reports": [
+                    790,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_settings": [
+                    833,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_video": [
+                    65,
+                    62,
+                    38,
+                    32
+                ],
+                "navigation": [
+                    0,
+                    56,
+                    936,
+                    45
+                ],
+                "pageStack": [
+                    0,
+                    101,
+                    936,
+                    358
+                ],
+                "planDateTime": [
+                    36,
+                    216,
+                    110,
+                    28
+                ],
+                "planSummary": [
+                    22,
+                    181,
+                    956,
+                    71
+                ],
+                "planTime": [
+                    153,
+                    216,
+                    66,
+                    28
+                ],
+                "qt_scrollarea_hcontainer": [
+                    0,
+                    449,
+                    926,
+                    10
+                ],
+                "qt_scrollarea_vcontainer": [
+                    733,
+                    83,
+                    10,
+                    326
+                ],
+                "qt_scrollarea_viewport": [
+                    193,
+                    83,
+                    540,
+                    326
+                ],
+                "qt_spinbox_lineedit": [
+                    476,
+                    183,
+                    235,
+                    31
+                ],
+                "refreshPlayerButton": [
+                    840,
+                    477,
+                    32,
+                    29
+                ],
+                "ruleVolume": [
+                    193,
+                    556,
+                    540,
+                    26
+                ],
+                "saveRule": [
+                    654,
+                    463,
+                    89,
+                    32
+                ],
+                "scheduleConditions": [
+                    257,
+                    454,
+                    705,
+                    63
+                ],
+                "schedulePanel": [
+                    241,
+                    262,
+                    737,
+                    270
+                ],
+                "scheduleTimeline": [
+                    257,
+                    341,
+                    705,
+                    64
+                ],
+                "searchEdit": [
+                    322,
+                    557,
+                    318,
+                    32
+                ],
+                "selectedChannel": [
+                    22,
+                    262,
+                    205,
+                    85
+                ],
+                "showPlayerButton": [
+                    882,
+                    477,
+                    32,
+                    29
+                ],
+                "sidebarAddButton": [
+                    187,
+                    369,
+                    29,
+                    29
+                ],
+                "themePicker": [
+                    768,
+                    13,
+                    105,
+                    30
+                ],
+                "transport": [
+                    0,
+                    459,
+                    936,
+                    66
+                ],
+                "weekday0": [
+                    556,
+                    256,
+                    55,
+                    33
+                ],
+                "weekday1": [
+                    193,
+                    256,
+                    56,
+                    33
+                ],
+                "weekday2": [
+                    254,
+                    256,
+                    55,
+                    33
+                ],
+                "weekday3": [
+                    314,
+                    256,
+                    56,
+                    33
+                ],
+                "weekday4": [
+                    375,
+                    256,
+                    55,
+                    33
+                ],
+                "weekday5": [
+                    435,
+                    256,
+                    56,
+                    33
+                ],
+                "weekday6": [
+                    496,
+                    256,
+                    55,
+                    33
+                ],
+                "weekdayPicker": [
+                    193,
+                    256,
+                    540,
+                    33
+                ],
+                "workspace": [
+                    0,
+                    101,
+                    1000,
+                    654
+                ]
+            },
+            "height": 525,
+            "id": "tide-dark-channel-editor-screen-fit",
+            "pixelHeight": 788,
+            "pixelWidth": 1404,
+            "theme": "dark",
+            "width": 936
+        },
+        {
+            "appearance": "tide-relief",
+            "dpr": 1.5,
+            "fitsAvailableScreen": true,
+            "floatingWindows": [
+            ],
+            "frame": [
+                0,
+                0,
+                938,
+                527
+            ],
+            "geometry": {
+                "addFilesButton": [
+                    177,
+                    557,
+                    104,
+                    32
+                ],
+                "addFolderButton": [
+                    287,
+                    558,
+                    29,
+                    29
+                ],
+                "allSchedulesButton": [
+                    692,
+                    127,
+                    141,
+                    32
+                ],
+                "appHeader": [
+                    0,
+                    0,
+                    936,
+                    56
+                ],
+                "appearancePicker": [
+                    603,
+                    13,
+                    112,
+                    30
+                ],
+                "channelList": [
+                    30,
+                    403,
+                    189,
+                    121
+                ],
+                "channelPanel": [
+                    22,
+                    359,
+                    205,
+                    173
+                ],
+                "channelsSidebar": [
+                    22,
+                    262,
+                    205,
+                    270
+                ],
+                "createChannelButton": [
+                    841,
+                    127,
+                    137,
+                    32
+                ],
+                "deleteFilesButton": [
+                    646,
+                    558,
+                    29,
+                    29
+                ],
+                "editChannelButton": [
+                    187,
+                    273,
+                    29,
+                    29
+                ],
+                "fileInfoButton": [
+                    867,
+                    738,
+                    121,
+                    32
+                ],
+                "fileInspector": [
+                    703,
+                    544,
+                    275,
+                    211
+                ],
+                "libraryPanel": [
+                    22,
+                    544,
+                    667,
+                    211
+                ],
+                "mediaTable": [
+                    36,
+                    597,
+                    639,
+                    158
+                ],
+                "nav_about": [
+                    876,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_advert": [
+                    108,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_music": [
+                    22,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_reports": [
+                    790,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_settings": [
+                    833,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_video": [
+                    65,
+                    62,
+                    38,
+                    32
+                ],
+                "navigation": [
+                    0,
+                    56,
+                    936,
+                    45
+                ],
+                "pageStack": [
+                    0,
+                    101,
+                    936,
+                    358
+                ],
+                "planDateTime": [
+                    36,
+                    216,
+                    110,
+                    28
+                ],
+                "planSummary": [
+                    22,
+                    181,
+                    956,
+                    71
+                ],
+                "planTime": [
+                    153,
+                    216,
+                    66,
+                    28
+                ],
+                "qt_scrollarea_hcontainer": [
+                    0,
+                    449,
+                    926,
+                    10
+                ],
+                "qt_scrollarea_vcontainer": [
+                    926,
+                    101,
+                    10,
+                    348
+                ],
+                "qt_scrollarea_viewport": [
+                    257,
+                    454,
+                    695,
+                    26
+                ],
+                "qt_spinbox_lineedit": [
+                    157,
+                    218,
+                    40,
+                    24
+                ],
+                "refreshPlayerButton": [
+                    840,
+                    477,
+                    32,
+                    29
+                ],
+                "scheduleConditions": [
+                    257,
+                    454,
+                    705,
+                    63
+                ],
+                "schedulePanel": [
+                    241,
+                    262,
+                    737,
+                    270
+                ],
+                "scheduleTimeline": [
+                    257,
+                    341,
+                    705,
+                    64
+                ],
+                "searchEdit": [
+                    322,
+                    557,
+                    318,
+                    32
+                ],
+                "selectedChannel": [
+                    22,
+                    262,
+                    205,
+                    85
+                ],
+                "showPlayerButton": [
+                    882,
+                    477,
+                    32,
+                    29
+                ],
+                "sidebarAddButton": [
+                    187,
+                    369,
+                    29,
+                    29
+                ],
+                "themePicker": [
+                    768,
+                    13,
+                    105,
+                    30
+                ],
+                "transport": [
+                    0,
+                    459,
+                    936,
+                    66
+                ],
+                "workspace": [
+                    0,
+                    101,
+                    1000,
+                    654
+                ]
+            },
+            "height": 525,
+            "id": "tide-relief-denim-music-936x525",
+            "pixelHeight": 788,
+            "pixelWidth": 1404,
+            "theme": "denim",
+            "width": 936
+        },
+        {
+            "appearance": "tide-relief",
+            "dpr": 1.5,
+            "fitsAvailableScreen": true,
+            "floatingWindows": [
+                {
+                    "fitsAvailableScreen": true,
+                    "frame": [
+                        167,
+                        6,
+                        602,
+                        515
+                    ],
+                    "objectName": "channelRuleDialog"
+                }
+            ],
+            "frame": [
+                0,
+                0,
+                938,
+                527
+            ],
+            "geometry": {
+                "addFilesButton": [
+                    177,
+                    557,
+                    104,
+                    32
+                ],
+                "addFolderButton": [
+                    287,
+                    558,
+                    29,
+                    29
+                ],
+                "allSchedulesButton": [
+                    692,
+                    127,
+                    141,
+                    32
+                ],
+                "appHeader": [
+                    0,
+                    0,
+                    936,
+                    56
+                ],
+                "appearancePicker": [
+                    603,
+                    13,
+                    112,
+                    30
+                ],
+                "cancelRule": [
+                    575,
+                    463,
+                    70,
+                    32
+                ],
+                "channelDays": [
+                    193,
+                    329,
+                    540,
+                    35
+                ],
+                "channelEnd": [
+                    472,
+                    181,
+                    261,
+                    35
+                ],
+                "channelList": [
+                    30,
+                    403,
+                    189,
+                    121
+                ],
+                "channelName": [
+                    193,
+                    106,
+                    540,
+                    35
+                ],
+                "channelPanel": [
+                    22,
+                    359,
+                    205,
+                    173
+                ],
+                "channelRuleDialog": [
+                    168,
+                    7,
+                    600,
+                    513
+                ],
+                "channelStart": [
+                    193,
+                    181,
+                    262,
+                    35
+                ],
+                "channelsSidebar": [
+                    22,
+                    262,
+                    205,
+                    270
+                ],
+                "closeRule": [
+                    714,
+                    32,
+                    29,
+                    29
+                ],
+                "createChannelButton": [
+                    841,
+                    127,
+                    137,
+                    32
+                ],
+                "deleteChannel": [
+                    427,
+                    463,
+                    139,
+                    32
+                ],
+                "deleteFilesButton": [
+                    646,
+                    558,
+                    29,
+                    29
+                ],
+                "editChannelButton": [
+                    187,
+                    273,
+                    29,
+                    29
+                ],
+                "fileInfoButton": [
+                    867,
+                    738,
+                    121,
+                    32
+                ],
+                "fileInspector": [
+                    703,
+                    544,
+                    275,
+                    211
+                ],
+                "formError": [
+                    193,
+                    423,
+                    550,
+                    18
+                ],
+                "libraryPanel": [
+                    22,
+                    544,
+                    667,
+                    211
+                ],
+                "mediaTable": [
+                    36,
+                    597,
+                    639,
+                    158
+                ],
+                "modalBackdrop": [
+                    0,
+                    0,
+                    936,
+                    525
+                ],
+                "month1": [
+                    193,
+                    428,
+                    62,
+                    33
+                ],
+                "month10": [
+                    327,
+                    466,
+                    63,
+                    33
+                ],
+                "month11": [
+                    395,
+                    466,
+                    63,
+                    33
+                ],
+                "month12": [
+                    463,
+                    466,
+                    63,
+                    33
+                ],
+                "month2": [
+                    260,
+                    428,
+                    64,
+                    33
+                ],
+                "month3": [
+                    329,
+                    428,
+                    64,
+                    33
+                ],
+                "month4": [
+                    398,
+                    428,
+                    63,
+                    33
+                ],
+                "month5": [
+                    466,
+                    428,
+                    64,
+                    33
+                ],
+                "month6": [
+                    535,
+                    428,
+                    66,
+                    33
+                ],
+                "month7": [
+                    606,
+                    428,
+                    65,
+                    33
+                ],
+                "month8": [
+                    193,
+                    466,
+                    61,
+                    33
+                ],
+                "month9": [
+                    259,
+                    466,
+                    63,
+                    33
+                ],
+                "monthPicker": [
+                    193,
+                    428,
+                    540,
+                    71
+                ],
+                "nav_about": [
+                    876,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_advert": [
+                    108,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_music": [
+                    22,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_reports": [
+                    790,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_settings": [
+                    833,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_video": [
+                    65,
+                    62,
+                    38,
+                    32
+                ],
+                "navigation": [
+                    0,
+                    56,
+                    936,
+                    45
+                ],
+                "pageStack": [
+                    0,
+                    101,
+                    936,
+                    358
+                ],
+                "planDateTime": [
+                    36,
+                    216,
+                    110,
+                    28
+                ],
+                "planSummary": [
+                    22,
+                    181,
+                    956,
+                    71
+                ],
+                "planTime": [
+                    153,
+                    216,
+                    66,
+                    28
+                ],
+                "qt_scrollarea_hcontainer": [
+                    0,
+                    449,
+                    926,
+                    10
+                ],
+                "qt_scrollarea_vcontainer": [
+                    733,
+                    83,
+                    10,
+                    326
+                ],
+                "qt_scrollarea_viewport": [
+                    193,
+                    83,
+                    540,
+                    326
+                ],
+                "qt_spinbox_lineedit": [
+                    476,
+                    183,
+                    235,
+                    31
+                ],
+                "refreshPlayerButton": [
+                    840,
+                    477,
+                    32,
+                    29
+                ],
+                "ruleVolume": [
+                    193,
+                    556,
+                    540,
+                    17
+                ],
+                "saveRule": [
+                    654,
+                    463,
+                    89,
+                    32
+                ],
+                "scheduleConditions": [
+                    257,
+                    454,
+                    705,
+                    63
+                ],
+                "schedulePanel": [
+                    241,
+                    262,
+                    737,
+                    270
+                ],
+                "scheduleTimeline": [
+                    257,
+                    341,
+                    705,
+                    64
+                ],
+                "searchEdit": [
+                    322,
+                    557,
+                    318,
+                    32
+                ],
+                "selectedChannel": [
+                    22,
+                    262,
+                    205,
+                    85
+                ],
+                "showPlayerButton": [
+                    882,
+                    477,
+                    32,
+                    29
+                ],
+                "sidebarAddButton": [
+                    187,
+                    369,
+                    29,
+                    29
+                ],
+                "themePicker": [
+                    768,
+                    13,
+                    105,
+                    30
+                ],
+                "transport": [
+                    0,
+                    459,
+                    936,
+                    66
+                ],
+                "weekday0": [
+                    556,
+                    256,
+                    55,
+                    33
+                ],
+                "weekday1": [
+                    193,
+                    256,
+                    56,
+                    33
+                ],
+                "weekday2": [
+                    254,
+                    256,
+                    55,
+                    33
+                ],
+                "weekday3": [
+                    314,
+                    256,
+                    56,
+                    33
+                ],
+                "weekday4": [
+                    375,
+                    256,
+                    55,
+                    33
+                ],
+                "weekday5": [
+                    435,
+                    256,
+                    56,
+                    33
+                ],
+                "weekday6": [
+                    496,
+                    256,
+                    55,
+                    33
+                ],
+                "weekdayPicker": [
+                    193,
+                    256,
+                    540,
+                    33
+                ],
+                "workspace": [
+                    0,
+                    101,
+                    1000,
+                    654
+                ]
+            },
+            "height": 525,
+            "id": "tide-relief-denim-channel-editor-screen-fit",
+            "pixelHeight": 788,
+            "pixelWidth": 1404,
+            "theme": "denim",
+            "width": 936
+        },
+        {
+            "appearance": "tide-relief",
+            "dpr": 1.5,
+            "fitsAvailableScreen": true,
+            "floatingWindows": [
+            ],
+            "frame": [
+                0,
+                0,
+                938,
+                527
+            ],
+            "geometry": {
+                "addFilesButton": [
+                    177,
+                    557,
+                    104,
+                    32
+                ],
+                "addFolderButton": [
+                    287,
+                    558,
+                    29,
+                    29
+                ],
+                "allSchedulesButton": [
+                    692,
+                    127,
+                    141,
+                    32
+                ],
+                "appHeader": [
+                    0,
+                    0,
+                    936,
+                    56
+                ],
+                "appearancePicker": [
+                    603,
+                    13,
+                    112,
+                    30
+                ],
+                "channelList": [
+                    30,
+                    403,
+                    189,
+                    121
+                ],
+                "channelPanel": [
+                    22,
+                    359,
+                    205,
+                    173
+                ],
+                "channelsSidebar": [
+                    22,
+                    262,
+                    205,
+                    270
+                ],
+                "createChannelButton": [
+                    841,
+                    127,
+                    137,
+                    32
+                ],
+                "deleteFilesButton": [
+                    646,
+                    558,
+                    29,
+                    29
+                ],
+                "editChannelButton": [
+                    187,
+                    273,
+                    29,
+                    29
+                ],
+                "fileInfoButton": [
+                    867,
+                    738,
+                    121,
+                    32
+                ],
+                "fileInspector": [
+                    703,
+                    544,
+                    275,
+                    211
+                ],
+                "libraryPanel": [
+                    22,
+                    544,
+                    667,
+                    211
+                ],
+                "mediaTable": [
+                    36,
+                    597,
+                    639,
+                    158
+                ],
+                "nav_about": [
+                    876,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_advert": [
+                    108,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_music": [
+                    22,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_reports": [
+                    790,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_settings": [
+                    833,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_video": [
+                    65,
+                    62,
+                    38,
+                    32
+                ],
+                "navigation": [
+                    0,
+                    56,
+                    936,
+                    45
+                ],
+                "pageStack": [
+                    0,
+                    101,
+                    936,
+                    358
+                ],
+                "planDateTime": [
+                    36,
+                    216,
+                    110,
+                    28
+                ],
+                "planSummary": [
+                    22,
+                    181,
+                    956,
+                    71
+                ],
+                "planTime": [
+                    153,
+                    216,
+                    66,
+                    28
+                ],
+                "qt_scrollarea_hcontainer": [
+                    0,
+                    449,
+                    926,
+                    10
+                ],
+                "qt_scrollarea_vcontainer": [
+                    926,
+                    101,
+                    10,
+                    348
+                ],
+                "qt_scrollarea_viewport": [
+                    257,
+                    454,
+                    695,
+                    26
+                ],
+                "qt_spinbox_lineedit": [
+                    157,
+                    218,
+                    40,
+                    24
+                ],
+                "refreshPlayerButton": [
+                    840,
+                    477,
+                    32,
+                    29
+                ],
+                "scheduleConditions": [
+                    257,
+                    454,
+                    705,
+                    63
+                ],
+                "schedulePanel": [
+                    241,
+                    262,
+                    737,
+                    270
+                ],
+                "scheduleTimeline": [
+                    257,
+                    341,
+                    705,
+                    64
+                ],
+                "searchEdit": [
+                    322,
+                    557,
+                    318,
+                    32
+                ],
+                "selectedChannel": [
+                    22,
+                    262,
+                    205,
+                    85
+                ],
+                "showPlayerButton": [
+                    882,
+                    477,
+                    32,
+                    29
+                ],
+                "sidebarAddButton": [
+                    187,
+                    369,
+                    29,
+                    29
+                ],
+                "themePicker": [
+                    768,
+                    13,
+                    105,
+                    30
+                ],
+                "transport": [
+                    0,
+                    459,
+                    936,
+                    66
+                ],
+                "workspace": [
+                    0,
+                    101,
+                    1000,
+                    654
+                ]
+            },
+            "height": 525,
+            "id": "tide-relief-dark-music-936x525",
+            "pixelHeight": 788,
+            "pixelWidth": 1404,
+            "theme": "dark",
+            "width": 936
+        },
+        {
+            "appearance": "tide-relief",
+            "dpr": 1.5,
+            "fitsAvailableScreen": true,
+            "floatingWindows": [
+                {
+                    "fitsAvailableScreen": true,
+                    "frame": [
+                        167,
+                        6,
+                        602,
+                        515
+                    ],
+                    "objectName": "channelRuleDialog"
+                }
+            ],
+            "frame": [
+                0,
+                0,
+                938,
+                527
+            ],
+            "geometry": {
+                "addFilesButton": [
+                    177,
+                    557,
+                    104,
+                    32
+                ],
+                "addFolderButton": [
+                    287,
+                    558,
+                    29,
+                    29
+                ],
+                "allSchedulesButton": [
+                    692,
+                    127,
+                    141,
+                    32
+                ],
+                "appHeader": [
+                    0,
+                    0,
+                    936,
+                    56
+                ],
+                "appearancePicker": [
+                    603,
+                    13,
+                    112,
+                    30
+                ],
+                "cancelRule": [
+                    575,
+                    463,
+                    70,
+                    32
+                ],
+                "channelDays": [
+                    193,
+                    329,
+                    540,
+                    35
+                ],
+                "channelEnd": [
+                    472,
+                    181,
+                    261,
+                    35
+                ],
+                "channelList": [
+                    30,
+                    403,
+                    189,
+                    121
+                ],
+                "channelName": [
+                    193,
+                    106,
+                    540,
+                    35
+                ],
+                "channelPanel": [
+                    22,
+                    359,
+                    205,
+                    173
+                ],
+                "channelRuleDialog": [
+                    168,
+                    7,
+                    600,
+                    513
+                ],
+                "channelStart": [
+                    193,
+                    181,
+                    262,
+                    35
+                ],
+                "channelsSidebar": [
+                    22,
+                    262,
+                    205,
+                    270
+                ],
+                "closeRule": [
+                    714,
+                    32,
+                    29,
+                    29
+                ],
+                "createChannelButton": [
+                    841,
+                    127,
+                    137,
+                    32
+                ],
+                "deleteChannel": [
+                    427,
+                    463,
+                    139,
+                    32
+                ],
+                "deleteFilesButton": [
+                    646,
+                    558,
+                    29,
+                    29
+                ],
+                "editChannelButton": [
+                    187,
+                    273,
+                    29,
+                    29
+                ],
+                "fileInfoButton": [
+                    867,
+                    738,
+                    121,
+                    32
+                ],
+                "fileInspector": [
+                    703,
+                    544,
+                    275,
+                    211
+                ],
+                "formError": [
+                    193,
+                    423,
+                    550,
+                    18
+                ],
+                "libraryPanel": [
+                    22,
+                    544,
+                    667,
+                    211
+                ],
+                "mediaTable": [
+                    36,
+                    597,
+                    639,
+                    158
+                ],
+                "modalBackdrop": [
+                    0,
+                    0,
+                    936,
+                    525
+                ],
+                "month1": [
+                    193,
+                    428,
+                    62,
+                    33
+                ],
+                "month10": [
+                    327,
+                    466,
+                    63,
+                    33
+                ],
+                "month11": [
+                    395,
+                    466,
+                    63,
+                    33
+                ],
+                "month12": [
+                    463,
+                    466,
+                    63,
+                    33
+                ],
+                "month2": [
+                    260,
+                    428,
+                    64,
+                    33
+                ],
+                "month3": [
+                    329,
+                    428,
+                    64,
+                    33
+                ],
+                "month4": [
+                    398,
+                    428,
+                    63,
+                    33
+                ],
+                "month5": [
+                    466,
+                    428,
+                    64,
+                    33
+                ],
+                "month6": [
+                    535,
+                    428,
+                    66,
+                    33
+                ],
+                "month7": [
+                    606,
+                    428,
+                    65,
+                    33
+                ],
+                "month8": [
+                    193,
+                    466,
+                    61,
+                    33
+                ],
+                "month9": [
+                    259,
+                    466,
+                    63,
+                    33
+                ],
+                "monthPicker": [
+                    193,
+                    428,
+                    540,
+                    71
+                ],
+                "nav_about": [
+                    876,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_advert": [
+                    108,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_music": [
+                    22,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_reports": [
+                    790,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_settings": [
+                    833,
+                    62,
+                    38,
+                    32
+                ],
+                "nav_video": [
+                    65,
+                    62,
+                    38,
+                    32
+                ],
+                "navigation": [
+                    0,
+                    56,
+                    936,
+                    45
+                ],
+                "pageStack": [
+                    0,
+                    101,
+                    936,
+                    358
+                ],
+                "planDateTime": [
+                    36,
+                    216,
+                    110,
+                    28
+                ],
+                "planSummary": [
+                    22,
+                    181,
+                    956,
+                    71
+                ],
+                "planTime": [
+                    153,
+                    216,
+                    66,
+                    28
+                ],
+                "qt_scrollarea_hcontainer": [
+                    0,
+                    449,
+                    926,
+                    10
+                ],
+                "qt_scrollarea_vcontainer": [
+                    733,
+                    83,
+                    10,
+                    326
+                ],
+                "qt_scrollarea_viewport": [
+                    193,
+                    83,
+                    540,
+                    326
+                ],
+                "qt_spinbox_lineedit": [
+                    476,
+                    183,
+                    235,
+                    31
+                ],
+                "refreshPlayerButton": [
+                    840,
+                    477,
+                    32,
+                    29
+                ],
+                "ruleVolume": [
+                    193,
+                    556,
+                    540,
+                    17
+                ],
+                "saveRule": [
+                    654,
+                    463,
+                    89,
+                    32
+                ],
+                "scheduleConditions": [
+                    257,
+                    454,
+                    705,
+                    63
+                ],
+                "schedulePanel": [
+                    241,
+                    262,
+                    737,
+                    270
+                ],
+                "scheduleTimeline": [
+                    257,
+                    341,
+                    705,
+                    64
+                ],
+                "searchEdit": [
+                    322,
+                    557,
+                    318,
+                    32
+                ],
+                "selectedChannel": [
+                    22,
+                    262,
+                    205,
+                    85
+                ],
+                "showPlayerButton": [
+                    882,
+                    477,
+                    32,
+                    29
+                ],
+                "sidebarAddButton": [
+                    187,
+                    369,
+                    29,
+                    29
+                ],
+                "themePicker": [
+                    768,
+                    13,
+                    105,
+                    30
+                ],
+                "transport": [
+                    0,
+                    459,
+                    936,
+                    66
+                ],
+                "weekday0": [
+                    556,
+                    256,
+                    55,
+                    33
+                ],
+                "weekday1": [
+                    193,
+                    256,
+                    56,
+                    33
+                ],
+                "weekday2": [
+                    254,
+                    256,
+                    55,
+                    33
+                ],
+                "weekday3": [
+                    314,
+                    256,
+                    56,
+                    33
+                ],
+                "weekday4": [
+                    375,
+                    256,
+                    55,
+                    33
+                ],
+                "weekday5": [
+                    435,
+                    256,
+                    56,
+                    33
+                ],
+                "weekday6": [
+                    496,
+                    256,
+                    55,
+                    33
+                ],
+                "weekdayPicker": [
+                    193,
+                    256,
+                    540,
+                    33
+                ],
+                "workspace": [
+                    0,
+                    101,
+                    1000,
+                    654
+                ]
+            },
+            "height": 525,
+            "id": "tide-relief-dark-channel-editor-screen-fit",
+            "pixelHeight": 788,
+            "pixelWidth": 1404,
+            "theme": "dark",
+            "width": 936
+        }
+    ],
+    "cyrillicVerified": true,
+    "fixture": "Temporary station; legacy-safe underscore channel names; metadata sidecars; player controller absent",
+    "fontFamily": "DejaVu Sans",
+    "limitations": "Offscreen Qt captures are not Windows physical-screen acceptance. Segoe UI is not redistributed; the installed fallback font is recorded.",
+    "platform": "offscreen"
+}
