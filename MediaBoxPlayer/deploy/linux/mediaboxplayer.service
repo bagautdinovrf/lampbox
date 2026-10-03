@@ -1,0 +1,14 @@
+[Unit]
+Description=MediaBoxPlayer background audio engine
+After=pipewire.service pipewire-pulse.service pulseaudio.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/MediaBoxPlayer --data-dir %h/.local/share/MediaBoxPlayer
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+
+[Install]
+WantedBy=default.target

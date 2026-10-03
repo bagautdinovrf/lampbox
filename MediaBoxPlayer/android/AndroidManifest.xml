@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.mediabox.player"
+    android:versionCode="-- %%INSERT_VERSION_CODE%% --"
+    android:versionName="-- %%INSERT_VERSION_NAME%% --">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- %%INSERT_PERMISSIONS -->
+    <!-- %%INSERT_FEATURES -->
+    <application
+        android:name="org.qtproject.qt.android.bindings.QtApplication"
+        android:label="MediaBoxPlayer"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false">
+        <service
+            android:name="org.mediabox.player.MediaBoxService"
+            android:exported="true"
+            android:stopWithTask="false"
+            android:foregroundServiceType="mediaPlayback">
+            <meta-data
+                android:name="android.app.lib_name"
+                android:value="-- %%INSERT_APP_LIB_NAME%% --" />
+            <meta-data
+                android:name="android.app.arguments"
+                android:value="-- %%INSERT_APP_ARGUMENTS%% --" />
+            <meta-data
+                android:name="android.app.background_running"
+                android:value="true" />
+        </service>
+    </application>
+</manifest>
