@@ -4,10 +4,13 @@ if(NOT DEFINED TEST_EXECUTABLE OR NOT DEFINED TEST_REPORT)
     message(FATAL_ERROR "TEST_EXECUTABLE and TEST_REPORT are required")
 endif()
 file(REMOVE "${TEST_REPORT}")
+if(NOT DEFINED TEST_TIMEOUT)
+    set(TEST_TIMEOUT 25)
+endif()
 execute_process(
     COMMAND "${TEST_EXECUTABLE}" -o "${TEST_REPORT},txt"
     RESULT_VARIABLE test_result
-    TIMEOUT 25
+    TIMEOUT "${TEST_TIMEOUT}"
 )
 if(EXISTS "${TEST_REPORT}")
     file(READ "${TEST_REPORT}" test_output)

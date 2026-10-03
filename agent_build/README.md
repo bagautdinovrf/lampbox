@@ -39,7 +39,7 @@ powershell -ExecutionPolicy Bypass -File .\agent_build\build.ps1
 | Путь | Содержимое |
 | --- | --- |
 | `build/bin/MediaBoxManager.exe` | Редактор музыкальных и рекламных расписаний |
-| `build/bin/MediaBoxPlayer.exe` | Каркас будущего сервиса проигрывания музыки |
+| `build/bin/MediaBoxPlayer.exe` | Фоновый аудиоплеер с управлением по TCP |
 | `build/` | CMake, объектные файлы, исполняемые тесты и результаты CTest |
 | `logs/<дата-время-id>/` | Отдельные журналы configure/build/test/deploy/installer и сводка `run.json` |
 | `deploy/<конфигурация>/bin/` | Оба приложения с библиотеками и плагинами Qt после `-Deploy` |
@@ -65,10 +65,14 @@ $outputDirectory = Join-Path (Get-Location).Path 'Installer\bin'
 if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
 ```
 
-В установщик входит весь готовый каталог deploy: MediaBoxManager, каркас MediaBoxPlayer, библиотеки и плагины Qt. Подробнее об установщике — в [Installer/README.md](../Installer/README.md).
+В установщик входит весь готовый каталог deploy: MediaBoxManager, MediaBoxPlayer, библиотеки и плагины Qt. Подробнее об установщике — в [Installer/README.md](../Installer/README.md).
 
 `-Clean` удаляет только проверенный каталог `agent_build/build`. Если в нём есть символьная ссылка или junction, удаление блокируется. Журналы и папка установки сохраняются. Ошибка любого этапа прерывает выполнение с ненулевым кодом; отсутствие зарегистрированных тестов также считается ошибкой. `-SkipTests` пропускает только запуск CTest, сохраняя сборку тестов. Для отключения самих тестовых целей передайте `-SkipTests -CMakeArguments '-DBUILD_TESTING=OFF'`.
 
 Если CMake использует получение сторонних исходников через FetchContent, при первой конфигурации чистого клона понадобится доступ к сети. Для запуска `build/bin/MediaBoxManager.exe` и `build/bin/MediaBoxPlayer.exe` нужны DLL Qt в `PATH`; переносимый каталог приложений создаётся параметром `-Deploy`.
 
-Оба приложения собираются по умолчанию. MediaBoxPlayer использует Qt Core; в нём пока нет воспроизведения музыки и регистрации системного сервиса. MediaBoxManager продолжает работать с существующим LampPlayer через исторический ключ `HKLM\SOFTWARE\LampBox\Station`.
+Оба приложения собираются по умолчанию. MediaBoxPlayer использует Qt Core, Network и Multimedia;
+для MediaBoxManager также нужен Network. Manager управляет плеером через
+[TCP API v1](../MediaBoxPlayer/TCP_API.md); настройка подключения описана в
+[README](../README.md#подключение-mediaboxplayer). Исторический ключ
+`HKLM\SOFTWARE\LampBox\Station` используется только для поиска данных редактора.

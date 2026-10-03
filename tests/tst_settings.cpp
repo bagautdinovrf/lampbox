@@ -71,6 +71,101 @@ class SettingsTest final : public QObject
     Q_OBJECT
 
 private slots:
+    void playerConnectionDefaults()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        Settings settings(directory.filePath("player.conf"), nullptr);
+        const PlayerConnectionSettings connection = settings.playerConnection();
+        QCOMPARE(connection.host, QString("127.0.0.1"));
+        QCOMPARE(connection.port, quint16(17655));
+        QVERIFY(connection.token.isEmpty());
+    }
+
+    void playerConnectionPersistsIndependently()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString file = directory.filePath("player.conf");
+        Settings settings(file, nullptr);
+        settings.setAppearanceId("tide");
+        settings.setThemeId("dark");
+        settings.writeFileFormatAudioValue("flac", true);
+        settings.writeFileFormatVideoValue("mp4", false);
+        settings.writeStringSettings("Station/Name", "Студия");
+        PlayerConnectionSettings connection;
+        connection.host = "  player.local  ";
+        connection.port = 65535;
+        connection.token = QString(64, QLatin1Char('a')) + '\n';
+        QVERIFY(settings.setPlayerConnection(connection));
+
+        Settings reopened(file, nullptr);
+        const PlayerConnectionSettings stored = reopened.playerConnection();
+        QCOMPARE(stored.host, QString("player.local"));
+        QCOMPARE(stored.port, quint16(65535));
+        QCOMPARE(stored.token, QString(64, QLatin1Char('a')));
+        QCOMPARE(reopened.appearanceId(), QString("tide"));
+        QCOMPARE(reopened.themeId(), QString("dark"));
+        QVERIFY(reopened.fileFormatsAudio().value("flac"));
+        QVERIFY(!reopened.fileFormatsVideo().value("mp4"));
+
+        const QSettings raw(file, QSettings::IniFormat);
+        QCOMPARE(raw.value("Player/Host").toString(), stored.host);
+        QCOMPARE(raw.value("Player/Port").toInt(), 65535);
+        QCOMPARE(raw.value("Player/Token").toString(), stored.token);
+        QCOMPARE(raw.value("Station/Name").toString(), QString("Студия"));
+
+        connection.host = "::1";
+        connection.port = 1;
+        connection.token = QString(64, QLatin1Char('b'));
+        QVERIFY(settings.setPlayerConnection(connection));
+        QCOMPARE(reopened.playerConnection().host, connection.host);
+        QCOMPARE(reopened.playerConnection().port, connection.port);
+        QCOMPARE(reopened.playerConnection().token, connection.token);
+    }
+
+    void playerConnectionWriteFailureIsReported()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString file = directory.filePath("player.conf");
+        Settings settings(file, nullptr);
+        QVERIFY(QFileInfo(file).isFile());
+        QVERIFY(QFile::remove(file));
+        QVERIFY(QDir().mkpath(file));
+        PlayerConnectionSettings connection;
+        connection.token = QString(64, QLatin1Char('a'));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression("^Не удалось сохранить настройки в .*"));
+        QVERIFY(!settings.setPlayerConnection(connection));
+        QVERIFY(QFileInfo(file).isDir());
+    }
+
+    void storedPlayerPortValidation_data()
+    {
+        QTest::addColumn<QString>("storedPort");
+        QTest::addColumn<quint16>("expectedPort");
+        QTest::newRow("minimum") << QString("1") << quint16(1);
+        QTest::newRow("maximum") << QString("65535") << quint16(65535);
+        QTest::newRow("zero") << QString("0") << quint16(17655);
+        QTest::newRow("negative") << QString("-1") << quint16(17655);
+        QTest::newRow("out-of-range") << QString("65536") << quint16(17655);
+        QTest::newRow("integer-overflow") << QString("4294984951") << quint16(17655);
+        QTest::newRow("not-a-number") << QString("invalid") << quint16(17655);
+        QTest::newRow("fractional") << QString("17655.5") << quint16(17655);
+    }
+
+    void storedPlayerPortValidation()
+    {
+        QFETCH(QString, storedPort);
+        QFETCH(quint16, expectedPort);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString file = directory.filePath("player.conf");
+        Settings settings(file, nullptr);
+        settings.writeStringSettings("Player/Port", storedPort);
+        QCOMPARE(settings.playerConnection().port, expectedPort);
+    }
+
     void appearanceSettingsPersistIndependently()
     {
         QTemporaryDir directory;
