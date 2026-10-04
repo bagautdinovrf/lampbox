@@ -27,6 +27,7 @@
 #include <QTableView>
 #include <QTextEdit>
 #include <QTimeEdit>
+#include <QTimer>
 #include <QTimeZone>
 #include <QVBoxLayout>
 
@@ -347,6 +348,7 @@ struct SchedulePreviewWidget::Private {
     ScheduleV1::Document compiledDocument;
     QString documentError;
     bool advanced = false;
+    bool followingCurrentTime = true;
     QTextEdit *documentPreview;
     QWidget *timelineScale;
     QList<QMetaObject::Connection> connections;
@@ -481,10 +483,14 @@ SchedulePreviewWidget::SchedulePreviewWidget(QWidget *parent) : QWidget(parent),
     d->conditions->setAccessibleName(tr("Календарные условия каналов"));
     layout->addWidget(d->conditions, 1);
     connect(details, &QPushButton::clicked, this, &SchedulePreviewWidget::showConditions);
-    connect(d->date, &QDateEdit::dateChanged, this, &SchedulePreviewWidget::refresh);
-    connect(d->time, &QTimeEdit::timeChanged, this, &SchedulePreviewWidget::refresh);
+    connect(d->date, &QDateEdit::dateChanged, this, [this] { setPreviewDateTime(previewDateTime()); });
+    connect(d->time, &QTimeEdit::timeChanged, this, [this] { setPreviewDateTime(previewDateTime()); });
     connect(d->days, &QButtonGroup::idClicked, this, [this](int day) {
-        d->date->setDate(d->date->date().addDays(day + 1 - d->date->date().dayOfWeek()));
+        const QDate date = d->date->date().addDays(day + 1 - d->date->date().dayOfWeek());
+        if (date == QDate::currentDate())
+            showCurrentTime();
+        else
+            d->date->setDate(date);
     });
     for (auto *view : {d->timeline, d->conditions}) {
         connect(view->selectionModel(), &QItemSelectionModel::currentRowChanged, this,
@@ -500,6 +506,15 @@ SchedulePreviewWidget::SchedulePreviewWidget(QWidget *parent) : QWidget(parent),
             emit editRequested(index.row());
     });
     connect(d->conditions, &QTableView::doubleClicked, this, [this](const QModelIndex &index) { emit editRequested(index.row()); });
+    auto *clock = new QTimer(this);
+    clock->setObjectName(QStringLiteral("scheduleClock"));
+    clock->setInterval(60 * 1000);
+    clock->setTimerType(Qt::PreciseTimer);
+    connect(clock, &QTimer::timeout, this, [this] {
+        if (d->followingCurrentTime)
+            showCurrentTime();
+    });
+    clock->start();
     refresh();
 }
 
@@ -573,9 +588,19 @@ void SchedulePreviewWidget::setPreviewDateTime(const QDateTime &dateTime)
 {
     if (!dateTime.isValid())
         return;
+    d->followingCurrentTime = false;
     const QSignalBlocker dateBlocker(d->date), timeBlocker(d->time);
     d->date->setDate(dateTime.date());
     d->time->setTime(dateTime.time());
+    refresh();
+}
+void SchedulePreviewWidget::showCurrentTime()
+{
+    d->followingCurrentTime = true;
+    const QDateTime now = QDateTime::currentDateTime();
+    const QSignalBlocker dateBlocker(d->date), timeBlocker(d->time);
+    d->date->setDate(now.date());
+    d->time->setTime(now.time());
     refresh();
 }
 QDateTime SchedulePreviewWidget::previewDateTime() const { return QDateTime(d->date->date(), d->time->time()); }
@@ -639,7 +664,9 @@ void SchedulePreviewWidget::refresh()
         const QDate date = monday.addDays(day);
         auto *button = d->dayButtons.at(day);
         button->setText(days.at(day) + QStringLiteral(" %1").arg(date.day()));
-        button->setToolTip(date.toString(QStringLiteral("dd.MM.yyyy")));
+        button->setToolTip(date.toString(QStringLiteral("dd.MM.yyyy"))
+                          + (date == QDate::currentDate()
+                             ? tr(" · Текущее время, обновление раз в минуту") : QString()));
         button->setAccessibleName(days.at(day) + QStringLiteral(" ") + date.toString(QStringLiteral("dd.MM.yyyy")));
         button->setChecked(date == d->date->date());
     }

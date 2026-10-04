@@ -4,11 +4,15 @@
 #include <QTextEdit>
 
 #include <QDateEdit>
+#include <QButtonGroup>
+#include <QPushButton>
+#include <QSignalBlocker>
 #include <QSignalSpy>
 #include <QStandardItemModel>
 #include <QTableView>
 #include <QTest>
 #include <QTimeEdit>
+#include <QTimer>
 #include <QTimeZone>
 
 namespace {
@@ -56,6 +60,7 @@ private slots:
     void publishedLegacyMinutesAreUsed();
     void localTimeTransitionsDoNotInventExactEvents();
     void widgetIsReadOnlyAndRefreshes();
+    void clockFollowsCurrentTimeAndPreservesManualPreview();
 };
 
 void SchedulePreviewTests::cronWeekdaysAndMonths()
@@ -333,6 +338,61 @@ void SchedulePreviewTests::widgetIsReadOnlyAndRefreshes()
     model.removeRows(0, model.rowCount());
     QVERIFY(widget.snapshot().channels.isEmpty());
     QCOMPARE(widget.selectedRow(), -1);
+}
+
+void SchedulePreviewTests::clockFollowsCurrentTimeAndPreservesManualPreview()
+{
+    QStandardItemModel model(0, 7);
+    channel(model, QStringLiteral("Первый"));
+    channel(model, QStringLiteral("Второй"));
+    const QSignalSpy dataChanges(&model, &QAbstractItemModel::dataChanged);
+    SchedulePreviewWidget widget;
+    widget.setModels(&model);
+    widget.setSelectedRow(1);
+    auto *clock = widget.findChild<QTimer *>(QStringLiteral("scheduleClock"));
+    auto *date = widget.findChild<QDateEdit *>(QStringLiteral("previewDate"));
+    auto *time = widget.findChild<QTimeEdit *>(QStringLiteral("previewTime"));
+    QVERIFY(clock && date && time);
+    QVERIFY(clock->isActive());
+    QCOMPARE(clock->interval(), 60000);
+
+    // Simulate the clock crossing midnight without changing the system clock
+    // or waiting a minute. Programmatic refresh must not freeze live mode.
+    {
+        const QSignalBlocker dateBlocker(date), timeBlocker(time);
+        date->setDate(QDate::currentDate().addDays(-1));
+        time->setTime(QTime(23, 59));
+    }
+    widget.refresh();
+    QSignalSpy snapshots(&widget, &SchedulePreviewWidget::snapshotChanged);
+    QVERIFY(QMetaObject::invokeMethod(clock, "timeout", Qt::DirectConnection));
+    QVERIFY(qAbs(widget.snapshot().at.msecsTo(QDateTime::currentDateTime())) < 2000);
+    QCOMPARE(snapshots.size(), 1);
+    QCOMPARE(widget.selectedRow(), 1);
+    QCOMPARE(dataChanges.size(), 0);
+
+    const auto manual = QDateTime(QDate::currentDate(), QTime(3, 15));
+    widget.setPreviewDateTime(manual);
+    snapshots.clear();
+    QVERIFY(QMetaObject::invokeMethod(clock, "timeout", Qt::DirectConnection));
+    QCOMPARE(widget.snapshot().at, manual);
+    QCOMPARE(snapshots.size(), 0);
+
+    // Clicking today's existing day button returns to the live clock.
+    auto *days = widget.findChild<QButtonGroup *>();
+    QVERIFY(days);
+    auto *today = qobject_cast<QPushButton *>(days->button(QDate::currentDate().dayOfWeek() - 1));
+    QVERIFY(today);
+    today->click();
+    QVERIFY(qAbs(widget.snapshot().at.msecsTo(QDateTime::currentDateTime())) < 2000);
+    QCOMPARE(widget.selectedRow(), 1);
+
+    date->setDate(QDate::currentDate().addDays(2));
+    time->setTime(QTime(17, 30));
+    const auto chosen = widget.previewDateTime();
+    QVERIFY(QMetaObject::invokeMethod(clock, "timeout", Qt::DirectConnection));
+    QCOMPARE(widget.snapshot().at, chosen);
+    QCOMPARE(dataChanges.size(), 0);
 }
 
 QTEST_MAIN(SchedulePreviewTests)

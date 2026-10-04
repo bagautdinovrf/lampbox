@@ -40,6 +40,7 @@ public:
 
 public slots:
     void refresh();
+    void showCurrentTime();
     void showConditions();
 
 signals:
