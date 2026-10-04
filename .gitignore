@@ -9,12 +9,9 @@ build-MediaBoxManager*
 build-MediaBoxPlayer*
 build-MediaBoxVPlayer*
 Installer/bin/
-/agent_build/build/
-/agent_build/install/
-/agent_build/deploy/
-/agent_build/logs/
-/agent_build/*.log
-/agent_build/runtime/
+# Local build and preview artifacts; existing tracked files stay versioned.
+/agent_build/
+/version
 /build/
 /MediaBoxPlayer/build/
 /MediaBoxVPlayer/build/
