@@ -35,6 +35,8 @@ public:
     ///
     void setVolume( int volume );
 
+    void setStartMode(const QString &mode);
+
     ///
     QString name() const;
 
@@ -55,6 +57,8 @@ public:
 
     ///
     int volume() const;
+
+    QString startMode() const;
 
 private:
     /// Название
@@ -77,6 +81,7 @@ private:
 
     /// Громкость
     int                                     mVolume = 100;
+    QString                                 mStartMode = QStringLiteral("interrupt");
 
 };
 

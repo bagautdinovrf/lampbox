@@ -129,8 +129,12 @@ bool decodeAdverts(const QJsonValue &value, QList<ScheduleCore::AdvertRule> *rul
     if (!value.isArray()) return false;
     for (const auto &item : value.toArray()) {
         if (!item.isObject()) return false;
-        const auto object = item.toObject();
+        auto object = item.toObject();
         ScheduleCore::AdvertRule rule;
+        if (object.contains("startMode")) {
+            if (!object.value("startMode").isString()) return false;
+            rule.startMode = object.take("startMode").toString();
+        }
         if (!keys(object, {"id", "name", "hours", "weekdays", "from", "until", "volume", "timing", "preparedMinutes"})
                 || !identity(object, &rule.stableId, &rule.name, ids)
                 || !calendar(object.value("hours"), 0, 23, &rule.hours)
@@ -192,6 +196,7 @@ QJsonArray encodeAdverts(const QList<ScheduleCore::AdvertRule> &rules)
         array.append(QJsonObject{{"id", r.stableId}, {"name", r.name}, {"hours", calendarJson(r.hours, 0, 23)},
                      {"weekdays", calendarJson(r.weekdays, 0, 6)}, {"from", r.from.toString(Qt::ISODate)},
                      {"until", r.until.toString(Qt::ISODate)}, {"volume", r.volume}, {"timing", timing},
+                     {"startMode", r.startMode},
                      {"preparedMinutes", minutesJson(ScheduleCore::compileAdvertMinutes(r))}});
     }
     return array;

@@ -54,6 +54,8 @@ QVariant AdvertModel::data(const QModelIndex &index, int nRole) const
         for (int minute : mAdvertManager->compiledMinutes(index.row())) minutes.append(minute);
         return minutes;
     }
+    if (nRole == StartModeRole)
+        return mAdvertManager->advert(index.row()).startMode();
     if( nRole == Qt::DisplayRole || nRole == Qt::EditRole)
     {
         int row = index.row();
@@ -89,13 +91,14 @@ bool AdvertModel::setData(const QModelIndex &index, const QVariant &value, int r
     for (int column = 0; column < 7; ++column)
         fields.append(data(this->index(index.row(), column), Qt::EditRole));
     fields[index.column()] = value;
+    fields.append(data(index, StartModeRole));
     return setRule(index.row(), fields);
 }
 
 bool AdvertModel::setRule(int row, const QVariantList &fields)
 {
     if (!mAdvertManager->setRule(row, fields)) return false;
-    emit dataChanged(index(row, 0), index(row, 6), {Qt::DisplayRole, Qt::EditRole});
+    emit dataChanged(index(row, 0), index(row, 6), {Qt::DisplayRole, Qt::EditRole, CompiledMinutesRole, StartModeRole});
     return true;
 }
 

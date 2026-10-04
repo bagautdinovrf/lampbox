@@ -31,6 +31,7 @@
 #include <QJsonDocument>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QRawFont>
 #include <QScreen>
@@ -374,6 +375,72 @@ private slots:
         QCOMPARE(slotTime("Второй"), QStringLiteral("14:00–22:00"));
         QVERIFY(page.planNow->text().contains("Второй"));
         QCOMPARE(activeBytes(), publishedPointer);
+    }
+
+    void channelCardDeleteConfirmsSelectedChannel_data()
+    {
+        QTest::addColumn<int>("pageIndex");
+        QTest::newRow("music") << 0;
+        QTest::newRow("video") << 1;
+    }
+
+    void channelCardDeleteConfirmsSelectedChannel()
+    {
+        QFETCH(int, pageIndex);
+        ProjectRepository::Project project;
+        auto &channels = pageIndex == 0 ? project.music : project.video;
+        channels = {ProjectFixture::channel("Первый", QTime(8, 0), QTime(12, 0), 65),
+                    ProjectFixture::channel("Второй", QTime(12, 0), QTime(22, 0), 65)};
+        put(fixtureRoot + "/project.json", ProjectRepository::encode(project));
+        const QString root = fixtureRoot + (pageIndex == 0 ? "/media/music/" : "/media/video/");
+        put(root + "Первый/keep.bin", "keep");
+        put(root + "Второй/remove.bin", "remove");
+        MainWindow window;
+        window.changePage(pageIndex);
+        auto &page = window.mPages[pageIndex];
+        auto *manager = window.mChannelManagers[pageIndex];
+        page.channels->selectRow(1);
+        window.selectChannel(pageIndex, 1);
+        QVERIFY(page.deleteChannel && page.deleteChannel->isEnabled());
+        QCOMPARE(page.deleteChannel->accessibleName(), QStringLiteral("Удалить канал"));
+        QTimer::singleShot(0, [&] {
+            auto *confirmation = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(confirmation);
+            QVERIFY(confirmation->text().contains(QStringLiteral("Второй")));
+            confirmation->button(QMessageBox::Cancel)->click();
+        });
+        page.deleteChannel->click();
+        QCOMPARE(manager->channelCount(), 2);
+        QVERIFY(QFileInfo::exists(root + "Второй/remove.bin"));
+        QTimer::singleShot(0, [&] {
+            auto *confirmation = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(confirmation);
+            confirmation->button(QMessageBox::Yes)->click();
+        });
+        page.deleteChannel->click();
+        QCOMPARE(manager->channelCount(), 1);
+        QCOMPARE(manager->currentChannel().channelName(), QStringLiteral("Первый"));
+        QVERIFY(QFileInfo::exists(root + "Первый/keep.bin"));
+        QVERIFY(!QFileInfo::exists(root + "Второй"));
+    }
+
+    void advertStartModeReachesPublication()
+    {
+        MainWindow window;
+        auto *adverts = window.mAdvertManager.get();
+        const auto &advert = adverts->advert(0);
+        QVERIFY(adverts->setRule(0, {advert.name(), advert.hours(), advert.minuts(), advert.days(),
+                                    advert.startDate(), advert.endDate(), advert.volume(), QStringLiteral("after_track")}));
+        QString error;
+        const auto transport = window.playbackSchedule(MainWindow::PAGE_MUSIC, &error);
+        QVERIFY2(error.isEmpty(), qPrintable(error));
+        QCOMPARE(transport["adverts"].toArray().first().toObject()["startMode"].toString(), QStringLiteral("after_track"));
+        QVERIFY2(window.publishMusicSchedule(false, &error), qPrintable(error));
+        MediaBox::ScheduleV1Runtime runtime(":memory:");
+        QVERIFY(runtime.loadPublication(fixtureRoot + "/active.json", fixtureRoot + "/media", QDateTime::currentDateTime()).isEmpty());
+        const auto delivery = runtime.document().object["eventRules"].toArray().first().toObject()["delivery"].toObject();
+        QCOMPARE(delivery["start"].toString(), QStringLiteral("after_track"));
+        QCOMPARE(delivery["maxLateSeconds"].toInt(), 3600);
     }
 
     void creatingFullDayChannelPreservesOffset()

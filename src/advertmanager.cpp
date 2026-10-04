@@ -11,6 +11,7 @@ AdvertData dataFor(const ScheduleCore::AdvertRule &rule)
     data.setName(rule.name); data.setHours(rule.hours); data.setMinuts(rule.timing);
     data.setDays(rule.weekdays); data.setStartDate(rule.from); data.setEndDate(rule.until);
     data.setVolume(rule.volume);
+    data.setStartMode(rule.startMode);
     return data;
 }
 bool sameTiming(const ScheduleCore::AdvertRule &a, const ScheduleCore::AdvertRule &b)
@@ -67,17 +68,20 @@ QList<ScheduleCore::AdvertRule> AdvertManager::rules() const
         rule.stableId = mRuleIds.value(row);
         rule.name = data.name(); rule.hours = data.hours(); rule.timing = data.minuts();
         rule.weekdays = data.days(); rule.from = data.startDate(); rule.until = data.endDate();
-        rule.volume = data.volume(); rule.compiledMinutes = compiledMinutes(row); result.append(rule);
+        rule.volume = data.volume(); rule.compiledMinutes = compiledMinutes(row);
+        rule.startMode = data.startMode(); result.append(rule);
     }
     return result;
 }
 
 bool AdvertManager::decodeRule(const QVariantList &fields, ScheduleCore::AdvertRule *rule)
 {
-    if (fields.size() != 7) return fail(QStringLiteral("Ожидаются семь полей рекламного правила"));
+    if (fields.size() != 7 && fields.size() != 8)
+        return fail(QStringLiteral("Ожидаются семь или восемь полей рекламного правила"));
     rule->name = fields[0].toString(); rule->hours = fields[1].toString(); rule->timing = fields[2].toString();
     rule->weekdays = fields[3].toString(); rule->from = fields[4].toDate(); rule->until = fields[5].toDate();
     bool volumeOk = false; rule->volume = fields[6].toInt(&volumeOk);
+    if (fields.size() == 8) rule->startMode = fields[7].toString();
     if (!ProjectRepository::validFileName(rule->name, false)) return fail(QStringLiteral("Некорректное имя рекламного файла"));
     if (!volumeOk) return fail(QStringLiteral("Некорректная громкость"));
     const QString error = ScheduleCore::validateAdvert(*rule);
@@ -110,6 +114,7 @@ bool AdvertManager::setRule(int row, const QVariantList &fields)
         return fail(QStringLiteral("Рекламой сетевой станции управляют централизованно"));
     if (row < 0 || row >= mAdvertDataList.size()) return fail(QStringLiteral("Рекламное правило не найдено"));
     ScheduleCore::AdvertRule rule;
+    rule.startMode = mAdvertDataList[row].startMode();
     if (!decodeRule(fields, &rule)) return false;
     if (rule.name != mAdvertDataList[row].name()) return fail(QStringLiteral("Нельзя изменить файл рекламного правила"));
     auto snapshot = rules();

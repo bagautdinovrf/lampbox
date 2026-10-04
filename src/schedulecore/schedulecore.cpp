@@ -93,6 +93,8 @@ QString ScheduleCore::validateChannel(const ChannelRule &rule)
 
 QString ScheduleCore::validateAdvert(const AdvertRule &rule)
 {
+    if (rule.startMode != QStringLiteral("interrupt") && rule.startMode != QStringLiteral("after_track"))
+        return QStringLiteral("Неизвестный способ начала рекламы.");
     const auto timing = parseAdvertTiming(rule.timing);
     if (!timing.valid())
         return timing.error;

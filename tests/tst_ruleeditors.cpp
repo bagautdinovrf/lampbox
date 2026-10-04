@@ -2,6 +2,7 @@
 #include "ruleeditors.h"
 #include "restyletheme.h"
 #include "channelmodel.h"
+#include "advertmodel.h"
 #include "scheduledocumentdialog.h"
 #include "schedulecore/schedulev1.h"
 #include <QCheckBox>
@@ -37,6 +38,7 @@ class RecordingModel : public QStandardItemModel {
 public:
     int writes = 0;
     int refuseColumn = -1;
+    int refuseRole = -1;
     bool refused = false;
 
     void append(const QList<QVariant> &values)
@@ -53,7 +55,7 @@ public:
     bool setData(const QModelIndex &index, const QVariant &value, int role) override
     {
         ++writes;
-        if (index.column() == refuseColumn && !refused) {
+        if ((index.column() == refuseColumn || role == refuseRole) && !refused) {
             refused = true;
             return false;
         }
@@ -532,9 +534,144 @@ private slots:
         values.end = values.start.addDays(-1);
         QVERIFY(!applyAdvert(&model, 0, values));
         values.end = values.start;
+        values.startMode = QStringLiteral("unknown");
+        QVERIFY(!applyAdvert(&model, 0, values));
+        values.startMode = QStringLiteral("interrupt");
         model.item(0, 1)->setEditable(false);
         QVERIFY(!applyAdvert(&model, 0, values));
         QCOMPARE(model.writes, 0);
+    }
+
+    void advertisingStartModeCanBeChosenAndReopened()
+    {
+        RecordingModel model;
+        model.append(advertRow());
+        AdvertRuleValues values;
+        values.fileName = QStringLiteral("Ролик.mp3");
+        values.start = QDate(2026, 10, 1);
+        values.end = QDate(2026, 10, 31);
+        AdvertRuleDialog dialog(values);
+        auto *choice = dialog.findChild<QComboBox *>(QStringLiteral("advertStartMode"));
+        QVERIFY(choice);
+        QCOMPARE(choice->currentData().toString(), QStringLiteral("interrupt"));
+        QCOMPARE(choice->currentText(), QStringLiteral("Прервать трек"));
+        choice->setCurrentIndex(choice->findData(QStringLiteral("after_track")));
+        QCOMPARE(choice->currentText(), QStringLiteral("После окончания трека"));
+        QCOMPARE(dialog.values().startMode, QStringLiteral("after_track"));
+        QCOMPARE(dialog.findChild<QLabel *>(QStringLiteral("advertStartHint"))->text(),
+                 QStringLiteral("Текущий трек доиграет. После рекламы начнётся следующий трек."));
+        const QString capture = qEnvironmentVariable("PLAYBACK_UI_CAPTURE_DIR");
+        if (!capture.isEmpty()) {
+            QVERIFY(Restyle::verifiedCyrillicFont());
+            QVERIFY(QDir().mkpath(capture));
+            dialog.show();
+            QTest::qWait(50);
+            QVERIFY(dialog.grab().save(QDir(capture).filePath(QStringLiteral("advert-start-mode.png"))));
+            dialog.hide();
+        }
+        QVERIFY(applyAdvert(&model, 0, dialog.values()));
+        QCOMPARE(model.columnCount(), 7);
+        QCOMPARE(model.index(0, 0).data(AdvertModel::StartModeRole).toString(), QStringLiteral("after_track"));
+        QTimer::singleShot(0, [] {
+            auto *editor = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            QVERIFY(editor);
+            auto *choice = editor->findChild<QComboBox *>(QStringLiteral("advertStartMode"));
+            QCOMPARE(choice->currentData().toString(), QStringLiteral("after_track"));
+            choice->setCurrentIndex(choice->findData(QStringLiteral("interrupt")));
+            editor->accept();
+        });
+        QVERIFY(editAdvert(&model, 0));
+        QCOMPARE(model.index(0, 0).data(AdvertModel::StartModeRole).toString(), QStringLiteral("interrupt"));
+    }
+
+    void failedAdvertisingStartModeSaveRestoresPreviousFields()
+    {
+        RecordingModel model;
+        model.append(advertRow());
+        const auto before = snapshot(model);
+        model.refuseRole = AdvertModel::StartModeRole;
+        AdvertRuleValues values;
+        values.fileName = QStringLiteral("Ролик.mp3");
+        values.hours = QStringLiteral("8–22");
+        values.start = QDate(2026, 10, 2);
+        values.end = QDate(2026, 10, 30);
+        values.volume = 50;
+        values.startMode = QStringLiteral("after_track");
+        QVERIFY(!applyAdvert(&model, 0, values));
+        QVERIFY(model.refused);
+        QCOMPARE(snapshot(model), before);
+        QVERIFY(!model.index(0, 0).data(AdvertModel::StartModeRole).isValid());
+    }
+
+    void realAdvertisingStartModeCommitsOnceAndRetainsStateOnWriteFailure()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const bool originalTestMode = QStandardPaths::isTestModeEnabled();
+        const QVariant originalStation = qApp->property("restylePreviewStation");
+        const QVariant originalSettings = qApp->property("restylePreviewSettings");
+        const auto restore = qScopeGuard([&] {
+            qApp->setProperty("restylePreviewStation", originalStation);
+            qApp->setProperty("restylePreviewSettings", originalSettings);
+            QStandardPaths::setTestModeEnabled(originalTestMode);
+        });
+        QStandardPaths::setTestModeEnabled(true);
+        qApp->setProperty("restylePreviewStation", directory.path());
+        qApp->setProperty("restylePreviewSettings", directory.filePath("manager.conf"));
+        const auto write = [](const QString &path, const QByteArray &bytes) {
+            QFile file(path);
+            return file.open(QIODevice::WriteOnly) && file.write(bytes) == bytes.size();
+        };
+        QVERIFY(write(directory.filePath("mediabox.conf"),
+                      "[mediastation]\nmediabox_id=-1\nmediabox_name=Test\nmedia=media\ncrondir=cron\n"));
+        ProjectRepository::Project project;
+        project.advert = {ProjectFixture::advert(QStringLiteral("Ролик.mp3"), QStringLiteral("*"),
+                                                QStringLiteral("00m,30m"), QDate(2026, 10, 1), QDate(2026, 10, 31), 75)};
+        const QString path = directory.filePath("project.json");
+        QVERIFY(write(path, ProjectRepository::encode(project)));
+        AdvertManager manager;
+        QVERIFY2(manager.collectAdvert(), qPrintable(manager.lastError()));
+        AdvertModel model(&manager);
+        QSortFilterProxyModel proxy;
+        proxy.setSourceModel(&model);
+        QSignalSpy changes(&model, &QAbstractItemModel::dataChanged);
+        QCOMPARE(model.index(0, 0).data(AdvertModel::StartModeRole).toString(), QStringLiteral("interrupt"));
+        QTimer::singleShot(0, [] {
+            auto *editor = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            QVERIFY(editor);
+            auto *choice = editor->findChild<QComboBox *>(QStringLiteral("advertStartMode"));
+            QCOMPARE(choice->currentData().toString(), QStringLiteral("interrupt"));
+            choice->setCurrentIndex(choice->findData(QStringLiteral("after_track")));
+            editor->accept();
+        });
+        QVERIFY(editAdvert(&proxy, 0));
+        QCOMPARE(changes.size(), 1);
+        QCOMPARE(model.index(0, 0).data(AdvertModel::StartModeRole).toString(), QStringLiteral("after_track"));
+        AdvertManager reopened;
+        QVERIFY2(reopened.collectAdvert(), qPrintable(reopened.lastError()));
+        AdvertModel reopenedModel(&reopened);
+        QCOMPARE(reopenedModel.index(0, 0).data(AdvertModel::StartModeRole).toString(), QStringLiteral("after_track"));
+
+        QFile saved(path);
+        QVERIFY(saved.open(QIODevice::ReadOnly));
+        const QByteArray committed = saved.readAll();
+        saved.close();
+        const auto before = snapshot(model);
+        QVERIFY(QFile::rename(path, path + ".previous"));
+        QVERIFY(QDir().mkdir(path));
+        AdvertRuleValues values;
+        values.fileName = QStringLiteral("Ролик.mp3");
+        values.start = QDate(2026, 10, 1);
+        values.end = QDate(2026, 10, 31);
+        values.volume = 50;
+        QVERIFY(!applyAdvert(&proxy, 0, values));
+        QCOMPARE(snapshot(model), before);
+        QCOMPARE(changes.size(), 1);
+        QVERIFY(!model.lastError().isEmpty());
+        QCOMPARE(model.index(0, 0).data(AdvertModel::StartModeRole).toString(), QStringLiteral("after_track"));
+        QFile previous(path + ".previous");
+        QVERIFY(previous.open(QIODevice::ReadOnly));
+        QCOMPARE(previous.readAll(), committed);
     }
 
     void invalidSavedValuesRequireCorrection()

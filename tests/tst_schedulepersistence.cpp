@@ -148,7 +148,7 @@ private slots:
         ChannelModel model(&music);
         QVERIFY(model.setData(model.index(0, 0), QStringLiteral("sequential"), ChannelModel::PlaybackOrderRole));
         QVERIFY(model.setData(model.index(0, 6), 45, Qt::EditRole));
-        QVERIFY(music.setRule(0, channelFields("One", 46)));
+        QVERIFY2(music.setRule(0, channelFields("One", 46)), qPrintable(music.lastError()));
         auto fields = channelFields("Screen", 55); fields.append(QStringLiteral("sequential"));
         QVERIFY(video.setRule(0, fields));
         const auto saved = readProject();
@@ -167,6 +167,49 @@ private slots:
         QVERIFY(!video.setRule(0, fields));
         QCOMPARE(get(projectFile()), before);
     }
+    void advertStartModeSurvivesEditsAndReload()
+    {
+        AdvertManager manager; AdvertModel model(&manager);
+        QVERIFY2(manager.scheduleLoaded(), qPrintable(manager.lastError()));
+        QCOMPARE(model.columnCount(), 7);
+        QCOMPARE(model.data(model.index(0, 0), AdvertModel::StartModeRole).toString(), QStringLiteral("interrupt"));
+        auto fields = advertFields(71); fields.append(QStringLiteral("after_track"));
+        QVERIFY2(model.setRule(0, fields), qPrintable(model.lastError()));
+        QCOMPARE(manager.advert(0).startMode(), QStringLiteral("after_track"));
+        QVERIFY(model.setData(model.index(0, 6), 72, Qt::EditRole));
+        QVERIFY(model.setRule(0, advertFields(73))); // Previous seven-field callers preserve the setting.
+        QCOMPARE(readProject().advert[0].startMode, QStringLiteral("after_track"));
+        QCOMPARE(readProject().advert[0].compiledMinutes, QList<int>({2, 22, 42}));
+        QVERIFY(manager.collectAdvert());
+        QCOMPARE(model.data(model.index(0, 0), AdvertModel::StartModeRole).toString(), QStringLiteral("after_track"));
+        QCOMPARE(manager.advert(0).volume(), 73);
+        const auto before = get(projectFile());
+        fields[7] = QStringLiteral("unknown");
+        QVERIFY(!model.setRule(0, fields));
+        QCOMPARE(get(projectFile()), before);
+        fields[7] = QStringLiteral("interrupt");
+        QVERIFY(model.setRule(0, fields));
+        QCOMPARE(readProject().advert[0].startMode, QStringLiteral("interrupt"));
+        QVERIFY(manager.delAdvert(0));
+        fields[7] = QStringLiteral("after_track");
+        QVERIFY(manager.addAdvert(fields));
+        QCOMPARE(readProject().advert[0].startMode, QStringLiteral("after_track"));
+        QVERIFY(manager.delAdvert(0));
+        QVERIFY(manager.addAdvert(advertFields()));
+        QCOMPARE(readProject().advert[0].startMode, QStringLiteral("interrupt"));
+    }
+
+    void missingAdvertStartModeUsesInterrupt()
+    {
+        auto object = QJsonDocument::fromJson(get(projectFile())).object();
+        auto ads = object.value("advert").toArray(); auto row = ads[0].toObject();
+        row.remove("startMode"); ads[0] = row; object["advert"] = ads;
+        put(projectFile(), QJsonDocument(object).toJson());
+        QCOMPARE(readProject().advert[0].startMode, QStringLiteral("interrupt"));
+        AdvertManager manager;
+        QCOMPARE(manager.advert(0).startMode(), QStringLiteral("interrupt"));
+    }
+
     void strictProjectValidation()
     {
         readProject();
@@ -203,6 +246,10 @@ private slots:
         changed = original; changed["music"] = music; invalid.append(changed);
         auto ads = original.value("advert").toArray(); row = ads[0].toObject(); row["preparedMinutes"] = QJsonArray{1, 22, 42}; ads[0] = row;
         changed = original; changed["advert"] = ads; invalid.append(changed);
+        for (const QJsonValue &mode : {QJsonValue("unknown"), QJsonValue(""), QJsonValue(true), QJsonValue(1), QJsonValue(QJsonValue::Null)}) {
+            ads = original.value("advert").toArray(); row = ads[0].toObject(); row["startMode"] = mode; ads[0] = row;
+            changed = original; changed["advert"] = ads; invalid.append(changed);
+        }
         row = original.value("video").toArray()[0].toObject(); row["id"] = original.value("music").toArray()[0].toObject().value("id");
         changed = original; changed["video"] = QJsonArray{row}; invalid.append(changed);
         for (const auto &object : invalid) {

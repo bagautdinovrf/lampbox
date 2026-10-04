@@ -36,6 +36,7 @@ struct AdvertRuleValues {
     QDate start = QDate::currentDate();
     QDate end = QDate::currentDate().addMonths(1);
     int volume = 75;
+    QString startMode = QStringLiteral("interrupt");
 };
 
 class ChannelRuleDialog final : public QDialog {

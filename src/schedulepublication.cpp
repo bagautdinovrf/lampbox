@@ -222,6 +222,8 @@ QJsonObject legacyChannelDocument(const QJsonObject &saved, const QJsonObject &n
         const QString assetId = rule.value("action").toObject().value("assetId").toString();
         if (assetId != derived(saved.value("scheduleId").toString(), "asset:" + id)) continue;
         rule.insert("priority", 0); rule.insert("enabled", true);
+        // The old simple editor generated only interrupt/59. Reconstruct that
+        // baseline so the first explicit mode change applies during migration.
         rule.insert("delivery", QJsonObject{{"start", "interrupt"}, {"maxLateSeconds", 59}, {"expired", "skip"}, {"after", "resume_music"}});
         auto condition = rule.value("when").toObject(); condition.insert("excludeDates", QJsonArray{}); rule.insert("when", condition);
         events.append(rule); addAsset(assetId);

@@ -43,6 +43,11 @@ void AdvertData::setVolume(int volume)
     mVolume = volume;
 }
 
+void AdvertData::setStartMode(const QString &mode)
+{
+    mStartMode = mode;
+}
+
 QString AdvertData::name() const
 {
     return mName;
@@ -76,4 +81,9 @@ QString AdvertData::minuts() const
 int AdvertData::volume() const
 {
     return mVolume;
+}
+
+QString AdvertData::startMode() const
+{
+    return mStartMode;
 }

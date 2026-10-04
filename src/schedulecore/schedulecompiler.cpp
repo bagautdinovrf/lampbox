@@ -117,6 +117,11 @@ bool fromChannels(const QJsonObject &channels, const QString &contentRoot, const
     }
     for (const auto &value : channels.value("adverts").toArray()) {
         const auto advert = value.toObject();
+        const auto startModeValue = advert.value("startMode");
+        const QString startMode = startModeValue.isUndefined() ? QStringLiteral("interrupt") : startModeValue.toString();
+        if ((!startModeValue.isUndefined() && !startModeValue.isString())
+                || (startMode != QStringLiteral("interrupt") && startMode != QStringLiteral("after_track")))
+            return fail(error, QStringLiteral("Неизвестный способ начала рекламы."));
         if (advert.value("timing") == QJsonValue("*")) continue;
         const QString id = advert.value("id").toString(), name = advert.value("name").toString();
         const QJsonArray paths = advert.value("paths").toArray();
@@ -134,6 +139,7 @@ bool fromChannels(const QJsonObject &channels, const QString &contentRoot, const
         sourceRule.until = QDate::fromString(advert.value("until").toString(), Qt::ISODate);
         sourceRule.timing = advert.value("timing").toString();
         sourceRule.volume = advert.value("volume").toInt();
+        sourceRule.startMode = startMode;
         for (const auto &minute : advert.value("compiledMinutes").toArray())
             sourceRule.compiledMinutes.append(minute.toInt());
         const QString timingError = ScheduleCore::validateAdvert(sourceRule);
@@ -151,7 +157,8 @@ bool fromChannels(const QJsonObject &channels, const QString &contentRoot, const
                 {"range", QJsonObject{{"from", from.toString(Qt::ISODate)}, {"until", until.toString(Qt::ISODate)}}},
                 {"excludeDates", QJsonArray{}}}}, {"times", times},
             {"action", QJsonObject{{"assetId", assetId}, {"volumePercent", advert.value("volume")}}},
-            {"delivery", QJsonObject{{"start", "interrupt"}, {"maxLateSeconds", 59}, {"expired", "skip"}, {"after", "resume_music"}}}});
+            {"delivery", QJsonObject{{"start", startMode}, {"maxLateSeconds", startMode == "after_track" ? 3600 : 59},
+                {"expired", "skip"}, {"after", "resume_music"}}}});
     }
     result.insert("assets", assets); result.insert("playlists", playlists); result.insert("dayTemplates", templates);
     result.insert("baseRules", rules); result.insert("eventRules", events);

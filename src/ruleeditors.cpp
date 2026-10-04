@@ -139,6 +139,7 @@ QString validate(AdvertRuleValues &v)
     rule.until = v.end;
     rule.timing = v.minutes;
     rule.volume = v.volume;
+    rule.startMode = v.startMode;
     return ScheduleCore::validateAdvert(rule);
 }
 
@@ -462,7 +463,7 @@ void sizeDialog(QDialog *dialog, Form &form, bool channel)
 {
     form.volume->setFixedHeight(Restyle::tokens().relief ? 17 : 26);
     const QSize available = dialog->screen()->availableGeometry().size() - QSize(24, 60);
-    const int targetHeight = (channel ? 713 : 641) + (Restyle::tokens().relief ? 0 : 9);
+    const int targetHeight = (channel ? 713 : 741) + (Restyle::tokens().relief ? 0 : 9);
     dialog->resize(qMin(600, available.width()), qMin(targetHeight, available.height()));
     dialog->setMinimumSize(qMin(400, available.width()), qMin(380, available.height()));
     auto p = form.error->palette();
@@ -547,6 +548,13 @@ bool apply(QAbstractItemModel *model, int row, const QList<QVariant> &values, in
         old << index.data(ChannelModel::UntilDayOffsetRole);
         nextValues << values[8];
         roles << ChannelModel::UntilDayOffsetRole;
+    }
+    if (first == 1 && values.size() > 7) {
+        const QModelIndex index = model->index(row, 0);
+        indices << QPersistentModelIndex(index);
+        old << index.data(AdvertModel::StartModeRole);
+        nextValues << values[7];
+        roles << AdvertModel::StartModeRole;
     }
     QList<int> changed;
     for (int i = 0; i < indices.size(); ++i) {
@@ -711,6 +719,8 @@ struct AdvertRuleDialog::Private {
     QString fileName;
     QLineEdit *hours;
     QComboBox *mode;
+    QComboBox *startMode;
+    QLabel *startHint;
     QLineEdit *minutes;
     QSpinBox *frequency;
     QWidget *minuteField;
@@ -744,6 +754,28 @@ AdvertRuleDialog::AdvertRuleDialog(const AdvertRuleValues &initial, QWidget *par
     d->mode->addItem(QStringLiteral("В точные минуты"), QStringLiteral("exact"));
     d->mode->addItem(QStringLiteral("Несколько раз в час"), QStringLiteral("frequency"));
     d->mode->addItem(QStringLiteral("Никогда"), QStringLiteral("never"));
+    d->startMode = new QComboBox;
+    d->startMode->setObjectName(QStringLiteral("advertStartMode"));
+    d->startMode->setFixedHeight(35);
+    d->startMode->setFont(Restyle::font(11));
+    d->startMode->addItem(QStringLiteral("Прервать трек"), QStringLiteral("interrupt"));
+    d->startMode->addItem(QStringLiteral("После окончания трека"), QStringLiteral("after_track"));
+    d->startMode->setCurrentIndex(d->startMode->findData(initial.startMode));
+    auto *startModeField = field(QStringLiteral("Запуск рекламы"), d->startMode);
+    d->startHint = new QLabel;
+    d->startHint->setObjectName(QStringLiteral("advertStartHint"));
+    d->startHint->setFont(Restyle::font(12));
+    d->startHint->setForegroundRole(QPalette::PlaceholderText);
+    d->startHint->setWordWrap(true);
+    d->startHint->setMinimumHeight(34);
+    startModeField->layout()->addWidget(d->startHint);
+    const auto updateStartHint = [this] {
+        d->startHint->setText(d->startMode->currentData().toString() == QLatin1String("after_track")
+            ? QStringLiteral("Текущий трек доиграет. После рекламы начнётся следующий трек.")
+            : QStringLiteral("После рекламы музыка продолжится с места прерывания."));
+    };
+    connect(d->startMode, &QComboBox::currentIndexChanged, this, updateStartHint);
+    updateStartHint();
     QString minuteValue = initial.minutes;
     minuteValue.remove(QLatin1Char('m'));
     minuteValue = minuteValue.split(QLatin1Char(',')).join(QStringLiteral(", "));
@@ -767,10 +799,11 @@ AdvertRuleDialog::AdvertRuleDialog(const AdvertRuleValues &initial, QWidget *par
     grid->addWidget(field(QStringLiteral("Режим выхода"), d->mode), 2, 0);
     grid->addWidget(d->minuteField, 2, 1);
     grid->addWidget(d->frequencyField, 2, 1);
-    grid->addWidget(field(QStringLiteral("Дни недели"), d->weekdays), 3, 0, 1, 2);
-    grid->addWidget(field(QStringLiteral("Дата начала"), d->start), 4, 0);
-    grid->addWidget(field(QStringLiteral("Дата окончания"), d->end), 4, 1);
-    grid->addWidget(volumeField(d->form, initial.volume), 5, 0, 1, 2);
+    grid->addWidget(startModeField, 3, 0, 1, 2);
+    grid->addWidget(field(QStringLiteral("Дни недели"), d->weekdays), 4, 0, 1, 2);
+    grid->addWidget(field(QStringLiteral("Дата начала"), d->start), 5, 0);
+    grid->addWidget(field(QStringLiteral("Дата окончания"), d->end), 5, 1);
+    grid->addWidget(volumeField(d->form, initial.volume), 6, 0, 1, 2);
     const auto updateMode = [this] {
         d->minuteField->setVisible(d->mode->currentIndex() == 0);
         d->frequencyField->setVisible(d->mode->currentIndex() == 1);
@@ -798,7 +831,8 @@ AdvertRuleValues AdvertRuleDialog::values() const
     return {d->fileName, d->hours->text(), minutes, pickerValue(d->weekdays),
             d->start->property("invalidOriginal").toBool() ? QDate() : d->start->date(),
             d->end->property("invalidOriginal").toBool() ? QDate() : d->end->date(),
-            d->form.volume->property("invalidOriginal").toBool() ? -1 : d->form.volume->value()};
+            d->form.volume->property("invalidOriginal").toBool() ? -1 : d->form.volume->value(),
+            d->startMode->currentData().toString()};
 }
 
 void AdvertRuleDialog::accept()
@@ -854,7 +888,7 @@ bool applyAdvert(QAbstractItemModel *model, int row, const AdvertRuleValues &val
     auto v = values;
     if (!model || !validate(v).isEmpty()) return false;
     if (row < 0 || row >= model->rowCount() || read(model, row, 0).toString() != v.fileName) return false;
-    return apply(model, row, {v.fileName, v.hours, v.minutes, v.weekdays, v.start, v.end, v.volume}, 1);
+    return apply(model, row, {v.fileName, v.hours, v.minutes, v.weekdays, v.start, v.end, v.volume, v.startMode}, 1);
 }
 
 bool editChannel(QAbstractItemModel *model, int row, QWidget *parent, const std::function<void()> &deleteAction)
@@ -888,6 +922,8 @@ bool editAdvert(QAbstractItemModel *model, int row, QWidget *parent)
     QPersistentModelIndex target(model->index(row, 0));
     AdvertRuleValues initial{read(model, row, 0).toString(), read(model, row, 1).toString(), read(model, row, 2).toString(),
                              read(model, row, 3).toString(), read(model, row, 4).toDate(), read(model, row, 5).toDate(), read(model, row, 6).toInt()};
+    const QVariant startMode = model->index(row, 0).data(AdvertModel::StartModeRole);
+    if (startMode.isValid()) initial.startMode = startMode.toString();
     AdvertRuleDialog dialog(initial, parent);
     if (dialog.exec() != QDialog::Accepted) return false;
     if (target.isValid() && applyAdvert(model, target.row(), dialog.values())) return true;

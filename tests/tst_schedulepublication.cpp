@@ -24,12 +24,23 @@ bool writeObject(const QString &path, const QJsonObject &object)
     return file.open(QIODevice::WriteOnly) && file.write(QJsonDocument(object).toJson()) >= 0;
 }
 QString id(int n) { return QStringLiteral("00000000-0000-4000-8000-%1").arg(n, 12, 10, QLatin1Char('0')); }
+QJsonObject advert(const QString &root)
+{
+    return {{"id", id(211)}, {"name", "advert.mp3"}, {"hours", "*"}, {"weekdays", "*"},
+        {"from", QDate::currentDate().toString(Qt::ISODate)}, {"until", QDate::currentDate().addDays(1).toString(Qt::ISODate)},
+        {"timing", "0m,30m"}, {"volume", 75}, {"paths", QJsonArray{QDir(root).filePath("ads/advert.mp3")}}};
+}
 }
 
 class SchedulePublicationTests : public QObject {
     Q_OBJECT
 private slots:
     void compileAndPublish();
+    void advertStartModeCompilesAndPublishes();
+    void invalidAdvertStartModeCannotReplacePublication();
+    void advancedAdvertDeliverySurvivesUnrelatedEdits_data();
+    void advancedAdvertDeliverySurvivesUnrelatedEdits();
+    void legacyFirstAdvertStartModeChangeIsApplied();
     void unchangedReleaseAndPlaylistRevision();
     void explicitOvernightAndInvalidIntervals();
     void advancedDraftIsAuthoritative();
@@ -48,6 +59,114 @@ private slots:
     void generatedHorizonRenewsButAdvancedRangeRemains();
     void videoUsesCurrentPublicationFiles();
 };
+
+void SchedulePublicationTests::advertStartModeCompilesAndPublishes()
+{
+    QTemporaryDir dir;
+    auto input = channels(dir.path()); auto ad = advert(dir.path());
+    QJsonObject document; QString error;
+    for (const QString &mode : {QString(), QStringLiteral("after_track"), QStringLiteral("interrupt")}) {
+        if (mode.isEmpty()) ad.remove("startMode"); else ad["startMode"] = mode;
+        input["adverts"] = QJsonArray{ad};
+        QVERIFY2(SchedulePublication::draft(dir.path(), dir.path(), input, &document, nullptr, &error), qPrintable(error));
+        SchedulePublication::Publication publication;
+        QVERIFY2(SchedulePublication::publish(dir.path(), dir.path(), document, &publication, &error), qPrintable(error));
+        const auto released = QJsonDocument::fromJson(publication.bytes).object();
+        const auto delivery = released["eventRules"].toArray().first().toObject()["delivery"].toObject();
+        QCOMPARE(delivery["start"], QJsonValue(mode.isEmpty() ? QStringLiteral("interrupt") : mode));
+        QCOMPARE(delivery["maxLateSeconds"], QJsonValue(mode == "after_track" ? 3600 : 59));
+        QCOMPARE(delivery["after"], QJsonValue("resume_music"));
+        ScheduleV1::Document parsed;
+        QVERIFY2(ScheduleV1::decode(released, &parsed).isEmpty(), qPrintable(ScheduleV1::decode(released, &parsed)));
+    }
+}
+
+void SchedulePublicationTests::invalidAdvertStartModeCannotReplacePublication()
+{
+    QTemporaryDir dir;
+    auto input = channels(dir.path()); auto ad = advert(dir.path()); input["adverts"] = QJsonArray{ad};
+    QJsonObject document; QString error;
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), input, &document, nullptr, &error));
+    SchedulePublication::Publication publication;
+    QVERIFY(SchedulePublication::publish(dir.path(), dir.path(), document, &publication, &error));
+    const auto pointer = read(publication.activePath);
+    for (const QJsonValue &mode : {QJsonValue("unknown"), QJsonValue(""), QJsonValue(true), QJsonValue(1), QJsonValue(QJsonValue::Null)}) {
+        ad["startMode"] = mode; input["adverts"] = QJsonArray{ad};
+        QVERIFY(!SchedulePublication::draft(dir.path(), dir.path(), input, &document, nullptr, &error));
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(read(publication.activePath), pointer);
+    }
+}
+
+void SchedulePublicationTests::advancedAdvertDeliverySurvivesUnrelatedEdits_data()
+{
+    QTest::addColumn<bool>("legacy");
+    QTest::addColumn<QString>("mode");
+    QTest::newRow("baseline-interrupt") << false << QStringLiteral("interrupt");
+    QTest::newRow("baseline-after-track") << false << QStringLiteral("after_track");
+    QTest::newRow("legacy-interrupt") << true << QStringLiteral("interrupt");
+}
+
+void SchedulePublicationTests::advancedAdvertDeliverySurvivesUnrelatedEdits()
+{
+    QFETCH(bool, legacy); QFETCH(QString, mode);
+    QTemporaryDir dir;
+    auto input = channels(dir.path()); auto ad = advert(dir.path()); ad["startMode"] = mode; input["adverts"] = QJsonArray{ad};
+    QJsonObject document; QString error; bool advanced = false;
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), input, &document, &advanced, &error));
+    auto events = document["eventRules"].toArray(); auto event = events[0].toObject();
+    const QJsonObject custom{{"start", "after_track"}, {"maxLateSeconds", 120}, {"expired", "skip"}, {"after", "resume_music"}};
+    event["delivery"] = custom; events[0] = event; document["eventRules"] = events;
+    document["requiredCapabilities"] = QJsonArray::fromStringList(ScheduleV1::requiredCapabilities(document));
+    QVERIFY2(SchedulePublication::saveDraft(dir.path(), document, &error), qPrintable(error));
+    if (legacy) {
+        auto envelope = QJsonDocument::fromJson(read(SchedulePublication::projectPath(dir.path()))).object();
+        envelope.remove("channelDocument");
+        QVERIFY(writeObject(SchedulePublication::projectPath(dir.path()), envelope));
+    }
+    ad["volume"] = 23; input["adverts"] = QJsonArray{ad};
+    QVERIFY2(SchedulePublication::draft(dir.path(), dir.path(), input, &document, &advanced, &error), qPrintable(error));
+    QVERIFY(advanced);
+    event = document["eventRules"].toArray().first().toObject();
+    QCOMPARE(event["delivery"].toObject(), custom);
+    QCOMPARE(event["action"].toObject()["volumePercent"], QJsonValue(23));
+    // An explicit simple-editor mode change applies; unrelated advanced fields remain.
+    ad["startMode"] = mode == "interrupt" ? "after_track" : "interrupt"; input["adverts"] = QJsonArray{ad};
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), input, &document, &advanced, &error));
+    const auto delivery = document["eventRules"].toArray().first().toObject()["delivery"].toObject();
+    QCOMPARE(delivery["start"], ad["startMode"]);
+    QCOMPARE(delivery["maxLateSeconds"], QJsonValue(mode == "interrupt" ? 3600 : 59));
+}
+
+void SchedulePublicationTests::legacyFirstAdvertStartModeChangeIsApplied()
+{
+    QTemporaryDir dir;
+    auto input = channels(dir.path()); auto ad = advert(dir.path()); input["adverts"] = QJsonArray{ad};
+    QJsonObject document; QString error; bool advanced = false;
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), input, &document, &advanced, &error));
+    auto event = document["eventRules"].toArray().first().toObject();
+    event["priority"] = 13;
+    auto delivery = event["delivery"].toObject(); delivery["maxLateSeconds"] = 120;
+    event["delivery"] = delivery; document["eventRules"] = QJsonArray{event};
+    QVERIFY2(SchedulePublication::saveDraft(dir.path(), document, &error), qPrintable(error));
+    auto envelope = QJsonDocument::fromJson(read(SchedulePublication::projectPath(dir.path()))).object();
+    envelope.remove("channelDocument");
+    QVERIFY(writeObject(SchedulePublication::projectPath(dir.path()), envelope));
+
+    // Change the mode before any refresh has established a new baseline.
+    ad["startMode"] = "after_track"; input["adverts"] = QJsonArray{ad};
+    QVERIFY2(SchedulePublication::draft(dir.path(), dir.path(), input, &document, &advanced, &error), qPrintable(error));
+    QVERIFY(advanced);
+    event = document["eventRules"].toArray().first().toObject();
+    QCOMPARE(event["priority"], QJsonValue(13));
+    delivery = event["delivery"].toObject();
+    QCOMPARE(delivery["start"], QJsonValue("after_track"));
+    QCOMPARE(delivery["maxLateSeconds"], QJsonValue(3600));
+    SchedulePublication::Publication publication;
+    QVERIFY2(SchedulePublication::publish(dir.path(), dir.path(), document, &publication, &error), qPrintable(error));
+    const auto released = QJsonDocument::fromJson(publication.bytes).object();
+    QCOMPARE(released["eventRules"].toArray().first().toObject()["delivery"].toObject(), delivery);
+}
 
 void SchedulePublicationTests::videoUsesCurrentPublicationFiles()
 {

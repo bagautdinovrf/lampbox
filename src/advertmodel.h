@@ -12,7 +12,7 @@ class AdvertModel : public QAbstractTableModel
 {
     Q_OBJECT
 public:
-    enum { CompiledMinutesRole = Qt::UserRole + 100 };
+    enum { CompiledMinutesRole = Qt::UserRole + 100, StartModeRole };
     explicit AdvertModel(AdvertManager *advertManager, QObject *parent = nullptr);
 
     QVariant data( const QModelIndex& index, int nRole ) const override;

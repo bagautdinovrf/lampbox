@@ -45,6 +45,7 @@ struct AdvertRule {
     // Persisted frequency phase. Empty means compile a new
     // deterministic phase; persistence supplies this only for matching rules.
     QList<int> compiledMinutes;
+    QString startMode = QStringLiteral("interrupt");
 };
 
 // Empty means valid. Overnight and full-day windows require an explicit day offset.

@@ -23,6 +23,20 @@ class ScheduleCoreTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void advertStartModeValidationKeepsFrequencyPhase()
+    {
+        auto rule = advertRule();
+        QCOMPARE(rule.startMode, QStringLiteral("interrupt"));
+        const auto minutes = compileAdvertMinutes(rule);
+        rule.startMode = QStringLiteral("after_track");
+        QVERIFY(validateAdvert(rule).isEmpty());
+        QCOMPARE(compileAdvertMinutes(rule), minutes);
+        for (const QString &mode : {QString(), QStringLiteral("random"), QStringLiteral("AFTER_TRACK")}) {
+            rule.startMode = mode;
+            QVERIFY(!validateAdvert(rule).isEmpty());
+        }
+    }
+
     void localTimeResolutionMatchesPublishedContract()
     {
         const QTimeZone zone("Europe/Berlin");

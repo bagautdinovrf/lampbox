@@ -658,6 +658,12 @@ QWidget *MainWindow::buildMediaPage(int page) {
     p.editChannel = iconButton("edit", ads ? "Редактировать правило" : "Редактировать канал");
     p.editChannel->setObjectName("editChannelButton" + suffix);
     ct->addWidget(p.editChannel);
+    if (!ads) {
+        p.deleteChannel = iconButton("trash", "Удалить канал");
+        p.deleteChannel->setObjectName("deleteChannelButton" + suffix);
+        ct->addWidget(p.deleteChannel);
+        connect(p.deleteChannel, &QPushButton::clicked, this, &MainWindow::slot_deleteChannel);
+    }
     c->addLayout(ct);
     p.channelConditions = label("Календарные условия", 9);
     c->addWidget(p.channelConditions);
@@ -1047,6 +1053,7 @@ void MainWindow::updatePage(int page) {
         p.subtitle->setText(QStringLiteral("%1 каналов · расписание, условия выхода и содержимое")
                                 .arg(mChannelModels[page]->rowCount()));
         p.editChannel->setEnabled(!mMediaImport && selected);
+        p.deleteChannel->setEnabled(!mMediaImport && selected);
         p.channelTitle->setText(selected ? mChannelModels[page]->index(row, 0).data().toString()
                                          : "Нет каналов");
         p.channelTitle->setToolTip(p.channelTitle->text());
@@ -1429,7 +1436,7 @@ void MainWindow::slot_addAdvert() {
         if (!values)
             continue;
         const QVariantList fields{values->fileName, values->hours, values->minutes, values->weekdays,
-                                  values->start, values->end, values->volume};
+                                  values->start, values->end, values->volume, values->startMode};
         if (!mAdvertManager->addAdvert(fields)) {
             showError(mAdvertManager->lastError());
             break;
@@ -1526,7 +1533,8 @@ QJsonObject MainWindow::playbackSchedule(int page, QString *error) const {
         adverts.append(QJsonObject{{"id", mAdvertManager->ruleId(row)}, {"name", advert.name()},
             {"hours", advert.hours()}, {"weekdays", advert.days()}, {"from", advert.startDate().toString(Qt::ISODate)},
             {"until", advert.endDate().toString(Qt::ISODate)}, {"timing", advert.minuts()},
-            {"compiledMinutes", minutes}, {"volume", advert.volume()}, {"paths", paths}});
+            {"compiledMinutes", minutes}, {"volume", advert.volume()}, {"paths", paths},
+            {"startMode", advert.startMode()}});
     }
     return {{"channels", channels}, {"adverts", adverts}};
 }

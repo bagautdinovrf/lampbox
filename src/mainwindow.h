@@ -84,6 +84,7 @@ class MainWindow : public QMainWindow {
         QPushButton *addFiles = nullptr;
         QPushButton *deleteFiles = nullptr;
         QPushButton *editChannel = nullptr;
+        QPushButton *deleteChannel = nullptr;
         QPushButton *addAdvert = nullptr;
         QPushButton *editAdvert = nullptr;
         QPushButton *deleteAdvert = nullptr;
