@@ -12,6 +12,7 @@ QString playbackFileError(const QString &path);
 struct ScheduledChannel {
     ScheduleCore::ChannelRule rule;
     QStringList paths;
+    QString order = QStringLiteral("shuffle_cycle");
 };
 
 struct ScheduledAdvert {

@@ -40,7 +40,8 @@ private:
     void handleError(const QString &message);
     void scheduleAdvance(bool failed);
     void advanceAfterError();
-    int nextIndex(bool automatic) const;
+    int nextIndex(bool automatic);
+    int randomIndex();
     void switchToManual(bool clearChannelName = false);
     void clearPlaybackQueue();
     void applyScheduledChannel(const ScheduleCore::Snapshot &snapshot);
@@ -53,6 +54,9 @@ private:
     int m_currentIndex = -1;
     QString m_state = QStringLiteral("stopped");
     QString m_repeat = QStringLiteral("off");
+    QString m_order = QStringLiteral("sequential");
+    QList<int> m_remainingTracks;
+    QList<int> m_cycleTracks;
     QString m_error;
     qint64 m_positionMs = 0;
     qint64 m_durationMs = 0;
@@ -84,6 +88,10 @@ private:
         QStringList paths;
         int index = -1;
         qint64 positionMs = 0;
+        QList<int> remainingTracks;
+        QString order;
+        QString repeat;
+        QList<int> cycleTracks;
     } m_interruptedChannel;
     QMap<qint64, QSet<QString>> m_firedAdverts;
 };

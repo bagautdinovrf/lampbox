@@ -135,7 +135,7 @@ private:
     {
         return {{"id", id}, {"name", name}, {"start", start}, {"end", end},
                 {"weekdays", "*"}, {"days", "*"}, {"months", "*"}, {"volume", volume},
-                {"paths", QJsonArray::fromStringList(paths)}};
+                {"paths", QJsonArray::fromStringList(paths)}, {"order", "sequential"}};
     }
 
     static QJsonObject advert(const QString &id, const QString &name, const QString &timing,
@@ -152,6 +152,141 @@ private:
     }
 
 private slots:
+    void channelOrder_data()
+    {
+        QTest::addColumn<bool>("scheduled");
+        QTest::addColumn<QString>("order");
+        QTest::addColumn<int>("count");
+        for (bool scheduled : {false, true})
+            for (const QString &order : {QString(), QStringLiteral("shuffle_cycle"), QStringLiteral("sequential")})
+                for (int count : {1, 2, 6})
+                    QTest::newRow(qPrintable(QString("%1-%2-%3").arg(scheduled).arg(order).arg(count)))
+                        << scheduled << order << count;
+    }
+
+    void channelOrder()
+    {
+        QFETCH(bool, scheduled);
+        QFETCH(QString, order);
+        QFETCH(int, count);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QStringList paths;
+        for (int index = 0; index < count; ++index)
+            paths.append(createTrack(directory, QString("%1.wav").arg(index)));
+        QDateTime now = at("10:00:00");
+        FakeAudioBackend backend;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        auto arguments = scheduled ? channel("music", "Музыка", "09:00", "12:00", paths)
+            : QJsonObject{{"name", "Музыка"}, {"paths", QJsonArray::fromStringList(paths)}, {"volume", 75}};
+        arguments.remove("order");
+        if (!order.isEmpty())
+            arguments.insert("order", order);
+        QVERIFY(command(engine, scheduled ? "schedule" : "playChannel",
+            scheduled ? QJsonObject{{"schedule", schedule({arguments})}} : arguments).value("ok").toBool());
+        QCOMPARE(engine.status().value("order").toString(), order.isEmpty() ? QStringLiteral("shuffle_cycle") : order);
+        QCOMPARE(engine.status().value("queue").toArray(), QJsonArray::fromStringList(paths));
+        QStringList previous;
+        for (int cycle = 0; cycle < 20; ++cycle) {
+            QStringList played;
+            for (int index = 0; index < count; ++index) {
+                played.append(backend.source.toLocalFile());
+                backend.finish();
+                settle();
+            }
+            auto sorted = played;
+            sorted.sort();
+            auto expected = paths;
+            expected.sort();
+            QCOMPARE(sorted, expected);
+            if (order == QStringLiteral("sequential"))
+                QCOMPARE(played, paths);
+            else if (count > 1 && cycle > 0)
+                QVERIFY(played != previous);
+            previous = played;
+        }
+        // Repeat overrides still work with the default shuffled channel.
+        QVERIFY(command(engine, "repeat", {{"mode", "one"}}).value("ok").toBool());
+        const auto source = backend.source;
+        backend.finish();
+        settle();
+        QCOMPARE(backend.source, source);
+        QVERIFY(command(engine, "repeat", {{"mode", "off"}}).value("ok").toBool());
+        for (int index = 0; index <= count; ++index) {
+            backend.finish();
+            settle();
+        }
+        QVERIFY(!engine.status().value("playbackRequested").toBool());
+    }
+
+    void shuffledChannelResumesCycleAfterAdvert()
+    {
+        QTemporaryDir directory;
+        QStringList paths;
+        for (int index = 0; index < 6; ++index)
+            paths.append(createTrack(directory, QString("%1.wav").arg(index)));
+        const auto ad = createTrack(directory, "ad.wav");
+        auto music = channel("music", "Музыка", "09:00", "12:00", paths);
+        music.remove("order");
+        QDateTime now = at("10:00:00");
+        FakeAudioBackend backend;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        QVERIFY(command(engine, "schedule", {{"schedule", schedule({music}, {advert("ad", "Реклама", "01m", {ad})})}}).value("ok").toBool());
+        QStringList played{backend.source.toLocalFile()};
+        backend.finish();
+        settle();
+        const auto interrupted = backend.source;
+        backend.reportPosition(1234);
+        now = at("10:01:00");
+        engine.evaluateSchedule(now);
+        QCOMPARE(backend.source.toLocalFile(), ad);
+        backend.finish();
+        settle();
+        QCOMPARE(backend.source, interrupted);
+        QCOMPARE(backend.position, 1234);
+        for (int index = 1; index < paths.size(); ++index) {
+            played.append(backend.source.toLocalFile());
+            backend.finish();
+            settle();
+        }
+        played.sort();
+        paths.sort();
+        QCOMPARE(played, paths);
+    }
+
+    void shuffledChannelStopsAfterAllTracksFail()
+    {
+        QTemporaryDir directory;
+        const auto first = createTrack(directory, "first.wav");
+        const auto second = createTrack(directory, "second.wav");
+        FakeAudioBackend backend;
+        backend.rejectEveryTrack = true;
+        PlayerEngine engine(&backend);
+        QVERIFY(command(engine, "playChannel", {{"name", "Музыка"}, {"paths", QJsonArray{first, second}}, {"volume", 75}}).value("ok").toBool());
+        QTRY_VERIFY(!engine.status().value("playbackRequested").toBool());
+        QCOMPARE(backend.playCalls, 2);
+        QCOMPARE(state(engine), QStringLiteral("error"));
+    }
+
+    void shuffledChannelSkipsBrokenTracksAcrossCycles()
+    {
+        QTemporaryDir directory;
+        const auto first = createTrack(directory, "first.wav");
+        const auto second = createTrack(directory, "second.wav");
+        FakeAudioBackend backend;
+        PlayerEngine engine(&backend);
+        QVERIFY(command(engine, "playChannel", {{"name", "Музыка"}, {"paths", QJsonArray{first, second}}, {"volume", 75}}).value("ok").toBool());
+        const auto broken = backend.source;
+        for (int index = 0; index < 12; ++index) {
+            if (backend.source == broken)
+                backend.fail();
+            else
+                backend.finish();
+            settle();
+            QVERIFY(engine.status().value("playbackRequested").toBool());
+        }
+    }
+
     void playChannelStartsWholeQueueAtomicallyAndOverridesSchedule()
     {
         QTemporaryDir directory;
@@ -169,14 +304,16 @@ private slots:
             {{"name", "Канал"}, {"paths", QJsonArray{}}, {"volume", 50}},
             {{"name", "Канал"}, {"paths", QJsonArray{first, directory.filePath("missing.wav")}}, {"volume", 50}},
             {{"name", " "}, {"paths", QJsonArray{first}}, {"volume", 50}},
-            {{"name", "Канал"}, {"paths", QJsonArray{first}}, {"volume", 100.5}}
+            {{"name", "Канал"}, {"paths", QJsonArray{first}}, {"volume", 100.5}},
+            {{"name", "Канал"}, {"paths", QJsonArray{first}}, {"volume", 50}, {"order", "invalid"}},
+            {{"name", "Канал"}, {"paths", QJsonArray{first}}, {"volume", 50}, {"order", false}}
         };
         for (const auto &arguments : invalid) {
             QVERIFY(!command(engine, "playChannel", arguments).value("ok").toBool());
             QCOMPARE(engine.status(), before);
             QCOMPARE(backend.playCalls, playsBefore);
         }
-        QVERIFY(command(engine, "playChannel", {{"name", "Любимый канал"}, {"paths", QJsonArray{first, second}}, {"volume", 42}}).value("ok").toBool());
+        QVERIFY(command(engine, "playChannel", {{"name", "Любимый канал"}, {"paths", QJsonArray{first, second}}, {"volume", 42}, {"order", "sequential"}}).value("ok").toBool());
         QCOMPARE(engine.status().value("playbackMode").toString(), QStringLiteral("manual"));
         QCOMPARE(engine.status().value("channelName").toString(), QStringLiteral("Любимый канал"));
         QCOMPARE(engine.status().value("queue").toArray(), (QJsonArray{first, second}));

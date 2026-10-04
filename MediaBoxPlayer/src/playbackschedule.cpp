@@ -117,12 +117,17 @@ QString PlaybackSchedule::decode(const QJsonObject &object, PlaybackSchedule *re
         const auto item = value.toObject();
         ScheduledChannel channel;
         auto &rule = channel.rule;
-        if (!fields(item, {"id", "name", "start", "end", "weekdays", "days", "months", "volume", "paths"})
+        if (!fields(item, {"id", "name", "start", "end", "weekdays", "days", "months", "volume", "paths"}, {"order"})
             || !identity(item, &rule.stableId, &rule.name, &ids)
             || !item.value("start").isString() || !item.value("end").isString()
             || !item.value("weekdays").isString() || !item.value("days").isString()
             || !item.value("months").isString() || !integer(item.value("volume"), 0, 100, &rule.volume))
             return QStringLiteral("Invalid fields in scheduled channel.");
+        if (item.contains("order")) {
+            channel.order = item.value("order").toString();
+            if (channel.order != QStringLiteral("sequential") && channel.order != QStringLiteral("shuffle_cycle"))
+                return QStringLiteral("Channel order must be sequential or shuffle_cycle.");
+        }
         const auto start = item.value("start").toString(), end = item.value("end").toString();
         rule.start = QTime::fromString(start, QStringLiteral("HH:mm"));
         rule.end = QTime::fromString(end, QStringLiteral("HH:mm"));

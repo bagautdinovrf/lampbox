@@ -2,6 +2,7 @@
 
 #include <QDir>
 #include <QJsonArray>
+#include <QRandomGenerator>
 #include <QTimer>
 
 #include <algorithm>
@@ -89,6 +90,7 @@ QJsonObject PlayerEngine::status() const
             {QStringLiteral("volumePercent"), m_volumePercent},
             {QStringLiteral("muted"), m_muted},
             {QStringLiteral("repeat"), m_repeat},
+            {QStringLiteral("order"), m_order},
             {QStringLiteral("playbackMode"), m_playbackMode},
             {QStringLiteral("channelName"), m_channelName},
             {QStringLiteral("scheduleAvailable"), m_scheduleAvailable},
@@ -121,7 +123,7 @@ QJsonObject PlayerEngine::execute(const QJsonObject &request)
     if (command == QStringLiteral("load"))
         allowed.unite({QStringLiteral("paths"), QStringLiteral("startIndex"), QStringLiteral("autoplay")});
     else if (command == QStringLiteral("playChannel"))
-        allowed.unite({QStringLiteral("name"), QStringLiteral("paths"), QStringLiteral("volume")});
+        allowed.unite({QStringLiteral("name"), QStringLiteral("paths"), QStringLiteral("volume"), QStringLiteral("order")});
     else if (command == QStringLiteral("setSchedule") || command == QStringLiteral("schedule"))
         allowed.insert(QStringLiteral("schedule"));
     else if (command == QStringLiteral("enqueue"))
@@ -204,7 +206,13 @@ QJsonObject PlayerEngine::execute(const QJsonObject &request)
             return invalid(QStringLiteral("autoplay must be a boolean."));
         qint64 channelVolume = 100;
         QString channelName;
+        QString channelOrder = QStringLiteral("shuffle_cycle");
         if (command == QStringLiteral("playChannel")) {
+            if (request.contains(QStringLiteral("order"))) {
+                channelOrder = request.value(QStringLiteral("order")).toString();
+                if (channelOrder != QStringLiteral("sequential") && channelOrder != QStringLiteral("shuffle_cycle"))
+                    return invalid(QStringLiteral("order must be sequential or shuffle_cycle."));
+            }
             if (!request.value(QStringLiteral("name")).isString())
                 return invalid(QStringLiteral("name must be a non-empty channel name of at most 256 characters."));
             channelName = request.value(QStringLiteral("name")).toString();
@@ -234,14 +242,23 @@ QJsonObject PlayerEngine::execute(const QJsonObject &request)
             m_failedTracks.clear();
             m_channelName = channelName;
             m_repeat = QStringLiteral("all");
+            m_order = channelOrder;
+            m_remainingTracks.clear();
+            m_cycleTracks.clear();
             m_volumePercent = static_cast<int>(channelVolume);
             m_backend->setVolume(m_volumePercent);
-            selectTrack(0, true);
+            m_currentIndex = -1;
+            selectTrack(m_order == QStringLiteral("shuffle_cycle") ? randomIndex() : 0, true);
         } else if (command == QStringLiteral("load")) {
+            m_order = QStringLiteral("sequential");
+            m_remainingTracks.clear();
+            m_cycleTracks.clear();
             m_queue = validated;
             m_failedTracks.clear();
             selectTrack(static_cast<int>(startIndex), request.value(QStringLiteral("autoplay")).toBool(false));
         } else {
+            for (int index = int(m_queue.size()); index < total; ++index)
+                m_remainingTracks.append(index);
             m_queue.append(validated);
             if (m_currentIndex < 0)
                 selectTrack(0, false);
@@ -352,6 +369,8 @@ void PlayerEngine::clearPlaybackQueue()
     m_wantsPlayback = false;
     m_currentIndex = -1;
     m_queue.clear();
+    m_remainingTracks.clear();
+    m_cycleTracks.clear();
     m_failedTracks.clear();
     m_sourceLoaded = false;
     m_backend->stop();
@@ -458,7 +477,8 @@ void PlayerEngine::applyScheduledChannel(const ScheduleCore::Snapshot &snapshot)
         return;
     }
     const auto &channel = m_schedule.channels.at(snapshot.activeRows.first());
-    const bool sameQueue = m_activeChannelId == channel.rule.stableId && m_queue == channel.paths;
+    const bool sameQueue = m_activeChannelId == channel.rule.stableId && m_queue == channel.paths
+        && m_order == channel.order;
     const bool nameChanged = m_channelName != channel.rule.name;
     m_channelName = channel.rule.name;
     const bool volumeChanged = !sameQueue || m_activeChannelVolume != channel.rule.volume;
@@ -481,11 +501,22 @@ void PlayerEngine::applyScheduledChannel(const ScheduleCore::Snapshot &snapshot)
     }
     m_queue = channel.paths;
     m_repeat = QStringLiteral("all");
+    m_order = channel.order;
+    m_remainingTracks.clear();
+    m_cycleTracks.clear();
     m_failedTracks.clear();
     const bool resume = m_interruptedChannel.id == channel.rule.stableId
         && m_interruptedChannel.paths == channel.paths && m_interruptedChannel.index >= 0
         && m_interruptedChannel.index < channel.paths.size();
-    const int index = resume ? m_interruptedChannel.index : 0;
+    if (resume && m_interruptedChannel.order == m_order) {
+        m_remainingTracks = m_interruptedChannel.remainingTracks;
+        m_repeat = m_interruptedChannel.repeat;
+        m_cycleTracks = m_interruptedChannel.cycleTracks;
+    }
+    if (!resume)
+        m_currentIndex = -1;
+    const int index = resume ? m_interruptedChannel.index
+        : (m_order == QStringLiteral("shuffle_cycle") ? randomIndex() : 0);
     const qint64 position = resume ? m_interruptedChannel.positionMs : 0;
     m_interruptedChannel = {};
     selectTrack(index, true, position);
@@ -497,7 +528,8 @@ void PlayerEngine::startNextAdvert()
         return;
     if (!m_activeChannelId.isEmpty() && m_currentIndex >= 0 && m_wantsPlayback
         && m_state != QStringLiteral("error")) {
-        m_interruptedChannel = {m_activeChannelId, m_queue, m_currentIndex, m_positionMs};
+        m_interruptedChannel = {m_activeChannelId, m_queue, m_currentIndex, m_positionMs,
+                                m_remainingTracks, m_order, m_repeat, m_cycleTracks};
     }
     const auto advert = m_pendingAdverts.takeFirst();
     m_runningAdvert = true;
@@ -507,6 +539,9 @@ void PlayerEngine::startNextAdvert()
     m_channelName = advert.rule.name;
     m_queue = advert.paths;
     m_repeat = QStringLiteral("off");
+    m_order = QStringLiteral("sequential");
+    m_remainingTracks.clear();
+    m_cycleTracks.clear();
     m_volumePercent = advert.rule.volume;
     m_backend->setVolume(m_volumePercent);
     m_failedTracks.clear();
@@ -536,6 +571,7 @@ void PlayerEngine::selectTrack(int index, bool autoplay, qint64 resumePositionMs
     m_settingSource = true;
     m_ignoringBackendSignals = true;
     m_currentIndex = index;
+    m_remainingTracks.removeAll(index);
     m_backend->stop();
     m_ignoringBackendSignals = false;
     m_positionMs = 0;
@@ -586,10 +622,34 @@ void PlayerEngine::stopPlayback()
     m_error.clear();
 }
 
-int PlayerEngine::nextIndex(bool automatic) const
+int PlayerEngine::randomIndex()
+{
+    m_remainingTracks.removeIf([this](int index) { return m_failedTracks.contains(index); });
+    if (m_remainingTracks.isEmpty()) {
+        for (int index = 0; index < m_queue.size(); ++index)
+            m_remainingTracks.append(index);
+        std::shuffle(m_remainingTracks.begin(), m_remainingTracks.end(), *QRandomGenerator::global());
+        // A fresh random draw can equal the last cycle; enforce a new order.
+        if (m_remainingTracks.size() > 1 && m_remainingTracks == m_cycleTracks)
+            std::swap(m_remainingTracks[0], m_remainingTracks[1]);
+        m_cycleTracks = m_remainingTracks;
+    }
+    for (int index : std::as_const(m_remainingTracks))
+        if (!m_failedTracks.contains(index))
+            return index;
+    return -1;
+}
+
+int PlayerEngine::nextIndex(bool automatic)
 {
     if (automatic && !m_runningAdvert && m_repeat == QStringLiteral("one"))
         return m_currentIndex;
+    if (!m_runningAdvert && m_order == QStringLiteral("shuffle_cycle")) {
+        m_remainingTracks.removeIf([this](int index) { return m_failedTracks.contains(index); });
+        if (m_remainingTracks.isEmpty() && m_repeat != QStringLiteral("all"))
+            return -1;
+        return randomIndex();
+    }
     if (m_currentIndex + 1 < m_queue.size())
         return m_currentIndex + 1;
     return !m_runningAdvert && m_repeat == QStringLiteral("all") ? 0 : -1;
@@ -647,6 +707,18 @@ void PlayerEngine::scheduleAdvance(bool failed)
 
 void PlayerEngine::advanceAfterError()
 {
+    if (!m_runningAdvert && m_order == QStringLiteral("shuffle_cycle")) {
+        const int candidate = nextIndex(false);
+        if (candidate >= 0) {
+            selectTrack(candidate, true);
+            return;
+        }
+        m_wantsPlayback = false;
+        m_backend->stop();
+        m_state = QStringLiteral("error");
+        emit statusChanged();
+        return;
+    }
     const int count = static_cast<int>(m_queue.size());
     for (int offset = 1; offset <= count; ++offset) {
         int candidate = m_currentIndex + offset;

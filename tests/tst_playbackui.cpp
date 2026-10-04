@@ -244,7 +244,9 @@ private slots:
         backend.finish();
         backend.finish();
         backend.finish();
-        QCOMPARE(engine.status().value("currentIndex").toInt(), 0);
+        QCOMPARE(engine.status().value("order").toString(), QStringLiteral("shuffle_cycle"));
+        QVERIFY(engine.status().value("currentIndex").toInt() >= 0);
+        QVERIFY(engine.status().value("currentIndex").toInt() < window.mMediaController->status().queue.size());
         QCOMPARE(engine.status().value("state").toString(), QStringLiteral("playing"));
         QVERIFY(capture(window, "music-channel"));
 
