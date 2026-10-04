@@ -7,6 +7,7 @@
 #include <QHelpEvent>
 #include <QItemSelectionModel>
 #include <QKeyEvent>
+#include <QLinearGradient>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QScrollArea>
@@ -192,15 +193,19 @@ protected:
         for (int laneIndex = 0; laneIndex < mLanes.size(); ++laneIndex) {
             const auto &lane = mLanes.at(laneIndex);
             const bool laneSelected = !lane.playlistId.isEmpty() && lane.playlistId == selectedPlaylist;
-            const QRectF titleRect(4, top + laneIndex * laneHeight, trackLeft() - 12, 26);
-            const QRectF track(trackLeft(), titleRect.top(), trackWidth(), 26);
+            const QRectF titleRect(0, top + laneIndex * laneHeight, trackLeft() - 12, trackHeight);
+            const QRectF track(trackLeft(), titleRect.top(), trackWidth(), trackHeight);
             p.setFont(Restyle::font(10, laneSelected ? QFont::DemiBold : QFont::Normal));
             p.setPen(laneSelected ? t.accentText : t.secondary);
             p.drawText(titleRect, Qt::AlignVCenter,
                        p.fontMetrics().elidedText(lane.title, Qt::ElideRight, int(titleRect.width())));
-            p.setPen(laneSelected ? t.accentLine : t.line);
+            p.setPen(Qt::NoPen);
             p.setBrush(t.field);
-            p.drawRoundedRect(track, 4, 4);
+            p.drawRoundedRect(track, t.trackRadius, t.trackRadius);
+            if (t.relief) {
+                p.setPen(QColor(0, 0, 0, t.dark ? 65 : 13));
+                p.drawLine(track.topLeft() + QPointF(4, 1), track.topRight() + QPointF(-4, 1));
+            }
             for (int hour : {6, 12, 18}) {
                 const auto tick = QDateTime(from.date(), QTime(hour, 0), from.timeZone());
                 const qreal x = hasTimes ? position(tick) : trackLeft() + trackWidth() * hour / 24.0;
@@ -219,14 +224,30 @@ protected:
                 const bool intervalSelected = rowIndex == selected && (laneSelected || selectedPlaylist.isEmpty());
                 if (row.event) {
                     const qreal x = r.center().x(), y = r.center().y();
-                    p.setPen(QPen(t.accent, intervalSelected ? 2 : 1));
-                    p.setBrush(intervalSelected ? t.accent : t.accentSoft);
+                    p.setPen(QPen(t.accentText, 1));
+                    p.setBrush(intervalSelected ? t.accentSoft : t.surface);
                     p.drawPolygon(QPolygonF{QPointF(x, y - 7), QPointF(x + 5, y), QPointF(x, y + 7), QPointF(x - 5, y)});
                     continue;
                 }
-                p.setBrush(row.active ? t.successBg : row.fallback ? t.surface2 : t.accentSoft);
-                p.setPen(QPen(intervalSelected ? t.accent : row.active ? t.success : t.accentLine, intervalSelected ? 2 : 1));
-                p.drawRoundedRect(r.adjusted(0.5, 0.5, -0.5, -0.5), 3, 3);
+                // Match the original channel grid: raised, pale intervals and
+                // a quiet selection tint. Plan activity belongs in the status,
+                // rather than turning the selected channel into a green block.
+                const bool highlighted = laneSelected || intervalSelected;
+                const QRectF interval = r.adjusted(0.5, 0.5, -0.5, -0.5);
+                const QColor fill = highlighted ? t.accentSoft : t.surface2;
+                if (t.relief) {
+                    p.setPen(Qt::NoPen);
+                    p.setBrush(QColor(0, 0, 0, t.dark ? 90 : 20));
+                    p.drawRoundedRect(interval.translated(1, 1), t.intervalRadius, t.intervalRadius);
+                    QLinearGradient gradient(interval.topLeft(), interval.bottomRight());
+                    gradient.setColorAt(0, t.dark ? t.buttonTop : t.surface);
+                    gradient.setColorAt(1, fill);
+                    p.setBrush(gradient);
+                } else {
+                    p.setBrush(fill);
+                }
+                p.setPen(highlighted ? t.accentLine : t.line);
+                p.drawRoundedRect(interval, t.intervalRadius, t.intervalRadius);
             }
             // Paint conflict marks after all bars, including when several
             // rules share a playlist and therefore the same lane.
@@ -253,20 +274,26 @@ protected:
                     p.drawRect(overlap.adjusted(0.5, 0.5, -0.5, -0.5));
                 }
                 if (r.width() > 28) {
-                    p.setPen(!row.conflicts.isEmpty() ? t.error : row.active ? t.success : t.text);
+                    p.setPen(!row.conflicts.isEmpty() ? t.error : laneSelected ? t.accentText : t.secondary);
                     p.setFont(Restyle::font(9));
                     QString label = lane.service ? row.source : row.mixed
                             ? (row.oneToOne ? QStringLiteral("1:1 · ") : QStringLiteral("Чередование · ")) + row.time : row.time;
                     if (!row.conflicts.isEmpty()) label.prepend(QStringLiteral("! "));
-                    p.drawText(r.adjusted(6, 0, -6, 0), Qt::AlignVCenter,
+                    p.drawText(r.adjusted(6, 0, -6, 0), Qt::AlignCenter,
                                p.fontMetrics().elidedText(label, Qt::ElideRight, qMax(0, int(r.width()) - 12)));
                 }
+            }
+            if (hasFocus() && laneSelected) {
+                p.setBrush(Qt::NoBrush);
+                p.setPen(QPen(t.focus, 1, Qt::DotLine));
+                p.drawRoundedRect(QRectF(1, titleRect.top() - 1, width() - 2, laneHeight - 1), 3, 3);
             }
         }
         if (hasTimes && at >= from && at < until) {
             const qreal x = position(at);
-            p.setPen(QPen(t.accent, 1.5));
-            p.drawLine(QPointF(x, top - 3), QPointF(x, height() - 6));
+            p.setPen(QPen(t.error, 1));
+            p.drawLine(QPointF(x, top - 2), QPointF(x, height() - 6));
+            p.fillRect(QRectF(x - 2, top - 2, 4, 4), t.error);
         }
     }
     void mousePressEvent(QMouseEvent *event) override
@@ -326,7 +353,7 @@ private:
             if (rowRect(mModel->rows.at(*i), lane).contains(point)) return *i;
         return -1;
     }
-    qreal trackLeft() const { return qMin(164, qMax(90, width() / 4)); }
+    qreal trackLeft() const { return qMin(156, qMax(90, width() / 4)); }
     qreal trackWidth() const { return qMax(qreal(1), width() - trackLeft() - 6); }
     qreal position(const QDateTime &time) const
     {
@@ -337,10 +364,10 @@ private:
     {
         const qreal x = position(row.from);
         const qreal y = top + lane * laneHeight;
-        return row.event ? QRectF(x - 6, y + 2, 12, 22)
-                         : QRectF(x, y, qMax(qreal(1), position(row.until) - x), 26);
+        return row.event ? QRectF(x - 6, y + 1, 12, trackHeight - 2)
+                         : QRectF(x, y + 1, qMax(qreal(1), position(row.until) - x), trackHeight - 2);
     }
-    static constexpr int top = 26, laneHeight = 29;
+    static constexpr int top = 26, laneHeight = 29, trackHeight = 23;
     GridModel *mModel;
     QJsonObject mDocument;
     QList<QPair<QString, QString>> mChannels;
@@ -374,11 +401,13 @@ ScheduleDocumentPreview::ScheduleDocumentPreview(QWidget *parent) : QWidget(pare
     timelineScroll->setMaximumHeight(184);
     timelineScroll->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     timelineScroll->setWidget(d->timeline);
+    d->timeline->setAutoFillBackground(false);
+    timelineScroll->viewport()->setAutoFillBackground(false);
     d->timeline->rebuildLanes();
     layout->addWidget(timelineScroll);
     d->table = new QTableView(this);
     d->table->setObjectName(QStringLiteral("scheduleDocumentTable"));
-    d->table->setAccessibleName(QStringLiteral("Интервалы вещания и запланированные вставки"));
+    d->table->setAccessibleName(QStringLiteral("Вставки и чередование: время и условия запуска"));
     d->table->setModel(d->model);
     d->table->setFrameShape(QFrame::NoFrame);
     d->table->setShowGrid(false);
@@ -417,10 +446,11 @@ ScheduleDocumentPreview::ScheduleDocumentPreview(QWidget *parent) : QWidget(pare
     d->timeline->rowSelected = [this](int row, const QString &playlistId) {
         {
             const QSignalBlocker blocker(d->table->selectionModel());
-            (d->table->isHidden() ? static_cast<QWidget *>(d->timeline) : d->table)->setFocus(Qt::MouseFocusReason);
+            const bool tableRowVisible = !d->table->isHidden() && row >= 0 && !d->table->isRowHidden(row);
+            (tableRowVisible ? static_cast<QWidget *>(d->table) : d->timeline)->setFocus(Qt::MouseFocusReason);
             if (row >= 0) {
                 d->table->selectRow(row);
-                d->table->scrollTo(d->model->index(row, 0));
+                if (tableRowVisible) d->table->scrollTo(d->model->index(row, 0));
                 d->timeline->selected = row;
                 d->timeline->selectedPlaylist = playlistId;
             } else {
@@ -493,7 +523,8 @@ void ScheduleDocumentPreview::selectPlaylist(const QString &playlistId)
     }
     if (selected >= 0) {
         d->table->selectRow(selected);
-        d->table->scrollTo(d->model->index(selected, 0));
+        if (!d->table->isHidden() && !d->table->isRowHidden(selected))
+            d->table->scrollTo(d->model->index(selected, 0));
     } else {
         d->table->selectionModel()->clear();
     }
@@ -677,8 +708,14 @@ void ScheduleDocumentPreview::setPlan(const ScheduleV1::Document &document, cons
     if (!d->snapshot.nextAdvertTime.isValid()) d->snapshot.nextAdvertSummary = tr("В выбранные сутки вставок больше нет");
     d->table->setColumnWidth(0, offsets ? 250 : 160);
     d->model->replace(std::move(rows));
-    d->table->setVisible(std::any_of(d->model->rows.cbegin(), d->model->rows.cend(),
-                                   [](const Row &row) { return row.event || row.mixed; }));
+    bool hasSpecialRows = false;
+    for (int i = 0; i < d->model->rows.size(); ++i) {
+        const auto &row = d->model->rows.at(i);
+        const bool special = row.event || row.mixed;
+        d->table->setRowHidden(i, !special);
+        hasSpecialRows |= special;
+    }
+    d->table->setVisible(hasSpecialRows);
     d->timeline->from = from; d->timeline->until = until; d->timeline->at = at;
     d->timeline->planValid = !diagnostic;
     d->timeline->rebuildLanes();

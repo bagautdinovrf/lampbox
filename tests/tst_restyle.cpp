@@ -735,7 +735,10 @@ int captureSchedule(MainWindow &window, const QString &directory)
     if (!QDir().mkpath(directory)) return 2;
     if (!Restyle::verifiedCyrillicFont())
         qFatal("Schedule capture requires a verified Cyrillic font");
-    Restyle::apply("tide-relief", "denim");
+    auto *appearance = window.findChild<QComboBox *>("appearancePicker");
+    auto *theme = window.findChild<QComboBox *>("themePicker");
+    choose(appearance, "tide-relief");
+    choose(theme, "berry");
     window.resize(1440, 900);
     window.show();
     settle();
@@ -748,7 +751,7 @@ int captureSchedule(MainWindow &window, const QString &directory)
     const QDate date = QDate::currentDate();
     panel->setPreviewDateTime(QDateTime(date, QTime(10, 24)));
     settle();
-    if (panel->snapshot().hasUnresolvedRules || table->model()->rowCount() == 0)
+    if (panel->snapshot().hasUnresolvedRules)
         qFatal("Schedule fixture has no valid plan: %s", qPrintable(panel->snapshot().issues.join('\n')));
 
     QJsonArray captures;
@@ -758,14 +761,19 @@ int captureSchedule(MainWindow &window, const QString &directory)
         if (!pixmap.save(directory + '/' + name + ".png"))
             qFatal("Cannot save schedule preview image");
         QJsonArray rows;
+        int visibleRowCount = 0;
         for (int row = 0; row < table->model()->rowCount(); ++row) {
             QJsonArray cells;
             for (int column = 0; column < table->model()->columnCount(); ++column)
                 cells.append(table->model()->index(row, column).data().toString());
             rows.append(cells);
+            if (table->isVisible() && !table->isRowHidden(row))
+                ++visibleRowCount;
         }
         QJsonObject item{{"id", name}, {"width", window.width()}, {"height", window.height()},
             {"pixelWidth", pixmap.width()}, {"pixelHeight", pixmap.height()}, {"dpr", pixmap.devicePixelRatio()},
+            {"appearance", Restyle::appearanceId()}, {"theme", Restyle::themeId()},
+            {"tableVisible", table->isVisible()}, {"visibleRowCount", visibleRowCount},
             {"date", panel->previewDateTime().date().toString(Qt::ISODate)},
             {"time", panel->previewDateTime().time().toString("HH:mm")},
             {"summary", panel->snapshot().currentSummary}, {"rows", rows},
@@ -784,7 +792,18 @@ int captureSchedule(MainWindow &window, const QString &directory)
         item.insert("dialogs", dialogs);
         captures.append(item);
     };
-    save("01-channel-lanes");
+    auto saveVariants = [&](const QString &prefix) {
+        choose(appearance, "tide-relief");
+        for (const QString &themeId : {QStringLiteral("berry"), QStringLiteral("denim"), QStringLiteral("dark")}) {
+            choose(theme, themeId);
+            save(prefix + "-tide-relief-" + themeId);
+        }
+        choose(appearance, "tide");
+        choose(theme, "berry");
+        save(prefix + "-tide-berry");
+        choose(appearance, "tide-relief");
+    };
+    saveVariants("01-channel-lanes");
     bool saved = false;
     QTimer::singleShot(100, &window, [&] {
         auto *dialog = window.findChild<QDialog *>("scheduledDocumentDialog");
@@ -824,7 +843,7 @@ int captureSchedule(MainWindow &window, const QString &directory)
         qFatal("Adding a schedule rule replaced the schedule grid");
     if (!panel->snapshot().currentSummary.contains(QStringLiteral(" → ")))
         qFatal("Alternation is missing from the captured schedule plan");
-    save("03-channel-lanes-with-alternation");
+    saveVariants("03-channel-lanes-with-alternation");
     const QJsonObject report{{"captures", captures}, {"fontFamily", Restyle::fontFamily()},
         {"cyrillicVerified", Restyle::verifiedCyrillicFont()}, {"platform", QGuiApplication::platformName()},
         {"sameGridAfterSaving", true}, {"fixture", "Temporary isolated station; rule added and saved through schedule settings"}};

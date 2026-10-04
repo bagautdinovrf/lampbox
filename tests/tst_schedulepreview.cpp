@@ -112,6 +112,7 @@ private slots:
     void documentGridSelectsAndEditsChannelsById();
     void additionalRulesKeepTheSameGrid();
     void channelOnlyTableIsHiddenAndTimelineStillEdits();
+    void tableShowsOnlyInsertionsAndMixing();
     void invalidDocumentClearsGrid();
     void overlappingDocumentShowsErrorAndRecovers();
     void externalDocumentErrorClearsPlanAndRecovers();
@@ -425,6 +426,84 @@ void SchedulePreviewTests::channelOnlyTableIsHiddenAndTimelineStillEdits()
     QVERIFY(tableText(table).contains(QStringLiteral("Тишина")));
     widget.clearDocument();
     QVERIFY(table->isHidden());
+}
+
+void SchedulePreviewTests::tableShowsOnlyInsertionsAndMixing()
+{
+    QStandardItemModel model(0, 7);
+    channel(model, QStringLiteral("Первый"));
+    channel(model, QStringLiteral("Второй"));
+    model.setData(model.index(0, 0), id(11), ChannelModel::RuleIdRole);
+    model.setData(model.index(1, 0), id(12), ChannelModel::RuleIdRole);
+    auto document = documentFixture();
+    const auto when = document.value(QStringLiteral("baseRules")).toArray().first().toObject().value("when");
+    document.insert(QStringLiteral("mixRules"), QJsonArray{QJsonObject{
+        {"id", id(70)}, {"name", QStringLiteral("Утреннее чередование")}, {"enabled", true}, {"priority", 10},
+        {"when", when},
+        {"windows", QJsonArray{QJsonObject{{"from", "00:00:00"}, {"until", "06:00:00"}, {"untilDayOffset", 0}}}},
+        {"pattern", QJsonArray{QJsonObject{{"type", "active_base"}},
+                              QJsonObject{{"type", "playlist"}, {"playlistId", id(12)}}}},
+        {"emptyAdditionalSource", "use_base"}}});
+    auto events = document.value(QStringLiteral("eventRules")).toArray();
+    auto interrupt = events.first().toObject();
+    interrupt.insert(QStringLiteral("id"), id(51));
+    interrupt.insert(QStringLiteral("times"), QJsonArray{"18:15:00"});
+    auto delivery = interrupt.value(QStringLiteral("delivery")).toObject();
+    delivery.insert(QStringLiteral("start"), QStringLiteral("interrupt"));
+    interrupt.insert(QStringLiteral("delivery"), delivery);
+    events.append(interrupt);
+    document.insert(QStringLiteral("eventRules"), events);
+    document.insert(QStringLiteral("requiredCapabilities"), QJsonArray::fromStringList(ScheduleV1::requiredCapabilities(document)));
+
+    SchedulePreviewWidget widget;
+    widget.setModels(&model);
+    widget.setPreviewDateTime(at(2026, 10, 4));
+    widget.setDocument(document);
+    widget.resize(1177, 349);
+    widget.show();
+    QApplication::processEvents();
+    auto *table = widget.findChild<QTableView *>(QStringLiteral("scheduleDocumentTable"));
+    auto *timeline = widget.findChild<QWidget *>(QStringLiteral("scheduleDocumentTimeline"));
+    QVERIFY(table && timeline);
+    QVERIFY(!widget.snapshot().hasUnresolvedRules);
+    QVERIFY(!table->isHidden());
+    int insertions = 0, mixing = 0, ordinary = 0;
+    for (int row = 0; row < table->model()->rowCount(); ++row) {
+        const auto mode = table->model()->index(row, 2).data().toString();
+        if (mode.startsWith(QStringLiteral("Вставка"))) {
+            QVERIFY(!table->isRowHidden(row));
+            ++insertions;
+        } else if (mode == QStringLiteral("Чередование")) {
+            QVERIFY(!table->isRowHidden(row));
+            ++mixing;
+        } else {
+            QVERIFY(table->isRowHidden(row));
+            ++ordinary;
+        }
+    }
+    QCOMPARE(insertions, 2);
+    QCOMPARE(mixing, 1);
+    QCOMPARE(ordinary, 2);
+
+    // A plain interval remains editable on its lane while the event table is visible.
+    QSignalSpy edits(&widget, &SchedulePreviewWidget::editRequested);
+    QTest::mouseClick(timeline, Qt::LeftButton, Qt::NoModifier, QPoint(timeline->width() * 3 / 4, 68));
+    QCOMPARE(widget.selectedRow(), 1);
+    QVERIFY(timeline->hasFocus());
+    QVERIFY(table->isRowHidden(table->currentIndex().row()));
+    QTest::keyClick(timeline, Qt::Key_Return);
+    QCOMPARE(edits.size(), 1);
+    QCOMPARE(edits.first().first().toInt(), 1);
+
+    widget.setPreviewDateTime(at(2026, 10, 5));
+    QVERIFY(table->isHidden());
+    QCOMPARE(table->model()->rowCount(), 1);
+    QVERIFY(table->isRowHidden(0));
+    widget.setPreviewDateTime(at(2026, 10, 4));
+    QVERIFY(!table->isHidden());
+    QCOMPARE(table->model()->rowCount(), 5);
+    QVERIFY(!table->isRowHidden(0));
+    QVERIFY(table->isRowHidden(1));
 }
 
 void SchedulePreviewTests::invalidDocumentClearsGrid()
