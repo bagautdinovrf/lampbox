@@ -8,6 +8,7 @@
 #include <QAbstractProxyModel>
 #include <QApplication>
 #include <QComboBox>
+#include <QCheckBox>
 #include <QDateEdit>
 #include <QEvent>
 #include <QGridLayout>
@@ -121,6 +122,7 @@ QString validate(ChannelRuleValues &v, const QStringList &names = {})
     rule.months = v.months;
     rule.volume = v.volume;
     rule.order = v.order;
+    rule.untilDayOffset = v.untilDayOffset;
     return ScheduleCore::validateChannel(rule);
 }
 
@@ -460,7 +462,7 @@ void sizeDialog(QDialog *dialog, Form &form, bool channel)
 {
     form.volume->setFixedHeight(Restyle::tokens().relief ? 17 : 26);
     const QSize available = dialog->screen()->availableGeometry().size() - QSize(24, 60);
-    const int targetHeight = (channel ? 677 : 641) + (Restyle::tokens().relief ? 0 : 9);
+    const int targetHeight = (channel ? 713 : 641) + (Restyle::tokens().relief ? 0 : 9);
     dialog->resize(qMin(600, available.width()), qMin(targetHeight, available.height()));
     dialog->setMinimumSize(qMin(400, available.width()), qMin(380, available.height()));
     auto p = form.error->palette();
@@ -539,6 +541,13 @@ bool apply(QAbstractItemModel *model, int row, const QList<QVariant> &values, in
         nextValues << values[7];
         roles << ChannelModel::PlaybackOrderRole;
     }
+    if (first == 0 && values.size() > 8) {
+        const QModelIndex index = model->index(row, 0);
+        indices << QPersistentModelIndex(index);
+        old << index.data(ChannelModel::UntilDayOffsetRole);
+        nextValues << values[8];
+        roles << ChannelModel::UntilDayOffsetRole;
+    }
     QList<int> changed;
     for (int i = 0; i < indices.size(); ++i) {
         const QVariant &next = nextValues[i];
@@ -578,6 +587,10 @@ struct ChannelRuleDialog::Private {
     QLineEdit *days;
     QWidget *months;
     QComboBox *order;
+    QCheckBox *fullDay;
+    QCheckBox *nextDay;
+    QTime savedStart, savedEnd;
+    bool savedNextDay = false;
     bool remove = false;
 };
 
@@ -604,16 +617,46 @@ ChannelRuleDialog::ChannelRuleDialog(const ChannelRuleValues &initial, const QSt
     d->order->addItem(QStringLiteral("Случайно"), QStringLiteral("shuffle_cycle"));
     d->order->setCurrentIndex(d->order->findData(initial.order));
     d->order->setToolTip(QStringLiteral("По порядку — по имени файла. Случайно — все треки без повторов, затем новый случайный круг."));
+    d->fullDay = new QCheckBox(QStringLiteral("Полные сутки"));
+    d->fullDay->setObjectName(QStringLiteral("channelFullDay"));
+    d->nextDay = new QCheckBox(QStringLiteral("Окончание на следующий день"));
+    d->nextDay->setObjectName(QStringLiteral("channelNextDay"));
+    d->nextDay->setChecked(initial.untilDayOffset == 1);
+    d->savedStart = initial.start; d->savedEnd = initial.end;
+    d->savedNextDay = initial.untilDayOffset == 1;
+    connect(d->fullDay, &QCheckBox::toggled, this, [this](bool checked) {
+        if (checked) {
+            d->savedStart = d->start->time(); d->savedEnd = d->end->time();
+            d->savedNextDay = d->nextDay->isChecked();
+            d->start->setTime(QTime(0, 0)); d->end->setTime(QTime(0, 0));
+            d->start->setProperty("invalidOriginal", false);
+            d->end->setProperty("invalidOriginal", false);
+            d->nextDay->setChecked(true);
+        } else {
+            d->start->setTime(d->savedStart); d->end->setTime(d->savedEnd);
+            d->nextDay->setChecked(d->savedNextDay);
+        }
+        d->start->setEnabled(!checked); d->end->setEnabled(!checked);
+        d->nextDay->setEnabled(!checked);
+    });
+    d->fullDay->setChecked(initial.untilDayOffset == 1 && initial.start == QTime(0, 0) && initial.end == QTime(0, 0));
+    auto *windowOptions = new QWidget;
+    auto *windowLayout = new QHBoxLayout(windowOptions);
+    windowLayout->setContentsMargins(0, 0, 0, 0);
+    windowLayout->addWidget(d->fullDay); windowLayout->addWidget(d->nextDay);
+    windowLayout->addStretch();
+    windowOptions->setToolTip(QStringLiteral("Календарные условия относятся к дню начала интервала. Окончание исключено."));
     auto *grid = d->form.grid;
     grid->addWidget(field(QStringLiteral("Название канала"), d->name), 0, 0);
     grid->addWidget(field(QStringLiteral("Порядок треков"), d->order), 0, 1);
     grid->addWidget(field(QStringLiteral("Начало"), d->start), 1, 0);
     grid->addWidget(field(QStringLiteral("Окончание"), d->end), 1, 1);
-    grid->addWidget(field(QStringLiteral("Дни недели"), d->weekdays), 2, 0, 1, 2);
+    grid->addWidget(windowOptions, 2, 0, 1, 2);
+    grid->addWidget(field(QStringLiteral("Дни недели"), d->weekdays), 3, 0, 1, 2);
     grid->addWidget(field(QStringLiteral("Дни месяца"), d->days,
-                          QStringLiteral("Отдельные дни и диапазоны от 1 до 31. * — все дни.")), 3, 0, 1, 2);
-    grid->addWidget(field(QStringLiteral("Месяцы"), d->months), 4, 0, 1, 2);
-    grid->addWidget(volumeField(d->form, initial.volume), 5, 0, 1, 2);
+                          QStringLiteral("Отдельные дни и диапазоны от 1 до 31. * — все дни.")), 4, 0, 1, 2);
+    grid->addWidget(field(QStringLiteral("Месяцы"), d->months), 5, 0, 1, 2);
+    grid->addWidget(volumeField(d->form, initial.volume), 6, 0, 1, 2);
     sizeDialog(this, d->form, true);
     d->name->setFocus();
 }
@@ -626,7 +669,7 @@ ChannelRuleValues ChannelRuleDialog::values() const
             d->end->property("invalidOriginal").toBool() ? QTime() : d->end->time(),
             pickerValue(d->weekdays), d->days->text(), pickerValue(d->months),
             d->form.volume->property("invalidOriginal").toBool() ? -1 : d->form.volume->value(),
-            d->order->currentData().toString()};
+            d->order->currentData().toString(), d->nextDay->isChecked() ? 1 : 0};
 }
 
 void ChannelRuleDialog::accept()
@@ -803,7 +846,7 @@ bool applyChannel(QAbstractItemModel *model, int row, const ChannelRuleValues &v
     if (!model) return false;
     auto v = values;
     if (!validate(v, channelNames(model, row)).isEmpty()) return false;
-    return apply(model, row, {v.name, v.start, v.end, v.weekdays, v.days, v.months, v.volume, v.order}, 0);
+    return apply(model, row, {v.name, v.start, v.end, v.weekdays, v.days, v.months, v.volume, v.order, v.untilDayOffset}, 0);
 }
 
 bool applyAdvert(QAbstractItemModel *model, int row, const AdvertRuleValues &values)
@@ -822,6 +865,7 @@ bool editChannel(QAbstractItemModel *model, int row, QWidget *parent, const std:
                               read(model, row, 3).toString(), read(model, row, 4).toString(), read(model, row, 5).toString(), read(model, row, 6).toInt()};
     const QVariant order = model->index(row, 0).data(ChannelModel::PlaybackOrderRole);
     if (order.isValid()) initial.order = order.toString();
+    initial.untilDayOffset = model->index(row, 0).data(ChannelModel::UntilDayOffsetRole).toInt();
     ChannelRuleDialog dialog(initial, channelNames(model, row), parent);
     if (deleteAction) dialog.enableDelete();
     if (dialog.exec() != QDialog::Accepted) {

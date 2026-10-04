@@ -53,6 +53,8 @@ QVariant ChannelModel::data(const QModelIndex &index, int nRole) const
     if (!index.isValid() || index.row() < 0 || index.row() >= rowCount() || index.column() >= columnCount())
         return QVariant();
 
+    if (nRole == UntilDayOffsetRole)
+        return mChannelManager_->channel(index.row()).untilDayOffset();
     if (nRole == PlaybackOrderRole)
         return mChannelManager_->channel(index.row()).playbackOrder();
 
@@ -66,7 +68,9 @@ QVariant ChannelModel::data(const QModelIndex &index, int nRole) const
             case 1:
                 return QVariant( mChannelManager_->channel(row).startTime().toString("HH:mm") );
             case 2:
-                return QVariant( mChannelManager_->channel(row).endTime().toString("HH:mm") );
+                return mChannelManager_->channel(row).endTime().toString("HH:mm")
+                        + (nRole == Qt::DisplayRole && mChannelManager_->channel(row).untilDayOffset() == 1
+                           ? QStringLiteral(" +1 день") : QString());
             case 3:
                 return QVariant( mChannelManager_->channel(row).daysOfWeek() );
             case 4:
@@ -84,13 +88,16 @@ QVariant ChannelModel::data(const QModelIndex &index, int nRole) const
 
 bool ChannelModel::setData(const QModelIndex &index, const QVariant &value, int role)
 {
-    if (!index.isValid() || index.model() != this || (role != Qt::EditRole && role != PlaybackOrderRole)
+    if (!index.isValid() || index.model() != this || (role != Qt::EditRole && role != PlaybackOrderRole && role != UntilDayOffsetRole)
             || index.row() >= rowCount() || index.column() < 0 || index.column() >= 7)
         return false;
     QVariantList fields;
     for (int column = 0; column < 7; ++column)
         fields.append(data(this->index(index.row(), column), Qt::EditRole));
-    if (role == PlaybackOrderRole) fields.append(value);
+    fields.append(data(index, PlaybackOrderRole));
+    fields.append(data(index, UntilDayOffsetRole));
+    if (role == PlaybackOrderRole) fields[7] = value;
+    else if (role == UntilDayOffsetRole) fields[8] = value;
     else fields[index.column()] = value;
     return setRule(index.row(), fields);
 }
@@ -98,7 +105,7 @@ bool ChannelModel::setData(const QModelIndex &index, const QVariant &value, int 
 bool ChannelModel::setRule(int row, const QVariantList &fields)
 {
     if (!mChannelManager_->setRule(row, fields)) return false;
-    emit dataChanged(index(row, 0), index(row, 6), {Qt::DisplayRole, Qt::EditRole, PlaybackOrderRole});
+    emit dataChanged(index(row, 0), index(row, 6), {Qt::DisplayRole, Qt::EditRole, PlaybackOrderRole, UntilDayOffsetRole});
     return true;
 }
 

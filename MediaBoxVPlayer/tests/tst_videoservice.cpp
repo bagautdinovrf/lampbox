@@ -137,11 +137,53 @@ private slots:
         for (const QString &id : {QStringLiteral("left"), QStringLiteral("right")}) {
             QCOMPARE(playback(restored, id).value("playbackMode").toString(), QStringLiteral("manual"));
             QCOMPARE(playback(restored, id).value("state").toString(), QStringLiteral("stopped"));
-            QVERIFY(!playback(restored, id).value("scheduleAvailable").toBool());
-            QCOMPARE(command(restored, "schedule", id).value("error").toObject().value("code").toString(),
-                     QStringLiteral("schedule_unavailable"));
+            QCOMPARE(playback(restored, id).value("scheduleAvailable").toBool(), id == QStringLiteral("left"));
+            if (id == QStringLiteral("left"))
+                QVERIFY(command(restored, "schedule", id).value("ok").toBool());
+            else
+                QCOMPARE(command(restored, "schedule", id).value("error").toObject().value("code").toString(),
+                         QStringLiteral("schedule_unavailable"));
         }
         for (const auto &backend : backends) QCOMPARE(backend->playCalls, 0);
+    }
+
+    void activeFullDaySchedulesResumePerWindowAfterRestart()
+    {
+        QTemporaryDir directory;
+        const QString first = createVideo(directory, "first.mp4");
+        const QString missing = createVideo(directory, "missing.mp4");
+        const QJsonObject channel{{"id", "all-day"}, {"name", "Полные сутки"},
+            {"start", "00:00"}, {"end", "00:00"}, {"untilDayOffset", 1},
+            {"weekdays", "*"}, {"days", "*"}, {"months", "*"}, {"volume", 65},
+            {"order", "sequential"}, {"paths", QJsonArray{first, missing}}};
+        const QJsonObject schedule{{"channels", QJsonArray{channel}}, {"adverts", QJsonArray{}}};
+        {
+            VideoService service(directory.path(), createBackend);
+            QVERIFY(service.execute(configureRequest("running")).value("ok").toBool());
+            QVERIFY(service.execute(configureRequest("stopped")).value("ok").toBool());
+            for (const QString &id : {QStringLiteral("running"), QStringLiteral("stopped")})
+                QVERIFY(command(service, "schedule", id, {{"schedule", schedule}}).value("ok").toBool());
+            QVERIFY(command(service, "mute", "running", {{"value", true}}).value("ok").toBool());
+            QVERIFY(command(service, "seek", "running", {{"positionMs", 1234}}).value("ok").toBool());
+            QVERIFY(command(service, "stop", "stopped").value("ok").toBool());
+        }
+        QVERIFY(QFile::remove(missing));
+        VideoService restored(directory.path(), createBackend);
+        QString error;
+        QVERIFY2(restored.restore(&error), qPrintable(error));
+        const auto running = playback(restored, "running");
+        QVERIFY(running.value("supportedCapabilities").toArray().isEmpty());
+        QCOMPARE(running.value("playbackMode").toString(), QStringLiteral("schedule"));
+        QCOMPARE(running.value("state").toString(), QStringLiteral("playing"));
+        QCOMPARE(running.value("queue").toArray(), QJsonArray{first});
+        QVERIFY(running.value("muted").toBool());
+        QCOMPARE(running.value("volumePercent").toInt(), 65);
+        QCOMPARE(running.value("positionMs").toInteger(), 0);
+        QVERIFY(windowStatus(restored, "running").value("restoreError").toString().contains(missing));
+        const auto stopped = playback(restored, "stopped");
+        QCOMPARE(stopped.value("playbackMode").toString(), QStringLiteral("manual"));
+        QCOMPARE(stopped.value("state").toString(), QStringLiteral("stopped"));
+        QVERIFY(stopped.value("scheduleAvailable").toBool());
     }
 
     void unavailableSavedDisplayRejectsScheduledAndChannelPlayback()

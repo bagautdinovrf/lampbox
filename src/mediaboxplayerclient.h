@@ -39,6 +39,10 @@ struct PlayerStatus
     QString channelName;
     bool scheduleAvailable = false;
     QString scheduleError;
+    QString publicationId;
+    QString scheduleId;
+    int revision = 0;
+    QStringList supportedCapabilities;
 };
 
 Q_DECLARE_METATYPE(PlayerConnectionSettings)
@@ -98,6 +102,8 @@ public:
     QString setRepeat(const QString &mode);
     QString clear();
     QString setSchedule(const QJsonObject &schedule);
+    QString setPublication(const QByteArray &snapshot, const QJsonObject &active,
+                           const QString &contentRoot, bool autoplay);
     QString startSchedule(const QJsonObject &schedule = {});
     QString playChannel(const QString &name, const QStringList &paths, int volume,
                         const QString &order = QStringLiteral("shuffle_cycle"));

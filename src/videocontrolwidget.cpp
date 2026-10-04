@@ -20,10 +20,21 @@
 #include <QScrollArea>
 #include <QSignalBlocker>
 #include <QSplitter>
+#include <QSlider>
+#include <QTimer>
+#include <QFileInfo>
 #include <QUuid>
 #include <QVBoxLayout>
 
 namespace {
+constexpr int seekSteps = 10000;
+constexpr qint64 maximumSeekPosition = 9007199254740991LL;
+QString timeText(qint64 milliseconds)
+{
+    const qint64 seconds = qMax(qint64(0), milliseconds) / 1000;
+    return QStringLiteral("%1:%2:%3").arg(seconds / 3600, 2, 10, QLatin1Char('0'))
+            .arg((seconds / 60) % 60, 2, 10, QLatin1Char('0')).arg(seconds % 60, 2, 10, QLatin1Char('0'));
+}
 QString newId() { return QUuid::createUuid().toString(QUuid::WithoutBraces); }
 
 QPushButton *button(const QString &text, const char *name, QWidget *parent, bool primary = false)
@@ -176,6 +187,36 @@ VideoControlWidget::VideoControlWidget(QWidget *parent, MediaBoxVPlayerClient *c
     mConfirmed = label({}, playback, "videoConfirmedStatus");
     mConfirmed->setMinimumHeight(45);
     playbackLayout->addWidget(mConfirmed);
+    auto *seekRow = new QHBoxLayout;
+    mPosition = label(tr("Позиция: —"), playback, "videoPosition");
+    mPosition->setWordWrap(false);
+    seekRow->addWidget(mPosition);
+    mSeek = new QSlider(Qt::Horizontal, playback);
+    mSeek->setObjectName(QStringLiteral("videoSeek"));
+    mSeek->setAccessibleName(tr("Позиция видео выбранного окна"));
+    mSeek->setRange(0, seekSteps); mSeek->setPageStep(seekSteps / 20);
+    seekRow->addWidget(mSeek, 1);
+    playbackLayout->addLayout(seekRow);
+    auto *soundRow = new QHBoxLayout;
+    mVolumeLabel = label(tr("Громкость: —"), playback, "videoVolumeLabel");
+    mVolumeLabel->setWordWrap(false);
+    soundRow->addWidget(mVolumeLabel);
+    mVolume = new QSlider(Qt::Horizontal, playback);
+    mVolume->setObjectName(QStringLiteral("videoVolume"));
+    mVolume->setAccessibleName(tr("Громкость выбранного видеоокна"));
+    mVolume->setRange(0, 100); mVolume->setMaximumWidth(170);
+    soundRow->addWidget(mVolume, 1);
+    mMuted = new QCheckBox(tr("Без звука"), playback);
+    mMuted->setObjectName(QStringLiteral("videoMuted"));
+    soundRow->addWidget(mMuted);
+    mRepeat = new QComboBox(playback);
+    mRepeat->setObjectName(QStringLiteral("videoRepeat"));
+    mRepeat->setAccessibleName(tr("Повтор видео выбранного окна"));
+    mRepeat->addItem(tr("Без повтора"), QStringLiteral("off"));
+    mRepeat->addItem(tr("Повтор очереди"), QStringLiteral("all"));
+    mRepeat->addItem(tr("Повтор файла"), QStringLiteral("one"));
+    soundRow->addWidget(mRepeat);
+    playbackLayout->addLayout(soundRow);
     mSelectedChannel = label({}, playback, "videoSelectedChannel");
     mSelectedChannel->setColorRole(QStringLiteral("muted"));
     playbackLayout->addWidget(mSelectedChannel);
@@ -197,8 +238,23 @@ VideoControlWidget::VideoControlWidget(QWidget *parent, MediaBoxVPlayerClient *c
     mTransportButtons = {previous, play, pause, stop, next};
     for (auto *action : mTransportButtons) transport->addWidget(action);
     playbackLayout->addLayout(transport);
-    mToggleFullscreen = button(tr("Переключить полный экран"), "videoToggleFullscreen", playback);
-    playbackLayout->addWidget(mToggleFullscreen, 0, Qt::AlignLeft);
+    mToggleFullscreen = button(tr("Полный экран"), "videoToggleFullscreen", playback);
+    mToggleFullscreen->setToolTip(tr("Переключить полный экран выбранного видеоокна"));
+    modeActions->insertWidget(2, mToggleFullscreen);
+    auto *queueActions = new QHBoxLayout;
+    mQueueLabel = label({}, playback, "videoQueueLabel");
+    queueActions->addWidget(mQueueLabel, 1);
+    mEnqueue = button(tr("Плейлист в очередь"), "videoEnqueue", playback);
+    mEnqueue->setToolTip(tr("Добавить все файлы выбранного плейлиста в конец фактической очереди окна."));
+    mClearQueue = button(tr("Очистить очередь"), "videoClearQueue", playback);
+    queueActions->addWidget(mEnqueue); queueActions->addWidget(mClearQueue);
+    playbackLayout->addLayout(queueActions);
+    mQueue = new QListWidget(playback);
+    mQueue->setObjectName(QStringLiteral("videoConfirmedQueue"));
+    mQueue->setAccessibleName(tr("Фактическая очередь выбранного видеоокна"));
+    mQueue->setSelectionMode(QAbstractItemView::NoSelection);
+    mQueue->setMinimumHeight(65); mQueue->setMaximumHeight(95);
+    playbackLayout->addWidget(mQueue);
     rightLayout->addWidget(playback);
     splitter->addWidget(sidebar);
     splitter->addWidget(mEditor);
@@ -249,6 +305,36 @@ VideoControlWidget::VideoControlWidget(QWidget *parent, MediaBoxVPlayerClient *c
         const auto *playlist = selectedPlaylist();
         if (profile && playlist)
             submit(mClient->load(profile->id, playlist->paths, 0, false), tr("Загрузка плейлиста"));
+    });
+    connect(mSeek, &QSlider::sliderPressed, this, &VideoControlWidget::beginSeek);
+    connect(mSeek, &QSlider::sliderReleased, this, &VideoControlWidget::commitSeek);
+    connect(mVolume, &QSlider::sliderPressed, this, &VideoControlWidget::beginVolume);
+    connect(mVolume, &QSlider::sliderReleased, this, &VideoControlWidget::commitVolume);
+    connect(mSeek, &QSlider::actionTriggered, this, [this] {
+        if (!mSeek->isSliderDown()) { beginSeek(); QTimer::singleShot(0, this, &VideoControlWidget::commitSeek); }
+    });
+    connect(mVolume, &QSlider::actionTriggered, this, [this] {
+        if (!mVolume->isSliderDown()) { beginVolume(); QTimer::singleShot(0, this, &VideoControlWidget::commitVolume); }
+    });
+    connect(mMuted, &QCheckBox::clicked, this, [this](bool muted) {
+        if (const auto *window = confirmedWindow(); window && mPending.isEmpty())
+            submit(mClient->setMuted(window->id, muted), tr("Звук видеоокна"));
+        refreshPlayback();
+    });
+    connect(mRepeat, &QComboBox::activated, this, [this](int index) {
+        if (const auto *window = confirmedWindow(); window && mPending.isEmpty())
+            submit(mClient->setRepeat(window->id, mRepeat->itemData(index).toString()), tr("Повтор видео"));
+        refreshPlayback();
+    });
+    connect(mEnqueue, &QPushButton::clicked, this, [this] {
+        const auto *window = confirmedWindow();
+        const auto *playlist = selectedPlaylist();
+        if (window && playlist && !playlist->paths.isEmpty() && mPending.isEmpty())
+            submit(mClient->enqueue(window->id, playlist->paths), tr("Добавление плейлиста в очередь"));
+    });
+    connect(mClearQueue, &QPushButton::clicked, this, [this] {
+        if (const auto *window = confirmedWindow(); window && mPending.isEmpty())
+            submit(mClient->clear(window->id), tr("Очистка очереди"));
     });
     connect(mSchedule, &QPushButton::clicked, this, [this] { startSelectedSchedule(); });
     connect(mPlayChannel, &QPushButton::clicked, this, [this] { playSelectedChannel(); });
@@ -507,6 +593,11 @@ void VideoControlWidget::refreshWindows(const QString &select)
 void VideoControlWidget::refreshEditor()
 {
     mUpdating = true;
+    mSeekWindow.clear(); mVolumeWindow.clear();
+    {
+        const QSignalBlocker seekBlocker(mSeek), volumeBlocker(mVolume);
+        mSeek->setSliderDown(false); mVolume->setSliderDown(false);
+    }
     const auto *profile = selectedWindow();
     mEditor->setEnabled(profile);
     mName->setText(profile ? profile->name : QString());
@@ -606,6 +697,86 @@ void VideoControlWidget::refreshStatus()
                 + (playback.scheduleError.isEmpty() ? QString() : tr("\nРасписание: %1").arg(playback.scheduleError))
                 + (confirmed->restoreError.isEmpty() ? QString() : tr("\nВосстановление: %1").arg(confirmed->restoreError)));
     }
+    refreshPlayback();
+}
+
+void VideoControlWidget::refreshPlayback()
+{
+    const auto *window = confirmedWindow();
+    const PlayerStatus status = window ? window->playback : PlayerStatus{};
+    mPosition->setText(window ? tr("%1 / %2").arg(timeText(status.positionMs),
+                         status.durationMs > 0 ? timeText(status.durationMs) : tr("—")) : tr("Позиция: —"));
+    if (!mSeek->isSliderDown()) {
+        const QSignalBlocker blocker(mSeek);
+        mSeek->setValue(window && status.durationMs > 0
+            ? int(qBound(0.0, double(status.positionMs) / double(status.durationMs), 1.0) * seekSteps) : 0);
+    }
+    mSeek->setToolTip(window && status.durationMs > 0 ? tr("Перемотка после отпускания ползунка")
+                          : tr("Перемотка доступна после получения длительности"));
+    if (!mVolume->isSliderDown()) {
+        const QSignalBlocker blocker(mVolume);
+        mVolume->setValue(window ? status.volumePercent : 0);
+    }
+    mVolumeLabel->setText(window ? tr("Громкость: %1%").arg(status.volumePercent) : tr("Громкость: —"));
+    const QSignalBlocker muteBlocker(mMuted), repeatBlocker(mRepeat);
+    mMuted->setChecked(window && status.muted);
+    mRepeat->setCurrentIndex(window ? mRepeat->findData(status.repeat) : -1);
+    mQueueLabel->setText(window ? tr("Очередь плеера · %1").arg(status.queue.size()) : tr("Очередь · нет данных"));
+    const QString windowId = window ? window->id : QString();
+    if (mDisplayedWindow != windowId || mDisplayedQueue != status.queue || mDisplayedIndex != status.currentIndex) {
+        mQueue->clear();
+        for (int i = 0; i < status.queue.size(); ++i) {
+            const QString path = status.queue.at(i);
+            auto *item = new QListWidgetItem(tr("%1. %2").arg(i + 1).arg(QFileInfo(path).fileName()), mQueue);
+            item->setData(Qt::UserRole, path);
+            item->setToolTip(path);
+            item->setFont(Restyle::font(11, i == status.currentIndex ? QFont::DemiBold : QFont::Normal));
+            if (i == status.currentIndex) {
+                item->setIcon(Restyle::icon(QStringLiteral("play")));
+                item->setBackground(Restyle::tokens().accentSoft);
+                item->setForeground(Restyle::tokens().accentText);
+            }
+        }
+        if (status.currentIndex >= 0 && status.currentIndex < mQueue->count())
+            mQueue->scrollToItem(mQueue->item(status.currentIndex));
+        mDisplayedWindow = windowId; mDisplayedQueue = status.queue; mDisplayedIndex = status.currentIndex;
+    }
+}
+
+void VideoControlWidget::beginSeek()
+{
+    const auto *window = confirmedWindow();
+    mSeekWindow = window ? window->id : QString();
+    mSeekTrack = window ? window->playback.currentTrack : QString();
+    mSeekIndex = window ? window->playback.currentIndex : -1;
+}
+
+void VideoControlWidget::beginVolume()
+{
+    const auto *window = confirmedWindow();
+    mVolumeWindow = window ? window->id : QString();
+}
+
+void VideoControlWidget::commitSeek()
+{
+    const auto *window = confirmedWindow();
+    if (window && mPending.isEmpty() && window->id == mSeekWindow && window->playback.durationMs > 0
+            && window->playback.currentTrack == mSeekTrack && window->playback.currentIndex == mSeekIndex) {
+        const double target = double(window->playback.durationMs) * mSeek->value() / seekSteps;
+        const qint64 position = qRound64(qBound(0.0, target, double(maximumSeekPosition)));
+        submit(mClient->seek(window->id, position), tr("Перемотка видео"));
+    }
+    mSeekWindow.clear();
+    refreshPlayback();
+}
+
+void VideoControlWidget::commitVolume()
+{
+    const auto *window = confirmedWindow();
+    if (window && mPending.isEmpty() && window->id == mVolumeWindow)
+        submit(mClient->setVolume(window->id, mVolume->value()), tr("Громкость видео"));
+    mVolumeWindow.clear();
+    refreshPlayback();
 }
 
 void VideoControlWidget::updateActions()
@@ -620,6 +791,12 @@ void VideoControlWidget::updateActions()
     mApply->setEnabled(profile && ready && idle);
     mLoad->setEnabled(playlist && confirmed && idle && !selectedPlaylist()->paths.isEmpty());
     mToggleFullscreen->setEnabled(confirmed && idle);
+    const auto *window = confirmedWindow();
+    mSeek->setEnabled(confirmed && idle && !window->playback.currentTrack.isEmpty() && window->playback.durationMs > 0);
+    mVolume->setEnabled(confirmed && idle); mMuted->setEnabled(confirmed && idle); mRepeat->setEnabled(confirmed && idle);
+    mClearQueue->setEnabled(confirmed && idle && !window->playback.queue.isEmpty());
+    mEnqueue->setEnabled(confirmed && idle && playlist && !selectedPlaylist()->paths.isEmpty()
+                          && window->playback.queue.size() + selectedPlaylist()->paths.size() <= 1000);
     const bool playbackAvailable = playbackTargetAvailable();
     mSchedule->setEnabled(playbackAvailable
         && mScheduleSnapshot.value(QStringLiteral("channels")).isArray()

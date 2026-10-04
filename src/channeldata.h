@@ -94,6 +94,8 @@ public:
      * @return
      */
     QTime endTime() const;
+    void setUntilDayOffset(int offset) { mUntilDayOffset = offset; }
+    int untilDayOffset() const { return mUntilDayOffset; }
 
 
     /**
@@ -144,6 +146,7 @@ private:
 
     /// Время окончания проигрывания
     QTime                               mEndTime;
+    int                                 mUntilDayOffset = 0;
 
     /// Дни недели
     QString                             mDaysOfWeek;

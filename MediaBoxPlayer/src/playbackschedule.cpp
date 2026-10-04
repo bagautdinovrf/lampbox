@@ -117,7 +117,7 @@ QString PlaybackSchedule::decode(const QJsonObject &object, PlaybackSchedule *re
         const auto item = value.toObject();
         ScheduledChannel channel;
         auto &rule = channel.rule;
-        if (!fields(item, {"id", "name", "start", "end", "weekdays", "days", "months", "volume", "paths"}, {"order"})
+        if (!fields(item, {"id", "name", "start", "end", "weekdays", "days", "months", "volume", "paths"}, {"order", "untilDayOffset"})
             || !identity(item, &rule.stableId, &rule.name, &ids)
             || !item.value("start").isString() || !item.value("end").isString()
             || !item.value("weekdays").isString() || !item.value("days").isString()
@@ -129,6 +129,8 @@ QString PlaybackSchedule::decode(const QJsonObject &object, PlaybackSchedule *re
                 return QStringLiteral("Channel order must be sequential or shuffle_cycle.");
         }
         rule.order = channel.order;
+        if (item.contains("untilDayOffset") && !integer(item.value("untilDayOffset"), 0, 1, &rule.untilDayOffset))
+            return QStringLiteral("Channel untilDayOffset must be 0 or 1.");
         const auto start = item.value("start").toString(), end = item.value("end").toString();
         rule.start = QTime::fromString(start, QStringLiteral("HH:mm"));
         rule.end = QTime::fromString(end, QStringLiteral("HH:mm"));

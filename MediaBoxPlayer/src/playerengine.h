@@ -2,6 +2,7 @@
 
 #include "audiobackend.h"
 #include "playbackschedule.h"
+#include "schedulev1runtime.h"
 
 #include <QDateTime>
 #include <QJsonObject>
@@ -20,12 +21,15 @@ class PlayerEngine final : public QObject
 public:
     // backend must remain alive for the lifetime of this engine.
     explicit PlayerEngine(AudioBackend *backend, QObject *parent = nullptr,
-                          std::function<QDateTime()> clock = [] { return QDateTime::currentDateTime(); });
+                          std::function<QDateTime()> clock = [] { return QDateTime::currentDateTime(); },
+                          const QString &runtimePath = {});
 
     QJsonObject execute(const QJsonObject &request);
     QJsonObject status() const;
     void evaluateSchedule(const QDateTime &at);
     void setPlaybackAvailable(bool available);
+    // Called by the actual audio process after output and status observers exist.
+    QString restoreScheduledPlayback();
 
 signals:
     void statusChanged();
@@ -48,6 +52,9 @@ private:
     void startNextAdvert();
     void finishAdvert();
     void applyResumePosition();
+    void evaluateV1(const QDateTime &at, bool trackBoundary = false);
+    void launchV1Track(const ScheduleV1Runtime::Track &track, qint64 position = 0);
+    void finishV1Track(bool failed);
 
     AudioBackend *m_backend;
     QStringList m_queue;
@@ -94,6 +101,12 @@ private:
         QList<int> cycleTracks;
     } m_interruptedChannel;
     QMap<qint64, QSet<QString>> m_firedAdverts;
+    ScheduleV1Runtime m_v1;
+    bool m_usesV1 = false;
+    bool m_v1Started = false;
+    ScheduleV1Runtime::Track m_v1Track, m_v1Suspended;
+    qint64 m_v1SuspendedPosition = 0;
+    QSet<QString> m_v1FailedAssets;
 };
 
 } // namespace MediaBox

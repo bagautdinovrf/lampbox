@@ -14,6 +14,7 @@
 
 #include <QApplication>
 #include <QCloseEvent>
+#include <QCheckBox>
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDialog>
@@ -151,8 +152,9 @@ class PlaybackUiTests final : public QObject
                 ? QStringList{"Дневной_канал", "Ручной_канал"} : QStringList{"Природа", "Город"};
             for (int row = 0; row < names.size(); ++row) {
                 window.mPages[page].source->setMediaManager(nullptr);
-                // The second channel is inactive in October, but remains manually playable.
-                const QString months = row == 0 ? "*" : "1";
+                // Disjoint annual calendars: the second channel is inactive in
+                // October, but remains manually playable and valid in January.
+                const QString months = row == 0 ? "2,3,4,5,6,7,8,9,10,11,12" : "1";
                 const int volume = row == 0 ? 21 : page == MainWindow::PAGE_MUSIC ? 63 : 78;
                 QVERIFY2(manager->createChannel({names[row], QTime(0, 0), QTime(23, 59),
                     "*", "*", months, volume, order}), qPrintable(manager->lastError()));
@@ -194,6 +196,8 @@ private slots:
         qApp->setProperty("restylePreviewStation", fixtureRoot);
         QFile::remove(fixtureRoot + "/project.json");
         QFile::remove(fixtureRoot + "/project.json.pending");
+        QFile::remove(fixtureRoot + "/schedule-project.json");
+        QFile::remove(fixtureRoot + "/active.json");
         QDir(fixtureRoot + "/media/music").removeRecursively();
         QDir(fixtureRoot + "/media/video").removeRecursively();
         put(fixtureRoot + "/timetable/timetable");
@@ -225,12 +229,37 @@ private slots:
         QTest::newRow("sequential") << QString("sequential");
     }
 
+    void creatingFullDayChannelPreservesOffset()
+    {
+        MainWindow window;
+        QTimer::singleShot(0, [&] {
+            auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            auto *name = dialog->findChild<QLineEdit *>("channelName");
+            auto *fullDay = dialog->findChild<QCheckBox *>("channelFullDay");
+            QVERIFY(name && fullDay);
+            name->setText(QStringLiteral("Полные_сутки"));
+            fullDay->setChecked(true);
+            dialog->accept();
+        });
+        window.slot_addChannel();
+        QCOMPARE(window.mChannelManagers[0]->channelCount(), 1);
+        const auto &channel = window.mChannelManagers[0]->channel(0);
+        QCOMPARE(channel.startTime(), QTime(0, 0));
+        QCOMPARE(channel.endTime(), QTime(0, 0));
+        QCOMPARE(channel.untilDayOffset(), 1);
+        QString error;
+        const auto transport = window.playbackSchedule(MainWindow::PAGE_MUSIC, &error);
+        QVERIFY2(error.isEmpty(), qPrintable(error));
+        QCOMPARE(transport["channels"].toArray().first().toObject()["untilDayOffset"].toInt(), 1);
+    }
+
     void selectedAudioChannelAndAtomicSchedule()
     {
         QFETCH(QString, order);
         Backend backend;
         const QDateTime now(QDate(2026, 10, 4), QTime(10, 24));
-        MediaBox::PlayerEngine engine(&backend, nullptr, [now] { return now; });
+        MediaBox::PlayerEngine engine(&backend, nullptr, [now] { return now; }, ":memory:");
         QList<QJsonObject> requests;
         MediaBox::ControlServer server([&](const QJsonObject &request) {
             requests.append(request);
@@ -274,27 +303,27 @@ private slots:
         const int beforeSchedule = requests.size();
         auto *scheduled = window.findChild<QPushButton *>("audioScheduleButton");
         QVERIFY(scheduled && scheduled->isEnabled());
-        scheduled->click();
+        QVERIFY2(window.publishMusicSchedule(true, &error), qPrintable(error));
         QTRY_COMPARE(window.mMediaController->status().playbackMode, QStringLiteral("schedule"));
         QCOMPARE(requests.size(), beforeSchedule + 1);
         const QJsonObject request = requests.last();
-        QCOMPARE(request.value("command").toString(), QStringLiteral("schedule"));
-        const auto snapshot = request.value("schedule").toObject();
-        const auto channels = snapshot.value("channels").toArray();
+        QCOMPARE(request.value("command").toString(), QStringLiteral("setPublication"));
+        const auto snapshot = QJsonDocument::fromJson(QByteArray::fromBase64(request.value("snapshotBase64").toString().toLatin1())).object();
+        QCOMPARE(snapshot.value("format").toString(), QStringLiteral("mediabox.schedule"));
+        QCOMPARE(request.value("active").toObject().value("publicationId"), snapshot.value("publicationId"));
+        const auto channels = snapshot.value("playlists").toArray();
         QCOMPARE(channels.size(), 2);
         QCOMPARE(channels.at(0).toObject().value("name").toString(), QStringLiteral("Дневной_канал"));
         QCOMPARE(channels.at(0).toObject().value("order").toString(), order);
         QCOMPARE(channels.at(1).toObject().value("order").toString(), order);
-        QCOMPARE(engine.status().value("order").toString(), order);
-        QCOMPARE(channels.at(1).toObject().value("paths").toArray(),
-                 QJsonArray::fromStringList(filesFor("music", "Ручной_канал")));
-        const auto adverts = snapshot.value("adverts").toArray();
+        QCOMPARE(channels.at(1).toObject().value("entries").toArray().size(), 3);
+        const auto adverts = snapshot.value("eventRules").toArray();
         QCOMPARE(adverts.size(), 2);
-        QCOMPARE(adverts.at(1).toObject().value("compiledMinutes").toArray(), QJsonArray({2, 22, 42}));
-        QCOMPARE(adverts.at(1).toObject().value("paths").toArray(),
-                 QJsonArray({fixtureRoot + "/media/ads/Кофе.mp3"}));
+        QCOMPARE(adverts.at(0).toObject().value("times").toArray(), QJsonArray({"10:00:00", "10:30:00"}));
+        QCOMPARE(adverts.at(1).toObject().value("times").toArray(), QJsonArray({"10:02:00", "10:22:00", "10:42:00"}));
+        QCOMPARE(window.mMediaController->status().publicationId, snapshot.value("publicationId").toString());
         QCOMPARE(window.mMediaController->status().channelName, QStringLiteral("Дневной_канал"));
-        QCOMPARE(window.mMediaController->status().queue, filesFor("music", "Дневной_канал"));
+        QVERIFY(filesFor("music", "Дневной_канал").contains(window.mMediaController->status().currentTrack));
         QCOMPARE(window.mMediaController->status().volumePercent, 21);
         play->click();
         QTRY_COMPARE(window.mMediaController->status().playbackMode, QStringLiteral("manual"));

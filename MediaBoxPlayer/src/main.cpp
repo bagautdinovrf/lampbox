@@ -143,7 +143,8 @@ int runPlayer(int argc, char *argv[])
     }
 
     MediaBox::QtAudioBackend backend;
-    MediaBox::PlayerEngine engine(&backend);
+    MediaBox::PlayerEngine engine(&backend, nullptr, [] { return QDateTime::currentDateTime(); },
+                                  QDir(dataDirectory).filePath(QStringLiteral("runtime.sqlite")));
     MediaBox::ControlServer server(&engine, token);
     if (!server.listen(address, static_cast<quint16>(port), &error)) {
         qCritical().noquote() << "Cannot listen for Manager commands:" << error;
@@ -171,11 +172,16 @@ int runPlayer(int argc, char *argv[])
         }
     });
     QObject::connect(&application, &QCoreApplication::aboutToQuit, &application, [&] {
-        engine.execute({{QStringLiteral("command"), QStringLiteral("stop")}});
+        // Service shutdown preserves the requested schedule mode for startup;
+        // an explicit user stop command persists manual mode separately.
+        engine.setPlaybackAvailable(false);
     });
 
     if (!lifecycle.notifyReady())
         return 0;
+    const QString restoreError = engine.restoreScheduledPlayback();
+    if (!restoreError.isEmpty())
+        qWarning().noquote() << "Cannot restore scheduled playback:" << restoreError;
     qInfo().noquote() << "MediaBoxPlayer ready; API:" << address.toString() << server.port()
                       << "; data directory:" << dataDirectory;
     return application.exec();

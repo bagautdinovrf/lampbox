@@ -1,5 +1,8 @@
 #include "schedulepreview.h"
 #include "advertmodel.h"
+#include "channelmodel.h"
+#include "scheduledocumentdialog.h"
+#include "schedulecore/schedulev1.h"
 #include "restyletheme.h"
 #include "restylewidgets.h"
 
@@ -94,6 +97,7 @@ SchedulePreview::Snapshot SchedulePreview::evaluate(const QAbstractItemModel *ch
         rule.name = field(channels, row, 0).toString();
         rule.start = timeValue(field(channels, row, 1));
         rule.end = timeValue(field(channels, row, 2));
+        rule.untilDayOffset = channels->index(row, 0).data(ChannelModel::UntilDayOffsetRole).toInt();
         rule.weekdays = field(channels, row, 3).toString();
         rule.days = field(channels, row, 4).toString();
         rule.months = field(channels, row, 5).toString();
@@ -150,7 +154,10 @@ public:
             return {};
         switch (index.column()) {
         case 0: return channel.name;
-        case 1: return channel.start.toString(QStringLiteral("HH:mm")) + QStringLiteral("–") + channel.end.toString(QStringLiteral("HH:mm"));
+        case 1: return channel.untilDayOffset == 1 && channel.start == QTime(0, 0) && channel.end == QTime(0, 0)
+                    ? QStringLiteral("Полные сутки")
+                    : channel.start.toString(QStringLiteral("HH:mm")) + QStringLiteral("–") + channel.end.toString(QStringLiteral("HH:mm"))
+                      + (channel.untilDayOffset ? QStringLiteral(" +1 день") : QString());
         case 2: return weekdayLabel(channel.weekdays);
         case 3: return channel.days == QLatin1String("*") ? QStringLiteral("Все") : channel.days;
         case 4: return monthLabel(channel.months);
@@ -204,8 +211,9 @@ public:
             painter->drawLine(QPointF(x, track.top()), QPointF(x, track.bottom()));
         }
         if (channel.valid && channel.calendarMatches) {
-            const int start = channel.start.hour() * 60 + channel.start.minute();
-            const int end = channel.end.hour() * 60 + channel.end.minute();
+            for (const auto &span : channel.dayIntervals) {
+            const int start = span.first;
+            const int end = span.second;
             QRectF interval(track.left() + track.width() * start / 1440, track.top() + 1,
                             track.width() * (end - start) / 1440, 21);
             if (theme.relief) {
@@ -225,8 +233,10 @@ public:
             painter->setFont(Restyle::font(9));
             painter->setPen(selected ? theme.accentText : theme.secondary);
             painter->drawText(interval.adjusted(5, 0, -3, 0), Qt::AlignCenter,
-                              channel.start.toString(QStringLiteral("HH:mm")) + QStringLiteral("–") + channel.end.toString(QStringLiteral("HH:mm")));
+                              channel.start.toString(QStringLiteral("HH:mm")) + QStringLiteral("–") + channel.end.toString(QStringLiteral("HH:mm"))
+                              + (channel.untilDayOffset ? QStringLiteral(" +1 день") : QString()));
             painter->setClipping(false);
+            }
         } else {
             painter->setFont(Restyle::font(9));
             painter->setPen(channel.valid ? theme.muted : theme.warning);
@@ -333,6 +343,12 @@ public:
 
 struct SchedulePreviewWidget::Private {
     QPointer<QAbstractItemModel> channels, adverts;
+    QJsonObject document;
+    ScheduleV1::Document compiledDocument;
+    QString documentError;
+    bool advanced = false;
+    QTextEdit *documentPreview;
+    QWidget *timelineScale;
     QList<QMetaObject::Connection> connections;
     SchedulePreview::Snapshot plan;
     QDateEdit *date;
@@ -373,6 +389,8 @@ SchedulePreviewWidget::SchedulePreviewWidget(QWidget *parent) : QWidget(parent),
     d->time->setAccessibleName(tr("Время просмотра плана"));
     d->time->setFixedWidth(72);
     d->time->hide();
+    heading->addWidget(d->date);
+    heading->addWidget(d->time);
     auto *details = new QPushButton(tr("Условия"), panel);
     details->setIcon(Restyle::icon(QStringLiteral("info")));
     Restyle::button(details, QStringLiteral("quiet"));
@@ -403,7 +421,15 @@ SchedulePreviewWidget::SchedulePreviewWidget(QWidget *parent) : QWidget(parent),
     d->legend->hide();
     layout->addLayout(heading);
     layout->addSpacing(10);
-    layout->addWidget(new TimelineScale(panel));
+    d->timelineScale = new TimelineScale(panel);
+    layout->addWidget(d->timelineScale);
+    d->documentPreview = new QTextEdit(panel);
+    d->documentPreview->setObjectName(QStringLiteral("scheduleDocumentPlan"));
+    d->documentPreview->setReadOnly(true);
+    d->documentPreview->setFont(Restyle::font(10));
+    d->documentPreview->setFrameShape(QFrame::NoFrame);
+    d->documentPreview->hide();
+    layout->addWidget(d->documentPreview, 1);
     layout->addSpacing(4);
 
     d->timeline = new QTableView(panel);
@@ -506,6 +532,26 @@ void SchedulePreviewWidget::setModels(QAbstractItemModel *channels, QAbstractIte
     refresh();
 }
 
+void SchedulePreviewWidget::setDocument(const QJsonObject &document)
+{
+    if (!d->advanced || d->document != document) {
+        d->compiledDocument = {};
+        d->documentError = ScheduleV1::decode(document, &d->compiledDocument);
+    }
+    d->document = document;
+    d->advanced = true;
+    refresh();
+}
+
+void SchedulePreviewWidget::clearDocument()
+{
+    d->document = {};
+    d->compiledDocument = {};
+    d->documentError.clear();
+    d->advanced = false;
+    refresh();
+}
+
 void SchedulePreviewWidget::setSelectedRow(int row)
 {
     d->selected = row >= 0 && row < d->plan.channels.size() ? row : -1;
@@ -550,7 +596,23 @@ void SchedulePreviewWidget::refresh()
 {
     const QString previousName = d->selected >= 0 && d->selected < d->plan.channels.size()
             ? d->plan.channels.at(d->selected).name : QString();
-    d->plan = SchedulePreview::evaluate(d->channels, d->adverts, previewDateTime());
+    d->timeline->setVisible(!d->advanced);
+    d->conditions->setVisible(!d->advanced);
+    d->timelineScale->setVisible(!d->advanced);
+    d->date->setVisible(d->advanced); d->time->setVisible(d->advanced);
+    d->documentPreview->setVisible(d->advanced);
+    if (d->advanced) {
+        d->plan = {};
+        d->plan.at = previewDateTime();
+        const QString description = d->documentError.isEmpty()
+                ? ScheduleDocumentUi::describe(d->compiledDocument, d->plan.at)
+                : QStringLiteral("Проект требует исправления:\n") + d->documentError;
+        const QStringList descriptionLines = description.split(QLatin1Char('\n'));
+        d->plan.currentSummary = descriptionLines.size() > 1
+                ? descriptionLines.mid(1, 2).join(QStringLiteral(" · ")) : description;
+        if (!d->documentError.isEmpty()) { d->plan.issues.append(d->documentError); d->plan.hasUnresolvedRules = true; }
+        d->documentPreview->setPlainText(description);
+    } else d->plan = SchedulePreview::evaluate(d->channels, d->adverts, previewDateTime());
     // Persistent indexes follow insertions/removals. ChannelModel resets after
     // reloading its storage; unique channel names recover selection in that case.
     if (d->selectedSource.isValid()) {
@@ -585,6 +647,8 @@ void SchedulePreviewWidget::refresh()
     QString status;
     if (!d->plan.issues.isEmpty())
         status = d->plan.issues.first();
+    else if (d->advanced)
+        status = tr("Проект расписания · правила редактируются в «Проект расписания», каналы управляют медиатекой");
     else if (d->plan.channels.isEmpty())
         status = tr("Каналы пока не созданы");
     else if (std::none_of(d->plan.channels.cbegin(), d->plan.channels.cend(), [](const auto &channel) {
@@ -606,7 +670,7 @@ void SchedulePreviewWidget::showConditions()
 {
     QStringList lines;
     lines << tr("Просмотр: %1").arg(d->plan.at.toString(QStringLiteral("dd.MM.yyyy HH:mm"))) << d->plan.currentSummary;
-    if (d->selected >= 0)
+    if (d->selected >= 0 && d->selected < d->plan.channels.size())
         lines << QString() << d->plan.channels.at(d->selected).name + QStringLiteral(": ") + d->plan.channels.at(d->selected).reason;
     lines << QString() << tr("Следующая смена канала: %1").arg(d->plan.nextChannelSummary)
           << tr("Следующий точный выход рекламы: %1").arg(d->plan.nextAdvertSummary);
@@ -614,11 +678,12 @@ void SchedulePreviewWidget::showConditions()
         lines << tr("Реклама в выбранную минуту: %1").arg(d->plan.exactAdvertsNow.join(QStringLiteral(", ")));
     lines << d->plan.frequencyAdvertsNow;
     lines << QString() << d->plan.issues << QString()
-          << tr("Расчёт использует существующие календарные условия и дневные интервалы [начало, окончание). Начало включено, окончание исключено.")
-          << tr("Ночные интервалы и одинаковые начало/конец требуют проверки: их семантика в действующем движке не подтверждена.")
+          << tr("Расчёт использует календарные условия дня начала и интервалы [начало, окончание). Начало включено, окончание исключено.")
+          << tr("Для ночных интервалов укажите следующий день окончания. Полные сутки — 00:00 до 00:00 следующего дня; равные времена без этого признака не проигрываются.")
           << tr("При переводе часов несуществующее или неоднозначное локальное время исключено из поиска точных событий; поведение внешнего плеера не предполагается.")
           << tr("Минуты частотной рекламы рассчитаны тем же правилом, что и экспорт. Текущий файл и факт воспроизведения этим расчётом не определяются.")
           << tr("Поиск ограничен %1 календарными днями. Просмотр не изменяет расписание и системное время.").arg(d->plan.horizonDays);
+    if (d->advanced) lines = {d->documentPreview->toPlainText(), tr("Правила проекта проверены по контракту расписания v1. Срок действия и часовой пояс берутся из проекта.")};
     QDialog dialog(this);
     dialog.setWindowTitle(tr("Проверка плана"));
     auto *layout = new QVBoxLayout(&dialog);

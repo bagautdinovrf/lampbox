@@ -4,6 +4,7 @@
 
 #include <QDateTime>
 #include <QList>
+#include <QJsonObject>
 #include <QStringList>
 #include <QWidget>
 
@@ -16,7 +17,7 @@ using Channel = ScheduleCore::Channel;
 using Snapshot = ScheduleCore::Snapshot;
 
 // Searches at most 366 calendar days, including the preview date. Invalid,
-// overnight and equal-time windows are explained, not assigned invented meaning.
+// windows without explicit day offsets are explained, not assigned invented meaning.
 Snapshot evaluate(const QAbstractItemModel *channels, const QAbstractItemModel *adverts,
                   const QDateTime &at, int horizonDays = 366);
 }
@@ -28,6 +29,8 @@ public:
     explicit SchedulePreviewWidget(QWidget *parent = nullptr);
     ~SchedulePreviewWidget() override;
     void setModels(QAbstractItemModel *channels, QAbstractItemModel *adverts = nullptr);
+    void setDocument(const QJsonObject &document);
+    void clearDocument();
     void setSelectedRow(int row);
     int selectedRow() const;
     void setPreviewDateTime(const QDateTime &dateTime);

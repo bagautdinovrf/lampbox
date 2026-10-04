@@ -23,6 +23,62 @@ class ScheduleCoreTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void localTimeResolutionMatchesPublishedContract()
+    {
+        const QTimeZone zone("Europe/Berlin");
+        QVERIFY(zone.isValid());
+        ChannelRule channel{QStringLiteral("Утро"), QStringLiteral("*"), QStringLiteral("*"),
+                            QStringLiteral("*"), QTime(2, 30), QTime(4, 0), 70};
+        const auto spring = evaluate({channel}, {}, QDateTime(QDate(2026, 3, 29), QTime(3, 15), zone));
+        QVERIFY(spring.activeRows.isEmpty()); QVERIFY(spring.hasUnresolvedRules);
+        const auto first = QDateTime(QDate(2026, 10, 25), QTime(0, 30), QTimeZone::UTC).toTimeZone(zone);
+        QCOMPARE(evaluate({channel}, {}, first).activeRows, QList<int>{0});
+        // The musical window continues through the repeated hour.
+        QCOMPARE(evaluate({channel}, {}, first.addSecs(3600)).activeRows, QList<int>{0});
+        auto advert = advertRule(); advert.hours = "2"; advert.timing = "30m";
+        QCOMPARE(evaluate({}, {advert}, first).exactAdvertsNow, QStringList{advert.name});
+        QCOMPARE(evaluate({}, {advert}, first.addSecs(59)).exactAdvertsNow, QStringList{advert.name});
+        QVERIFY(evaluate({}, {advert}, first.addSecs(60)).exactAdvertsNow.isEmpty());
+        QVERIFY(evaluate({}, {advert}, first.addSecs(3600)).exactAdvertsNow.isEmpty());
+    }
+
+    void explicitDayOffsetKeepsStartDateCalendar()
+    {
+        ChannelRule rule{QStringLiteral("Ночь"), QStringLiteral("4"), QStringLiteral("31"),
+                         QStringLiteral("12"), QTime(22, 0), QTime(6, 0), 70};
+        rule.untilDayOffset = 1;
+        QVERIFY(validateChannel(rule).isEmpty());
+        const QDateTime jan1(QDate(2027, 1, 1), QTime(2, 0), QTimeZone::UTC);
+        const auto night = evaluate({rule}, {}, jan1);
+        QCOMPARE(night.activeRows, QList<int>{0});
+        QCOMPARE(night.channels.first().dayIntervals, (QList<QPair<int, int>>{{0, 360}}));
+        QCOMPARE(night.nextChannelTime, QDateTime(QDate(2027, 1, 1), QTime(6, 0), QTimeZone::UTC));
+        QVERIFY(evaluate({rule}, {}, jan1.addSecs(4 * 3600)).activeRows.isEmpty());
+        QVERIFY(evaluate({rule}, {}, jan1.addDays(1)).activeRows.isEmpty());
+    }
+
+    void fullDayIsHalfOpenAndRequiresExplicitOffset()
+    {
+        ChannelRule rule{QStringLiteral("Сутки"), QStringLiteral("1"), QStringLiteral("*"),
+                         QStringLiteral("*"), QTime(0, 0), QTime(0, 0), 70};
+        const QDateTime monday(QDate(2026, 10, 5), QTime(0, 0), QTimeZone::UTC);
+        QVERIFY(evaluate({rule}, {}, monday).hasUnresolvedRules);
+        rule.untilDayOffset = 1;
+        for (int seconds : {0, 3600, 86399}) {
+            const auto plan = evaluate({rule}, {}, monday.addSecs(seconds));
+            QCOMPARE(plan.activeRows, QList<int>{0});
+            QVERIFY(!plan.hasUnresolvedRules);
+            QCOMPARE(plan.channels.first().dayIntervals, (QList<QPair<int, int>>{{0, 1440}}));
+        }
+        QVERIFY(evaluate({rule}, {}, monday.addDays(1)).activeRows.isEmpty());
+        rule.weekdays = QStringLiteral("*");
+        QCOMPARE(evaluate({rule}, {}, monday.addDays(1)).activeRows, QList<int>{0});
+        rule.untilDayOffset = 2;
+        QVERIFY(!validateChannel(rule).isEmpty());
+        rule.untilDayOffset = 1; rule.start = QTime(8, 0); rule.end = QTime(9, 0);
+        QVERIFY(!validateChannel(rule).isEmpty());
+    }
+
     void timingValidation_data()
     {
         QTest::addColumn<QString>("text");

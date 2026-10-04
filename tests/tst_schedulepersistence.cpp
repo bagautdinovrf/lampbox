@@ -137,6 +137,28 @@ private slots:
         QCOMPARE(again.music[0].stableId, project.music[0].stableId);
         QCOMPARE(get(projectFile()), imported);
     }
+    void versionOneWithoutOffsetRetainsOriginalMeaning()
+    {
+        const auto original = readProject();
+        auto json = QJsonDocument::fromJson(ProjectRepository::encode(original)).object();
+        QCOMPARE(json.value("schemaVersion"), QJsonValue(2));
+        json.insert("schemaVersion", 1);
+        for (const auto &section : {QStringLiteral("music"), QStringLiteral("video")}) {
+            auto rows = json.value(section).toArray();
+            for (qsizetype i = 0; i < rows.size(); ++i) {
+                auto row = rows.at(i).toObject();
+                row.remove("untilDayOffset");
+                rows.replace(i, row);
+            }
+            json.insert(section, rows);
+        }
+        ProjectRepository::Project migrated;
+        QString error;
+        QVERIFY2(ProjectRepository::decode(QJsonDocument(json).toJson(), &migrated, &error), qPrintable(error));
+        QCOMPARE(migrated.music.first().untilDayOffset, 0);
+        QCOMPARE(migrated.music.first().start, original.music.first().start);
+        QCOMPARE(migrated.music.first().end, original.music.first().end);
+    }
     void failedWholeImportCanRetryWithoutPartialProject()
     {
         const QByteArray broken("ad.mp3;10;3\n");
@@ -190,7 +212,7 @@ private slots:
         readProject();
         const auto original = QJsonDocument::fromJson(get(projectFile())).object();
         QList<QJsonObject> invalid;
-        auto changed = original; changed["schemaVersion"] = 2; invalid.append(changed);
+        auto changed = original; changed["schemaVersion"] = 3; invalid.append(changed);
         changed = original; changed["schemaVersion"] = "1"; invalid.append(changed);
         changed = original; changed["unexpected"] = true; invalid.append(changed);
         auto music = original.value("music").toArray();

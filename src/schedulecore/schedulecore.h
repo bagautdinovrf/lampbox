@@ -31,6 +31,7 @@ struct ChannelRule {
     int volume = 100;
     QString stableId;
     QString order = QStringLiteral("shuffle_cycle");
+    int untilDayOffset = 0;
 };
 
 struct AdvertRule {
@@ -44,8 +45,8 @@ struct AdvertRule {
     QList<int> compiledMinutes;
 };
 
-// Empty means valid. Legacy equal-time/overnight windows remain loadable;
-// evaluate() explains their unsupported execution semantics.
+// Empty means valid. Legacy windows without an explicit day offset remain
+// loadable; evaluate() explains ambiguous equal-time/overnight semantics.
 QString validateChannel(const ChannelRule &rule);
 QString validateAdvert(const AdvertRule &rule);
 
@@ -61,6 +62,9 @@ struct Channel {
     bool valid = false;
     bool calendarMatches = false;
     bool active = false;
+    int untilDayOffset = 0;
+    // Visible portions on the preview date, in minutes [0, 1440].
+    QList<QPair<int, int>> dayIntervals;
 };
 
 struct Snapshot {

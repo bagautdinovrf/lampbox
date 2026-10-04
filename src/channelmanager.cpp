@@ -16,6 +16,7 @@ void apply(ChannelData &data, const ScheduleCore::ChannelRule &rule)
     data.setDaysOfWeek(rule.weekdays); data.setDays(rule.days); data.setMonths(rule.months);
     data.setVolume(rule.volume);
     data.setPlaybackOrder(rule.order);
+    data.setUntilDayOffset(rule.untilDayOffset);
 }
 }
 
@@ -65,20 +66,26 @@ QList<ScheduleCore::ChannelRule> ChannelManager::rules() const
         rule.name = data.channelName(); rule.start = data.startTime(); rule.end = data.endTime();
         rule.stableId = data.ruleId();
         rule.weekdays = data.daysOfWeek(); rule.days = data.days(); rule.months = data.months();
-        rule.volume = data.volume(); rule.order = data.playbackOrder(); result.append(rule);
+        rule.volume = data.volume(); rule.order = data.playbackOrder();
+        rule.untilDayOffset = data.untilDayOffset(); result.append(rule);
     }
     return result;
 }
 
 bool ChannelManager::decodeRule(const QVariantList &fields, ScheduleCore::ChannelRule *rule)
 {
-    if (fields.size() != 7 && fields.size() != 8)
-        return fail(QStringLiteral("Ожидаются семь или восемь полей правила канала"));
+    if (fields.size() < 7 || fields.size() > 9)
+        return fail(QStringLiteral("Ожидаются от семи до девяти полей правила канала"));
     rule->name = fields[0].toString(); rule->start = fields[1].toTime(); rule->end = fields[2].toTime();
     rule->weekdays = fields[3].toString(); rule->days = fields[4].toString(); rule->months = fields[5].toString();
     bool volumeOk = false;
     rule->volume = fields[6].toInt(&volumeOk);
-    if (fields.size() == 8) rule->order = fields[7].toString();
+    if (fields.size() >= 8) rule->order = fields[7].toString();
+    if (fields.size() == 9) {
+        bool offsetOk = false;
+        rule->untilDayOffset = fields[8].toInt(&offsetOk);
+        if (!offsetOk) return fail(QStringLiteral("Некорректный день окончания"));
+    }
     if (!ProjectRepository::validFileName(rule->name, true))
         return fail(QStringLiteral("Имя канала должно быть безопасным именем каталога"));
     if (!volumeOk) return fail(QStringLiteral("Некорректная громкость"));
@@ -95,6 +102,9 @@ bool ChannelManager::setRule(int row, const QVariantList &fields)
     auto snapshot = rules();
     rule.stableId = snapshot[row].stableId;
     if (fields.size() == 7) rule.order = snapshot[row].order;
+    if (fields.size() < 9) rule.untilDayOffset = snapshot[row].untilDayOffset;
+    const QString errorAfterMerge = ScheduleCore::validateChannel(rule);
+    if (!errorAfterMerge.isEmpty()) return fail(errorAfterMerge);
     for (int i = 0; i < snapshot.size(); ++i)
         if (i != row && snapshot[i].name.compare(rule.name, Qt::CaseInsensitive) == 0)
             return fail(QStringLiteral("Канал с таким именем уже существует"));

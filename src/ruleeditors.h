@@ -24,6 +24,7 @@ struct ChannelRuleValues {
     QString months = QStringLiteral("*");
     int volume = 65;
     QString order = QStringLiteral("shuffle_cycle");
+    int untilDayOffset = 0;
 };
 
 struct AdvertRuleValues {

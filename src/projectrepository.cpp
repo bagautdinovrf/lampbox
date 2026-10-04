@@ -105,6 +105,8 @@ bool decodeChannels(const QJsonValue &value, QList<ScheduleCore::ChannelRule> *r
             if (!object.value("order").isString()) return false;
             rule.order = object.take("order").toString();
         }
+        if (object.contains("untilDayOffset")
+                && !integer(object.take("untilDayOffset"), 0, 1, &rule.untilDayOffset)) return false;
         if (!keys(object, {"id", "name", "start", "end", "weekdays", "days", "months", "volume"})
                 || !identity(object, &rule.stableId, &rule.name, ids)
                 || !object.value("start").isString() || !object.value("end").isString()
@@ -170,7 +172,7 @@ QJsonArray encodeChannels(const QList<ScheduleCore::ChannelRule> &rules)
         array.append(QJsonObject{{"id", r.stableId}, {"name", r.name}, {"start", r.start.toString("HH:mm")},
                      {"end", r.end.toString("HH:mm")}, {"weekdays", calendarJson(r.weekdays, 0, 6)},
                      {"days", calendarJson(r.days, 1, 31)}, {"months", calendarJson(r.months, 1, 12)},
-                     {"volume", r.volume}, {"order", r.order}});
+                     {"volume", r.volume}, {"order", r.order}, {"untilDayOffset", r.untilDayOffset}});
     return array;
 }
 QJsonArray encodeAdverts(const QList<ScheduleCore::AdvertRule> &rules)
@@ -259,7 +261,8 @@ bool decode(const QByteArray &bytes, Project *project, QString *error)
         return fail(error, QStringLiteral("Некорректный JSON проекта: %1").arg(parse.errorString()));
     const auto root = document.object();
     if (!keys(root, {"format", "schemaVersion", "music", "video", "advert"})
-            || root.value("format") != QJsonValue("mediabox.manager-project") || root.value("schemaVersion") != QJsonValue(1))
+            || root.value("format") != QJsonValue("mediabox.manager-project")
+            || (root.value("schemaVersion") != QJsonValue(1) && root.value("schemaVersion") != QJsonValue(2)))
         return fail(error, QStringLiteral("Неподдерживаемый формат, версия или поля проекта"));
     Project result; QSet<QString> ids;
     if (!decodeChannels(root.value("music"), &result.music, &ids)) return fail(error, QStringLiteral("Некорректные музыкальные правила проекта"));
@@ -270,7 +273,7 @@ bool decode(const QByteArray &bytes, Project *project, QString *error)
 }
 QByteArray encode(const Project &project)
 {
-    return QJsonDocument(QJsonObject{{"format", "mediabox.manager-project"}, {"schemaVersion", 1},
+    return QJsonDocument(QJsonObject{{"format", "mediabox.manager-project"}, {"schemaVersion", 2},
         {"music", encodeChannels(project.music)}, {"video", encodeChannels(project.video)},
         {"advert", encodeAdverts(project.advert)}}).toJson(QJsonDocument::Indented);
 }

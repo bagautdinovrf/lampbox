@@ -18,6 +18,8 @@
 #include "restylewidgets.h"
 #include "ruleeditors.h"
 #include "schedulepreview.h"
+#include "schedulepublication.h"
+#include "scheduledocumentdialog.h"
 #include "settings.h"
 #include "settingsdialog.h"
 #include "stationmanager.h"
@@ -173,6 +175,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     mScheduleUpdateTimer->setSingleShot(true);
     mScheduleUpdateTimer->setInterval(250);
     connect(mScheduleUpdateTimer, &QTimer::timeout, this, &MainWindow::refreshPlaybackSchedules);
+    auto *renewal = new QTimer(this);
+    renewal->setInterval(60 * 60 * 1000);
+    connect(renewal, &QTimer::timeout, this, &MainWindow::refreshPlaybackSchedules);
+    renewal->start();
     for (int i = 0; i < 2; ++i) {
         mChannelManagers[i] = new ChannelManager(i == 0 ? MUSIC : VIDEO);
         mChannelManagers[i]->collectChannels();
@@ -329,6 +335,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     if (qApp->property("restylePreviewStation").toString().isEmpty())
         restoreGeometry(Settings().mainWindowGeometry());
     adaptLayout(width());
+    QTimer::singleShot(0, this, &MainWindow::updateScheduleDocumentPreview);
 }
 MainWindow::~MainWindow() {
     if (mMediaImport)
@@ -561,6 +568,13 @@ QWidget *MainWindow::buildMediaPage(int page) {
         screens->setToolTip("Экраны MediaBoxVPlayer, мониторы и отдельные плейлисты");
         h->addWidget(screens);
         connect(screens, &QPushButton::clicked, this, &MainWindow::showVideoControls);
+    }
+    if (page == PAGE_MUSIC) {
+        auto *project = button("Проект", "calendar");
+        project->setObjectName("scheduleProjectButton");
+        project->setToolTip("Календарь, полные сутки, ночные интервалы и чередование плейлистов");
+        h->addWidget(project);
+        connect(project, &QPushButton::clicked, this, &MainWindow::editScheduleProject);
     }
     auto *all = button("Все параметры", "calendar");
     all->setObjectName("allSchedulesButton" + suffix);
@@ -1170,6 +1184,7 @@ void MainWindow::updatePlayerState() {
             if (snapshot.muted) state += " · звук выключен";
             else state += QStringLiteral(" · %1 %").arg(snapshot.volumePercent);
             state += snapshot.playbackMode == "schedule" ? " · По расписанию" : " · Вручную";
+            if (!snapshot.publicationId.isEmpty()) state += QStringLiteral(" · выпуск %1 принят").arg(snapshot.revision);
             break;
         }
     }
@@ -1351,7 +1366,7 @@ void MainWindow::slot_addChannel() {
     const int previousRow = manager->currentChannelNum();
     mPages[mPage].source->setMediaManager(nullptr);
     const QVariantList fields{values->name, values->start, values->end, values->weekdays,
-                              values->days, values->months, values->volume, values->order};
+                              values->days, values->months, values->volume, values->order, values->untilDayOffset};
     if (!manager->createChannel(fields)) {
         selectChannel(mPage, previousRow);
         showError(manager->lastError());
@@ -1494,6 +1509,7 @@ QJsonObject MainWindow::playbackSchedule(int page, QString *error) const {
             {"start", channel.startTime().toString("HH:mm")}, {"end", channel.endTime().toString("HH:mm")},
             {"weekdays", channel.daysOfWeek()}, {"days", channel.days()}, {"months", channel.months()},
             {"volume", channel.volume()}, {"order", channel.playbackOrder()},
+            {"untilDayOffset", channel.untilDayOffset()},
             {"paths", QJsonArray::fromStringList(channelFiles(channel.mediaManager()))}});
     }
     const QDir advertDirectory = mMediaAdvertManager->getDirMediaFiles();
@@ -1568,9 +1584,59 @@ void MainWindow::startScheduledPlayback(int page) {
     }
     if (!playerAvailable()) return;
     QString error;
-    const auto schedule = playbackSchedule(page, &error);
+    if (!publishMusicSchedule(true, &error)) showError(error);
+}
+
+void MainWindow::editScheduleProject() {
+    QString error;
+    const auto legacy = playbackSchedule(PAGE_MUSIC, &error);
     if (!error.isEmpty()) { showError(error); return; }
-    mMediaController->playSchedule(schedule);
+    QJsonObject document;
+    bool advanced = false;
+    if (!SchedulePublication::draft(STATIONPATH, STATIONMEDIA, legacy, &document, &advanced, &error)) {
+        showError(error); return;
+    }
+    ScheduledDocumentDialog dialog(document, this);
+    if (dialog.exec() != QDialog::Accepted) return;
+    if (!SchedulePublication::saveDraft(STATIONPATH, dialog.document(), &error)) { showError(error); return; }
+    updateScheduleDocumentPreview();
+    mScheduleUpdateTimer->start();
+}
+
+void MainWindow::updateScheduleDocumentPreview() {
+    if (!qApp->property("restylePreviewStation").toString().isEmpty()) return;
+    QString error;
+    const auto legacy = playbackSchedule(PAGE_MUSIC, &error);
+    if (!error.isEmpty()) return;
+    QJsonObject document;
+    bool advanced = false;
+    if (!SchedulePublication::draft(STATIONPATH, STATIONMEDIA, legacy, &document, &advanced, &error)) return;
+    if (advanced) {
+        if (mScheduleDocument != document && mPages[PAGE_MUSIC].schedule)
+            mPages[PAGE_MUSIC].schedule->setDocument(document);
+        mScheduleDocument = document;
+        mPages[PAGE_MUSIC].subtitle->setText("Каналы · медиатека. Календарь и правила — в проекте расписания");
+    } else if (!mScheduleDocument.isEmpty()) {
+        if (mPages[PAGE_MUSIC].schedule) mPages[PAGE_MUSIC].schedule->clearDocument();
+        mScheduleDocument = {};
+    }
+}
+
+bool MainWindow::publishMusicSchedule(bool autoplay, QString *error) {
+    const auto legacy = playbackSchedule(PAGE_MUSIC, error);
+    if (!error->isEmpty()) return false;
+    QJsonObject document;
+    bool advanced = false;
+    if (!SchedulePublication::draft(STATIONPATH, STATIONMEDIA, legacy, &document, &advanced, error)) return false;
+    SchedulePublication::Publication publication;
+    if (!SchedulePublication::publish(STATIONPATH, STATIONMEDIA, document, &publication, error)) return false;
+    if (mMediaController->setPublication(publication.bytes, publication.active, publication.contentRoot, autoplay).isEmpty())
+    {
+        *error = QStringLiteral("Плеер не принял команду передачи выпуска. Проверьте подключение и размер расписания.");
+        return false;
+    }
+    updateScheduleDocumentPreview();
+    return true;
 }
 
 void MainWindow::updateVideoPlaybackContext() {
@@ -1589,11 +1655,10 @@ void MainWindow::updateVideoPlaybackContext() {
 
 void MainWindow::refreshPlaybackSchedules() {
     updateVideoPlaybackContext();
+    updateScheduleDocumentPreview();
     QString error;
     if (playerAvailable() && mMediaController->status().playbackMode == "schedule") {
-        const auto schedule = playbackSchedule(PAGE_MUSIC, &error);
-        if (error.isEmpty()) mMediaController->setSchedule(schedule);
-        else Informer::Instance().infoEvent(error, Informer::ERROR);
+        if (!publishMusicSchedule(false, &error)) Informer::Instance().infoEvent(error, Informer::ERROR);
     }
     if (mVideoController && mVideoController->isReady()) {
         const auto schedule = playbackSchedule(PAGE_VIDEO, &error);

@@ -79,6 +79,9 @@ QString ScheduleCore::validateChannel(const ChannelRule &rule)
         return QStringLiteral("Некорректное календарное условие: ожидаются * или числа через запятую.");
     if (!rule.start.isValid() || !rule.end.isValid())
         return QStringLiteral("Некорректное время интервала.");
+    if (rule.untilDayOffset < 0 || rule.untilDayOffset > 1
+            || (rule.untilDayOffset == 1 && rule.end > rule.start))
+        return QStringLiteral("Интервал должен длиться не более суток; проверьте время и день окончания.");
     if (rule.volume < 0 || rule.volume > 100)
         return QStringLiteral("Громкость должна быть от 0 до 100%.");
     return {};
@@ -169,10 +172,10 @@ ScheduleCore::CalendarValues ScheduleCore::parseCalendar(const QString &text, in
 namespace {
 QDateTime onDate(const QDateTime &at, const QDate &date, const QTime &time)
 {
-    // Qt's default policy silently moves a missing wall time across a DST gap
-    // and chooses one occurrence of repeated times. Neither is confirmed by
-    // the external player's format: never turn it into an invented exact event.
-    return QDateTime(date, time, at.timeZone(), QDateTime::TransitionResolution::Reject);
+    // Match the published v1 contract: skip gaps and select the first occurrence
+    // of a repeated local time. Reject normalization across a missing wall time.
+    const QDateTime resolved(date, time, at.timeZone(), QDateTime::TransitionResolution::PreferBefore);
+    return resolved.isValid() && resolved.date() == date && resolved.time() == time ? resolved : QDateTime{};
 }
 
 QString eventLabel(const QDateTime &when, const QStringList &names)
@@ -226,39 +229,52 @@ ScheduleCore::Snapshot ScheduleCore::evaluate(const QList<ChannelRule> &channels
         channel.months = rule.months;
         channel.volume = rule.volume;
         const ChannelCalendar calendar{parseCalendar(channel.weekdays, 0, 6), parseCalendar(channel.days, 1, 31), parseCalendar(channel.months, 1, 12)};
-        channel.valid = validateChannel(rule).isEmpty()
-                && channel.start.isValid() && channel.end.isValid() && channel.start < channel.end;
-        channel.calendarMatches = calendar.matches(at.date());
-        const bool localWindowSupported = !channel.valid || !channel.calendarMatches
-                || (onDate(at, at.date(), channel.start).isValid() && onDate(at, at.date(), channel.end).isValid());
-        if (!calendar.weekdays.valid || !calendar.days.valid || !calendar.months.valid) {
-            channel.reason = QStringLiteral("Некорректное календарное условие: ожидаются * или числа через запятую");
-        } else if (!channel.start.isValid() || !channel.end.isValid()) {
-            channel.reason = QStringLiteral("Некорректное время интервала");
-        } else if (channel.volume < 0 || channel.volume > 100) {
-            channel.reason = validateChannel(rule);
-        } else if (channel.start == channel.end) {
-            channel.reason = QStringLiteral("Начало совпадает с окончанием: длительность не определена; это не полные сутки");
-        } else if (channel.start > channel.end) {
-            channel.reason = QStringLiteral("Переход через полночь: календарная семантика MediaBoxPlayer не подтверждена; окно не включено в расчёт");
+        channel.untilDayOffset = rule.untilDayOffset;
+        const QString validationError = validateChannel(rule);
+        channel.valid = validationError.isEmpty()
+                && (rule.untilDayOffset == 1 || channel.start < channel.end);
+        bool localWindowSupported = true;
+        // A night window belongs to its start date. Check yesterday before
+        // today's filter so month, year and weekday boundaries retain the tail.
+        if (channel.valid) {
+            for (int offset = -rule.untilDayOffset; offset <= 0; ++offset) {
+                const QDate anchor = at.date().addDays(offset);
+                if (!calendar.matches(anchor)) continue;
+                const QDateTime from = onDate(at, anchor, rule.start);
+                const QDateTime until = onDate(at, anchor.addDays(rule.untilDayOffset), rule.end);
+                if (!from.isValid() || !until.isValid()) {
+                    localWindowSupported = false;
+                    continue;
+                }
+                const int first = std::max(0, offset * 1440 + rule.start.hour() * 60 + rule.start.minute());
+                const int last = std::min(1440, (offset + rule.untilDayOffset) * 1440 + rule.end.hour() * 60 + rule.end.minute());
+                if (first < last) channel.dayIntervals.append({first, last});
+                if (at >= from && at < until) channel.active = true;
+            }
+        }
+        channel.calendarMatches = !channel.dayIntervals.isEmpty();
+        if (!validationError.isEmpty()) {
+            channel.reason = validationError;
+        } else if (!channel.valid) {
+            channel.reason = channel.start == channel.end
+                    ? QStringLiteral("Начало совпадает с окончанием: включите «Полные сутки» или укажите следующий день")
+                    : QStringLiteral("Переход через полночь: укажите окончание на следующий день");
         } else if (!localWindowSupported) {
-            channel.reason = QStringLiteral("Локальное время начала или окончания отсутствует либо неоднозначно при переводе часов; окно не включено в расчёт");
-            channel.calendarMatches = false;
+            channel.reason = QStringLiteral("Локальное время начала или окончания отсутствует при переводе часов; окно не включено в расчёт");
+        } else if (channel.active) {
+            channel.reason = QStringLiteral("Календарные условия дня начала и интервал совпали. Это расчёт плана, не подтверждение воспроизведения");
         } else if (!channel.calendarMatches) {
             channel.reason = calendar.exclusion(at.date());
-        } else if (at.time() < channel.start) {
+        } else if (at.time() < channel.start && calendar.matches(at.date())) {
             channel.reason = QStringLiteral("Окно ещё не началось · сегодня с ") + channel.start.toString(QStringLiteral("HH:mm"));
-        } else if (at.time() >= channel.end) {
-            channel.reason = QStringLiteral("Окно на сегодня закончилось в ") + channel.end.toString(QStringLiteral("HH:mm"));
         } else {
-            channel.active = true;
-            channel.reason = QStringLiteral("Календарные условия и интервал совпали. Это расчёт плана, не подтверждение воспроизведения");
-            result.activeRows.append(row);
+            channel.reason = QStringLiteral("Окно на сегодня закончилось в ") + channel.end.toString(QStringLiteral("HH:mm"));
         }
+        if (channel.active) result.activeRows.append(row);
         channel.status = !channel.valid || !localWindowSupported ? QStringLiteral("Требует проверки")
                 : channel.active ? QStringLiteral("По расписанию")
                 : !channel.calendarMatches ? QStringLiteral("Не в этот день")
-                : at.time() < channel.start ? QStringLiteral("Позже") : QStringLiteral("Завершён");
+                : at.time() < channel.start && calendar.matches(at.date()) ? QStringLiteral("Позже") : QStringLiteral("Завершён");
         if (!channel.valid || !localWindowSupported) {
             result.hasUnresolvedRules = true;
             result.issues.append(channel.name + QStringLiteral(": ") + channel.reason);
@@ -285,9 +301,11 @@ ScheduleCore::Snapshot ScheduleCore::evaluate(const QList<ChannelRule> &channels
     // every pair of channels. The view remains useful for large channel lists.
     QList<QPair<int, int>> boundaries;
     for (const auto &channel : std::as_const(result.channels)) {
-        if (channel.valid && channel.calendarMatches) {
-            boundaries.append({channel.start.hour() * 60 + channel.start.minute(), 1});
-            boundaries.append({channel.end.hour() * 60 + channel.end.minute(), -1});
+        if (channel.valid) {
+            for (const auto &span : channel.dayIntervals) {
+                boundaries.append({span.first, 1});
+                boundaries.append({span.second, -1});
+            }
         }
     }
     std::sort(boundaries.begin(), boundaries.end());
@@ -301,7 +319,7 @@ ScheduleCore::Snapshot ScheduleCore::evaluate(const QList<ChannelRule> &channels
         if (index == boundaries.size())
             break;
         const QString span = QTime(minute / 60, minute % 60).toString(QStringLiteral("HH:mm"))
-                + QStringLiteral("–") + QTime(boundaries.at(index).first / 60, boundaries.at(index).first % 60).toString(QStringLiteral("HH:mm"));
+                + QStringLiteral("–") + (boundaries.at(index).first == 1440 ? QStringLiteral("24:00") : QTime(boundaries.at(index).first / 60, boundaries.at(index).first % 60).toString(QStringLiteral("HH:mm")));
         if (activeCount > 1 && !overlapReported) {
             result.issues.append(span + QStringLiteral(": пересечение каналов, приоритет не задан"));
             overlapReported = true;
@@ -314,21 +332,21 @@ ScheduleCore::Snapshot ScheduleCore::evaluate(const QList<ChannelRule> &channels
 
     // A change can be an end as well as a start (including a transition to a
     // gap). Group simultaneous boundaries; do not arbitrarily choose a winner.
-    for (int day = 0; day < result.horizonDays && !result.nextChannelTime.isValid(); ++day) {
+    for (int day = -1; day < result.horizonDays; ++day) {
         const QDate date = at.date().addDays(day);
-        if (!date.isValid())
+        if (!date.isValid() || (result.nextChannelTime.isValid() && date > result.nextChannelTime.date()))
             break;
         for (qsizetype row = 0; row < result.channels.size(); ++row) {
             const auto &channel = result.channels.at(row);
             if (!channel.valid || !calendars.at(row).matches(date))
                 continue;
-            if (!onDate(at, date, channel.start).isValid() || !onDate(at, date, channel.end).isValid())
-                continue;
-            for (const QTime &time : {channel.start, channel.end}) {
-                const QDateTime candidate = onDate(at, date, time);
+            const QDateTime from = onDate(at, date, channel.start);
+            const QDateTime until = onDate(at, date.addDays(channel.untilDayOffset), channel.end);
+            if (!from.isValid() || !until.isValid()) continue;
+            for (const QDateTime &candidate : {from, until}) {
                 if (!candidate.isValid() || candidate <= at)
                     continue;
-                const QString name = channel.name + (time == channel.start ? QStringLiteral(" — начало") : QStringLiteral(" — окончание"));
+                const QString name = channel.name + (candidate == from ? QStringLiteral(" — начало") : QStringLiteral(" — окончание"));
                 if (!result.nextChannelTime.isValid() || candidate < result.nextChannelTime) {
                     result.nextChannelTime = candidate;
                     result.nextChannelNames = {name};
@@ -361,8 +379,9 @@ ScheduleCore::Snapshot ScheduleCore::evaluate(const QList<ChannelRule> &channels
                 && hours.values.contains(at.time().hour()))
             result.frequencyAdvertsNow.append(name + QStringLiteral(" · %1 в час · ").arg(timing.frequency)
                                              + formatMinutes(minutes));
+        const QDateTime scheduledMinute = onDate(at, at.date(), QTime(at.time().hour(), at.time().minute()));
         if (eligible(at.date()) && hours.values.contains(at.time().hour()) && minutes.contains(at.time().minute())
-                && onDate(at, at.date(), QTime(at.time().hour(), at.time().minute())).isValid())
+                && scheduledMinute.isValid() && at >= scheduledMinute && at < scheduledMinute.addSecs(60))
             result.exactAdvertsNow.append(name);
         QList<int> dailyMinutes;
         for (int hour : hours.values)

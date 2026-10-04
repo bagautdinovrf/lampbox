@@ -1,5 +1,7 @@
 #include "schedulepreview.h"
 #include "advertmodel.h"
+#include "channelmodel.h"
+#include <QTextEdit>
 
 #include <QDateEdit>
 #include <QSignalSpy>
@@ -45,6 +47,8 @@ private slots:
     void leapAndInvalidCalendar();
     void intervalBoundsAndAmbiguity();
     void unsupportedIntervals();
+    void explicitFullDayAndNightUseModelRole();
+    void advancedDocumentHidesLegacyPlan();
     void boundedLookaheadAndSimultaneousChanges();
     void advertsRespectCalendarAndMinutes();
     void advertFrequencyUsesCompiledMinutesAndNeverIsEmpty();
@@ -121,8 +125,42 @@ void SchedulePreviewTests::unsupportedIntervals()
     QVERIFY(!result.nextChannelTime.isValid());
     QCOMPARE(result.issues.size(), 3);
     QVERIFY(result.channels.at(0).reason.contains(QStringLiteral("полночь")));
-    QVERIFY(result.channels.at(1).reason.contains(QStringLiteral("не полные сутки")));
+    QVERIFY(result.channels.at(1).reason.contains(QStringLiteral("Полные сутки")));
     QVERIFY(result.channels.at(2).reason.contains(QStringLiteral("Некорректное время")));
+}
+
+void SchedulePreviewTests::explicitFullDayAndNightUseModelRole()
+{
+    QStandardItemModel model(0, 7);
+    channel(model, QStringLiteral("Сутки"), QStringLiteral("00:00"), QStringLiteral("00:00"), QStringLiteral("1"));
+    model.setData(model.index(0, 0), 1, ChannelModel::UntilDayOffsetRole);
+    const auto day = SchedulePreview::evaluate(&model, nullptr, at(2026, 10, 5, 23, 59));
+    QCOMPARE(day.activeRows, QList<int>{0});
+    QCOMPARE(day.channels.first().dayIntervals, (QList<QPair<int, int>>{{0, 1440}}));
+    QVERIFY(SchedulePreview::evaluate(&model, nullptr, at(2026, 10, 6, 0)).activeRows.isEmpty());
+    model.setData(model.index(0, 1), QStringLiteral("22:00"));
+    model.setData(model.index(0, 2), QStringLiteral("06:00"));
+    const auto tail = SchedulePreview::evaluate(&model, nullptr, at(2026, 10, 6, 2));
+    QCOMPARE(tail.activeRows, QList<int>{0});
+    QCOMPARE(tail.channels.first().dayIntervals, (QList<QPair<int, int>>{{0, 360}}));
+}
+
+void SchedulePreviewTests::advancedDocumentHidesLegacyPlan()
+{
+    QStandardItemModel model(0, 7);
+    channel(model, QStringLiteral("Старый"));
+    SchedulePreviewWidget widget;
+    widget.setModels(&model);
+    widget.setDocument(QJsonObject{});
+    QVERIFY(widget.snapshot().channels.isEmpty());
+    QVERIFY(widget.snapshot().hasUnresolvedRules);
+    QVERIFY(widget.findChild<QTableView *>(QStringLiteral("scheduleTimeline"))->isHidden());
+    auto *advanced = widget.findChild<QTextEdit *>(QStringLiteral("scheduleDocumentPlan"));
+    QVERIFY(advanced && !advanced->isHidden());
+    QVERIFY(advanced->toPlainText().contains(QStringLiteral("исправления")));
+    widget.clearDocument();
+    QCOMPARE(widget.snapshot().channels.size(), 1);
+    QVERIFY(advanced->isHidden());
 }
 
 void SchedulePreviewTests::boundedLookaheadAndSimultaneousChanges()
@@ -232,11 +270,17 @@ void SchedulePreviewTests::localTimeTransitionsDoNotInventExactEvents()
     auto result = SchedulePreview::evaluate(nullptr, &model,
             QDateTime(QDate(2026, 3, 29), QTime(1, 0), zone));
     QCOMPARE(result.nextAdvertTime, QDateTime(QDate(2026, 3, 30), QTime(2, 30), zone));
-    // On the autumn transition date the same wall time occurs twice. The
-    // adapter must not invent which occurrence the external player will use.
+    // The station contract uses the first occurrence of repeated wall time.
     result = SchedulePreview::evaluate(nullptr, &model,
             QDateTime(QDate(2026, 10, 25), QTime(1, 0), zone));
-    QCOMPARE(result.nextAdvertTime, QDateTime(QDate(2026, 10, 26), QTime(2, 30), zone));
+    const auto firstOccurrence = QDateTime::fromMSecsSinceEpoch(
+            QDateTime(QDate(2026, 10, 25), QTime(0, 30), QTimeZone::UTC).toMSecsSinceEpoch(), zone);
+    QCOMPARE(result.nextAdvertTime, firstOccurrence);
+    QCOMPARE(SchedulePreview::evaluate(nullptr, &model, firstOccurrence.addSecs(30)).exactAdvertsNow,
+             QStringList{QStringLiteral("Точная минута")});
+    const auto repeated = SchedulePreview::evaluate(nullptr, &model, firstOccurrence.addSecs(3600));
+    QVERIFY(repeated.exactAdvertsNow.isEmpty());
+    QCOMPARE(repeated.nextAdvertTime, QDateTime(QDate(2026, 10, 26), QTime(2, 30), zone));
     QStandardItemModel channels(0, 7);
     channel(channels, QStringLiteral("Несуществующее начало"), QStringLiteral("02:30"), QStringLiteral("04:00"));
     result = SchedulePreview::evaluate(&channels, nullptr,

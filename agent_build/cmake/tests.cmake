@@ -125,10 +125,12 @@ endforeach()
 add_dependencies(MediaBoxManager_vplayerautostartTests MediaBoxVPlayer)
 
 # These suites deliberately have no Qt Widgets/Multimedia dependency.
-foreach(_suite IN ITEMS schedulecore schedulepersistence mediaimport)
+foreach(_suite IN ITEMS schedulecore schedulepersistence mediaimport schedulev1 schedulepublication schedulev1runtime)
     qt_add_executable(MediaBoxManager_${_suite}Tests "${_manager_test_source}/tst_${_suite}.cpp")
-    if(_suite STREQUAL "schedulecore")
+    if(_suite STREQUAL "schedulecore" OR _suite STREQUAL "schedulev1")
         target_link_libraries(MediaBoxManager_${_suite}Tests PRIVATE MediaBoxScheduleCore Qt6::Test)
+    elseif(_suite STREQUAL "schedulev1runtime")
+        target_link_libraries(MediaBoxManager_${_suite}Tests PRIVATE MediaBoxPlayerCore Qt6::Test)
     elseif(_suite STREQUAL "schedulepersistence")
         target_link_libraries(MediaBoxManager_${_suite}Tests PRIVATE MediaBoxManagerApplication Qt6::Test)
     else()
@@ -199,7 +201,7 @@ set_tests_properties(MediaBoxVPlayer_service PROPERTIES TIMEOUT 45
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME MediaBoxVPlayer_version COMMAND MediaBoxVPlayer --version)
 set_tests_properties(MediaBoxVPlayer_version PROPERTIES TIMEOUT 10
-    PASS_REGULAR_EXPRESSION "MediaBoxVPlayer 0\\.1\\.0"
+    PASS_REGULAR_EXPRESSION "MediaBoxVPlayer 0\\.2\\.0"
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 if(WIN32)
     get_target_property(_vplayer_qmake Qt6::qmake IMPORTED_LOCATION)

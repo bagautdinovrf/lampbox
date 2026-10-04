@@ -1,5 +1,6 @@
 #include "controlserver.h"
 #include "playerengine.h"
+#include "schedulecore/schedulev1.h"
 
 #include <QDir>
 #include <QFile>
@@ -223,13 +224,10 @@ void ControlServer::acceptConnections()
 
 QByteArray ControlServer::dispatch(const QByteArray &line)
 {
-    QJsonParseError parseError;
-    const QJsonDocument document = QJsonDocument::fromJson(line, &parseError);
-    if (parseError.error != QJsonParseError::NoError || !document.isObject())
+    QJsonObject request;
+    if (!ScheduleV1::strictJsonObject(line, &request).isEmpty())
         return serialize(failure(QStringLiteral("invalid_json"),
                                  QStringLiteral("Expected a JSON object.")));
-
-    QJsonObject request = document.object();
     const QJsonValue id = request.value(QStringLiteral("id"));
     if (!id.isUndefined() && !id.isString() && !id.isDouble() && !id.isNull())
         return serialize(failure(QStringLiteral("invalid_request"),

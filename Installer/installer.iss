@@ -1,7 +1,7 @@
 ﻿; MediaBoxManager installer. Compile with Inno Setup 6.
 #define AppName "MediaBoxManager"
 #ifndef AppVersion
-  #define AppVersion "1.1.2"
+  #define AppVersion "1.2.0"
 #endif
 #ifndef PackageDir
   #define PackageDir "..\agent_build\deploy\Release"
@@ -73,7 +73,7 @@ Source: "{#PackageDir}\bin\msvcp140.dll"; DestDir: "{app}\bin"; Flags: ignorever
 ; Preserve the Qt deploy layout (bin, plugins, translations and bin/qt.conf).
 Source: "{#PackageDir}\bin\qt.conf"; DestDir: "{app}\bin"; Flags: ignoreversion skipifsourcedoesntexist
 ; Runtime settings and logs never belong in an installer or its uninstall log.
-Source: "{#PackageDir}\*"; DestDir: "{app}"; Excludes: "*.exe,*.conf,bin\vcruntime140.dll,bin\vcruntime140_1.dll,bin\msvcp140.dll,*.pdb,*.log,control.token,windows.json,project.json,project.json.pending,project.json.lock"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#PackageDir}\*"; DestDir: "{app}"; Excludes: "*.exe,*.conf,bin\vcruntime140.dll,bin\vcruntime140_1.dll,bin\msvcp140.dll,*.pdb,*.log,control.token,windows.json,project.json,project.json.pending,project.json.lock,schedule-project.json,schedule-project.json.lock,active.json,runtime.sqlite,runtime.sqlite-wal,runtime.sqlite-shm,snapshots\*,publications\*"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "assets\setup.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [InstallDelete]

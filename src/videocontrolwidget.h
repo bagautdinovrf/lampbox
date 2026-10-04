@@ -13,6 +13,7 @@ class QComboBox;
 class QLineEdit;
 class QListWidget;
 class QPushButton;
+class QSlider;
 class RestyleLabel;
 
 // Desired profiles are manager data. Only explicit operator actions send commands;
@@ -54,6 +55,11 @@ private:
     void refreshPaths();
     void refreshDisplays();
     void refreshStatus();
+    void refreshPlayback();
+    void commitSeek();
+    void commitVolume();
+    void beginSeek();
+    void beginVolume();
     void updateActions();
     void receiveStatus(const VideoPlayerStatus &status);
     void addWindow();
@@ -100,6 +106,17 @@ private:
     RestyleLabel *mSelectedChannel = nullptr;
     QString mSelectedChannelOrder = QStringLiteral("shuffle_cycle");
     QPushButton *mToggleFullscreen = nullptr;
+    QSlider *mSeek = nullptr, *mVolume = nullptr;
+    QCheckBox *mMuted = nullptr;
+    QComboBox *mRepeat = nullptr;
+    QListWidget *mQueue = nullptr;
+    RestyleLabel *mPosition = nullptr, *mVolumeLabel = nullptr, *mQueueLabel = nullptr;
+    QPushButton *mEnqueue = nullptr, *mClearQueue = nullptr;
+    QString mSeekWindow, mSeekTrack, mVolumeWindow;
+    int mSeekIndex = -1;
+    QStringList mDisplayedQueue;
+    QString mDisplayedWindow;
+    int mDisplayedIndex = -1;
     QList<QPushButton *> mTransportButtons;
     QList<QPushButton *> mPlaylistButtons;
 };

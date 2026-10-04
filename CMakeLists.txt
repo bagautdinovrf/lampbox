@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
 
-project(MediaBoxManager VERSION 1.1.2 LANGUAGES C CXX)
+project(MediaBoxManager VERSION 1.2.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -9,7 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
-find_package(Qt6 6.12 REQUIRED COMPONENTS Core Gui Widgets Network)
+find_package(Qt6 6.12 REQUIRED COMPONENTS Core Gui Widgets Network Sql)
 qt_standard_project_setup(REQUIRES 6.12)
 
 include(GNUInstallDirs)
@@ -30,6 +30,8 @@ endfunction()
 add_library(MediaBoxScheduleCore STATIC
     src/schedulecore/schedulecore.cpp
     src/schedulecore/schedulecore.h
+    src/schedulecore/schedulev1.cpp
+    src/schedulecore/schedulev1.h
 )
 mediabox_manager_library(MediaBoxScheduleCore)
 
@@ -38,6 +40,8 @@ add_library(MediaBoxScheduleStorage STATIC
     src/scheduleimport.cpp
     src/projectrepository.h
     src/scheduleimport.h
+    src/schedulepublication.cpp
+    src/schedulepublication.h
 )
 mediabox_manager_library(MediaBoxScheduleStorage)
 
@@ -119,6 +123,8 @@ add_library(MediaBoxManagerUi OBJECT
     src/schedulepreview.h
     src/ruleeditors.cpp
     src/ruleeditors.h
+    src/scheduledocumentdialog.cpp
+    src/scheduledocumentdialog.h
     src/medialibrarydelegate.cpp
     src/medialibrarydelegate.h
     src/mainwindow.cpp

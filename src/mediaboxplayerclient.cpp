@@ -140,6 +140,20 @@ bool parseStatus(const QJsonObject &object, PlayerStatus *status)
     status->channelName = channel.toString();
     status->scheduleAvailable = available.toBool();
     status->scheduleError = scheduleError.toString();
+    const auto publication = object.value("publicationId"), scheduleId = object.value("scheduleId");
+    const auto revision = object.value("revision"), capabilities = object.value("supportedCapabilities");
+    qint64 revisionNumber = 0;
+    if ((!publication.isUndefined() && !publication.isString())
+            || (!scheduleId.isUndefined() && !scheduleId.isString())
+            || (!revision.isUndefined() && !integer(revision, 0, std::numeric_limits<int>::max(), &revisionNumber))
+            || (!capabilities.isUndefined() && !capabilities.isArray())) return false;
+    status->publicationId = publication.toString();
+    status->scheduleId = scheduleId.toString();
+    status->revision = int(revisionNumber);
+    for (const auto &capability : capabilities.toArray()) {
+        if (!capability.isString()) return false;
+        status->supportedCapabilities.append(capability.toString());
+    }
     return true;
 }
 
@@ -647,6 +661,16 @@ QString MediaBoxPlayerClient::setSchedule(const QJsonObject &schedule)
         return reject(QStringLiteral("setSchedule"), QStringLiteral("invalid_arguments"),
                       tr("Расписание должно содержать массивы каналов и рекламы."));
     return submit(QStringLiteral("setSchedule"), {{QStringLiteral("schedule"), schedule}});
+}
+
+QString MediaBoxPlayerClient::setPublication(const QByteArray &snapshot, const QJsonObject &active,
+                                             const QString &contentRoot, bool autoplay)
+{
+    if (snapshot.isEmpty() || active.value("format") != QJsonValue("mediabox.active"))
+        return reject(QStringLiteral("setPublication"), QStringLiteral("invalid_arguments"),
+                      tr("Подготовьте проверенный выпуск расписания."));
+    return submit(QStringLiteral("setPublication"), {{"snapshotBase64", QString::fromLatin1(snapshot.toBase64())},
+                  {"active", active}, {"contentRoot", contentRoot}, {"autoplay", autoplay}});
 }
 
 QString MediaBoxPlayerClient::startSchedule(const QJsonObject &schedule)

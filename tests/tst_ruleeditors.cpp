@@ -1,6 +1,12 @@
 #include "ruleeditors.h"
 #include "restyletheme.h"
 #include "channelmodel.h"
+#include "scheduledocumentdialog.h"
+#include "schedulecore/schedulev1.h"
+#include <QCheckBox>
+#include <QTimeEdit>
+#include <QPlainTextEdit>
+#include <QJsonDocument>
 
 #include <QApplication>
 #include <QComboBox>
@@ -117,14 +123,21 @@ private slots:
         QSignalSpy changes(&model, &QAbstractItemModel::dataChanged);
         ChannelRuleValues values;
         values.name = QStringLiteral("Я");
-        values.start = QTime(9, 0);
-        values.end = QTime(13, 0);
+        values.start = QTime(22, 0);
+        values.end = QTime(6, 0);
+        values.untilDayOffset = 1;
         values.volume = 40;
         values.order = QStringLiteral("sequential");
         QVERIFY(applyChannel(&proxy, 0, values));
         QCOMPARE(changes.size(), 1);
         QCOMPARE(model.index(0, 0).data().toString(), values.name);
-        QCOMPARE(model.index(0, 1).data().toString(), QStringLiteral("09:00"));
+        QCOMPARE(model.index(0, 1).data().toString(), QStringLiteral("22:00"));
+        QCOMPARE(model.index(0, 2).data().toString(), QStringLiteral("06:00 +1 день"));
+        QCOMPARE(model.index(0, 0).data(ChannelModel::UntilDayOffsetRole).toInt(), 1);
+        ChannelManager reopened(MUSIC);
+        QVERIFY2(reopened.collectChannels(), qPrintable(reopened.lastError()));
+        QCOMPARE(reopened.channel(0).untilDayOffset(), 1);
+        QCOMPARE(reopened.channel(0).startTime(), QTime(22, 0));
         QCOMPARE(model.index(0, 0).data(ChannelModel::PlaybackOrderRole).toString(), values.order);
         QCOMPARE(model.index(1, 0).data().toString(), QStringLiteral("Б"));
         QVERIFY(QFileInfo::exists(directory.filePath("media/music/Я")));
@@ -257,6 +270,87 @@ private slots:
         });
         QVERIFY(editChannel(&model, 0));
         QCOMPARE(model.index(0, 0).data(ChannelModel::PlaybackOrderRole).toString(), QStringLiteral("shuffle_cycle"));
+    }
+
+    void fullDayCanBeChosenReopenedAndReverted()
+    {
+        ChannelRuleValues initial;
+        initial.start = QTime(22, 0); initial.end = QTime(6, 0); initial.untilDayOffset = 1;
+        ChannelRuleDialog dialog(initial);
+        auto *full = dialog.findChild<QCheckBox *>(QStringLiteral("channelFullDay"));
+        auto *next = dialog.findChild<QCheckBox *>(QStringLiteral("channelNextDay"));
+        QVERIFY(full && next && next->isChecked());
+        full->setChecked(true);
+        QCOMPARE(dialog.values().start, QTime(0, 0));
+        QCOMPARE(dialog.values().end, QTime(0, 0));
+        QCOMPARE(dialog.values().untilDayOffset, 1);
+        QVERIFY(!dialog.findChild<QTimeEdit *>(QStringLiteral("channelStart"))->isEnabled());
+        RecordingModel model; model.append(channelRow(initial.name));
+        QVERIFY(applyChannel(&model, 0, dialog.values()));
+        QCOMPARE(model.index(0, 0).data(ChannelModel::UntilDayOffsetRole).toInt(), 1);
+        QTimer::singleShot(0, [] {
+            auto *editor = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            QVERIFY(editor);
+            QVERIFY(editor->findChild<QCheckBox *>(QStringLiteral("channelFullDay"))->isChecked());
+            editor->accept();
+        });
+        QVERIFY(editChannel(&model, 0));
+        const QString capture = qEnvironmentVariable("PLAYBACK_UI_CAPTURE_DIR");
+        if (!capture.isEmpty()) {
+            QVERIFY(Restyle::verifiedCyrillicFont());
+            QVERIFY(QDir().mkpath(capture));
+            dialog.show(); QTest::qWait(50);
+            QVERIFY(dialog.grab().save(QDir(capture).filePath(QStringLiteral("channel-full-day.png"))));
+            dialog.hide();
+        }
+        full->setChecked(false);
+        QCOMPARE(dialog.values().start, initial.start);
+        QCOMPARE(dialog.values().end, initial.end);
+        QCOMPARE(dialog.values().untilDayOffset, initial.untilDayOffset);
+        QVERIFY(next->isEnabled());
+    }
+
+    void completeDocumentEditorValidatesBeforeSaving()
+    {
+        QFile file(QFINDTESTDATA("../Documentation/schedule-v1/example.new-year.json"));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        ScheduleV1::Document source;
+        const QString error = ScheduleV1::parse(file.readAll(), &source);
+        QVERIFY2(error.isEmpty(), qPrintable(error));
+        const QString expired = ScheduleDocumentUi::describe(source.object, QDateTime(QDate(2028, 1, 1), QTime(12, 0)));
+        QVERIFY(expired.contains(QStringLiteral("Резервный источник")));
+        QVERIFY(expired.contains(QStringLiteral("Тишина")));
+        ScheduledDocumentDialog dialog(source.object);
+        auto *section = dialog.findChild<QComboBox *>(QStringLiteral("scheduleDocumentSection"));
+        auto *editor = dialog.findChild<QPlainTextEdit *>(QStringLiteral("scheduleDocumentJson"));
+        QVERIFY(section && editor);
+        section->setCurrentIndex(6);
+        QJsonObject mix = QJsonDocument::fromJson(editor->toPlainText().toUtf8()).object();
+        mix.insert("name", QStringLiteral("Праздник через один"));
+        editor->setPlainText(QString::fromUtf8(QJsonDocument(mix).toJson()));
+        section->setCurrentIndex(3);
+        QCOMPARE(dialog.document().value("mixRules").toArray().first().toObject().value("name").toString(), QStringLiteral("Праздник через один"));
+        const auto calendarText = editor->toPlainText();
+        editor->setPlainText(QStringLiteral("{broken"));
+        dialog.accept();
+        QCOMPARE(dialog.result(), int(QDialog::Rejected));
+        QVERIFY(!dialog.findChild<QLabel *>(QStringLiteral("scheduleDocumentError"))->text().isEmpty());
+        editor->setPlainText(calendarText);
+        auto *at = dialog.findChild<QDateTimeEdit *>(QStringLiteral("scheduleDocumentAt"));
+        at->setDateTime(QDateTime(QDate(2026, 12, 31), QTime(12, 0)));
+        section->setCurrentIndex(6);
+        dialog.findChild<QPushButton *>(QStringLiteral("scheduleDocumentCheck"))->click();
+        QVERIFY(dialog.findChild<QPlainTextEdit *>(QStringLiteral("scheduleDocumentPreview"))->toPlainText().contains(QStringLiteral("Чередование")));
+        const QString capture = qEnvironmentVariable("PLAYBACK_UI_CAPTURE_DIR");
+        if (!capture.isEmpty()) {
+            QVERIFY(Restyle::verifiedCyrillicFont());
+            QVERIFY(QDir().mkpath(capture));
+            dialog.show(); QTest::qWait(50);
+            QVERIFY(dialog.grab().save(QDir(capture).filePath(QStringLiteral("schedule-project.png"))));
+            dialog.hide();
+        }
+        dialog.accept();
+        QCOMPARE(dialog.result(), int(QDialog::Accepted));
     }
 
     void channelPickerUsesCronNumbers()

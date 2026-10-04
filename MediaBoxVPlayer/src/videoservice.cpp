@@ -64,6 +64,42 @@ qint64 scheduledQueueBytes(const QJsonObject &schedule)
     }
     return maximum;
 }
+
+// Missing media is recoverable during startup. Validate the original path
+// shape, then use the shared legacy validator on the currently readable subset.
+QString restoreSchedule(const QJsonObject &saved, QJsonObject *effective, QStringList *missing)
+{
+    QJsonObject filtered = saved;
+    for (const QString &kind : {QStringLiteral("channels"), QStringLiteral("adverts")}) {
+        if (!saved.value(kind).isArray())
+            return QStringLiteral("Saved video schedule must contain channels and adverts arrays.");
+        QJsonArray rules;
+        for (const auto &value : saved.value(kind).toArray()) {
+            QJsonObject rule = value.toObject();
+            if (!value.isObject() || !rule.value("paths").isArray() || rule.value("paths").toArray().size() > 1000)
+                return QStringLiteral("Invalid saved video schedule paths.");
+            QJsonArray paths;
+            for (const auto &entry : rule.value("paths").toArray()) {
+                const QString path = entry.toString();
+                if (!entry.isString() || path.isEmpty() || path.size() > 4096 || path.contains(QChar::Null)
+                    || !QDir::isAbsolutePath(path))
+                    return QStringLiteral("Invalid saved video schedule path.");
+                if (playbackFileError(path).isEmpty())
+                    paths.append(path);
+                else if (missing)
+                    missing->append(path);
+            }
+            rule.insert("paths", paths);
+            rules.append(rule);
+        }
+        filtered.insert(kind, rules);
+    }
+    PlaybackSchedule decoded;
+    const QString error = PlaybackSchedule::decode(filtered, &decoded);
+    if (error.isEmpty())
+        *effective = filtered;
+    return error;
+}
 } // namespace
 
 struct VideoService::Record
@@ -72,6 +108,7 @@ struct VideoService::Record
     QString name;
     QString screen;
     QString restoreError;
+    QJsonObject schedule;
     qint64 scheduleQueueBytes = 2;
     // Destruction order matters: engine, decoder, then its video surface.
     std::unique_ptr<VideoWindow> window;
@@ -159,7 +196,10 @@ VideoService::Record &VideoService::createWindow(const QString &id, const QStrin
     record->window = std::make_unique<VideoWindow>();
     record->window->setWindowTitle(record->name + QStringLiteral(" — MediaBoxVPlayer"));
     record->backend.reset(m_factory(record->window->videoWidget(), nullptr));
-    record->engine = std::make_unique<PlayerEngine>(record->backend.get());
+    // Video's legacy snapshot is persisted per window below. It must never
+    // restore an audio publication from the shared player's default location.
+    record->engine = std::make_unique<PlayerEngine>(record->backend.get(), nullptr,
+        [] { return QDateTime::currentDateTime(); }, QStringLiteral(":memory:"));
     record->window->setFullscreen(fullscreen);
     Record *entry = record.get();
     m_windows.emplace(id, std::move(record));
@@ -177,6 +217,9 @@ VideoService::Record &VideoService::createWindow(const QString &id, const QStrin
     connect(entry->window.get(), &VideoWindow::closeRequested, this, [this, entry] {
         entry->engine->execute({{QStringLiteral("command"), QStringLiteral("stop")}});
         entry->window->suspend();
+        QString error;
+        if (!save(&error))
+            m_persistenceError = error;
         emit statusChanged();
     });
     present(*entry);
@@ -204,13 +247,16 @@ QJsonObject VideoService::status() const
     for (const auto &[id, record] : m_windows) {
         const QString actual = record->window->isVisible() && record->window->windowHandle()
             ? m_screenIds.value(record->window->windowHandle()->screen()) : QString();
+        auto playback = record->engine->status();
+        // These windows deliberately use the separate legacy video contract.
+        playback.insert(QStringLiteral("supportedCapabilities"), QJsonArray{});
         windows.append(QJsonObject{{QStringLiteral("id"), id},
                                    {QStringLiteral("name"), record->name},
                                    {QStringLiteral("screen"), record->screen},
                                    {QStringLiteral("actualScreen"), actual},
                                    {QStringLiteral("fullscreen"), record->window->requestedFullscreen()},
                                    {QStringLiteral("restoreError"), record->restoreError},
-                                   {QStringLiteral("playback"), record->engine->status()}});
+                                   {QStringLiteral("playback"), playback}});
     }
     return {{QStringLiteral("application"), QStringLiteral("MediaBoxVPlayer")},
             {QStringLiteral("displays"), displays}, {QStringLiteral("windows"), windows},
@@ -310,6 +356,8 @@ QJsonObject VideoService::execute(const QJsonObject &request)
         return finishMutation();
     }
     const bool scheduleCommand = command == QStringLiteral("setSchedule") || command == QStringLiteral("schedule");
+    if (scheduleCommand && request.value("schedule").toObject().contains("format"))
+        return failure(QStringLiteral("invalid_schedule"), QStringLiteral("MediaBoxVPlayer accepts video channels/adverts; mediabox.schedule v1 is audio only."));
     const qint64 futureQueueBytes = scheduleCommand && request.value(QStringLiteral("schedule")).isObject()
         ? scheduledQueueBytes(request.value(QStringLiteral("schedule")).toObject()) : record.scheduleQueueBytes;
     if (scheduleCommand || ((command == QStringLiteral("load") || command == QStringLiteral("enqueue")
@@ -348,8 +396,10 @@ QJsonObject VideoService::execute(const QJsonObject &request)
         response.insert(QStringLiteral("status"), status());
         return response;
     }
-    if (scheduleCommand && request.value(QStringLiteral("schedule")).isObject())
+    if (scheduleCommand && request.value(QStringLiteral("schedule")).isObject()) {
         record.scheduleQueueBytes = futureQueueBytes;
+        record.schedule = request.value(QStringLiteral("schedule")).toObject();
+    }
     if (command == QStringLiteral("play") || command == QStringLiteral("schedule")
         || command == QStringLiteral("playChannel") || (command == QStringLiteral("load")
         && request.value(QStringLiteral("autoplay")).toBool()))
@@ -357,9 +407,7 @@ QJsonObject VideoService::execute(const QJsonObject &request)
     if (command == QStringLiteral("load") || command == QStringLiteral("clear")
         || command == QStringLiteral("playChannel") || command == QStringLiteral("schedule"))
         record.restoreError.clear();
-    if (command == QStringLiteral("seek") || command == QStringLiteral("play")
-        || command == QStringLiteral("pause") || command == QStringLiteral("stop")
-        || command == QStringLiteral("setSchedule"))
+    if (command == QStringLiteral("seek"))
         return success();
     return finishMutation();
 }
@@ -369,13 +417,17 @@ bool VideoService::save(QString *error) const
     QJsonArray windows;
     for (const auto &[id, record] : m_windows) {
         const QJsonObject playback = record->engine->status();
-        windows.append(QJsonObject{{QStringLiteral("windowId"), id}, {QStringLiteral("name"), record->name},
+        QJsonObject item{{QStringLiteral("windowId"), id}, {QStringLiteral("name"), record->name},
             {QStringLiteral("screen"), record->screen}, {QStringLiteral("fullscreen"), record->window->requestedFullscreen()},
             {QStringLiteral("paths"), playback.value(QStringLiteral("queue"))},
             {QStringLiteral("currentIndex"), playback.value(QStringLiteral("currentIndex"))},
             {QStringLiteral("volumePercent"), playback.value(QStringLiteral("volumePercent"))},
             {QStringLiteral("muted"), playback.value(QStringLiteral("muted"))},
-            {QStringLiteral("repeat"), playback.value(QStringLiteral("repeat"))}});
+            {QStringLiteral("repeat"), playback.value(QStringLiteral("repeat"))},
+            {QStringLiteral("playbackMode"), playback.value(QStringLiteral("playbackMode"))}};
+        if (!record->schedule.isEmpty())
+            item.insert(QStringLiteral("schedule"), record->schedule);
+        windows.append(item);
     }
     if (!QDir().mkpath(m_dataDirectory)) {
         *error = QStringLiteral("Cannot create the video player data directory. Running changes were not saved.");
@@ -383,7 +435,7 @@ bool VideoService::save(QString *error) const
     }
     QSaveFile file(QDir(m_dataDirectory).filePath(QStringLiteral("windows.json")));
     file.setDirectWriteFallback(false);
-    const QByteArray data = QJsonDocument(QJsonObject{{QStringLiteral("version"), 1},
+    const QByteArray data = QJsonDocument(QJsonObject{{QStringLiteral("version"), 2},
         {QStringLiteral("windows"), windows}}).toJson(QJsonDocument::Indented);
     if (!file.open(QIODevice::WriteOnly) || file.write(data) != data.size() || !file.commit()) {
         *error = QStringLiteral("Running changes were not saved: %1").arg(file.errorString());
@@ -405,11 +457,12 @@ bool VideoService::restore(QString *error)
         *error = QStringLiteral("Cannot read windows.json, or it exceeds 64 MiB.");
         return false;
     }
-    const auto document = QJsonDocument::fromJson(file.readAll());
-    const auto object = document.object();
-    if (object.value(QStringLiteral("version")) != QJsonValue(1)
+    QJsonObject object;
+    const QString parseError = ScheduleV1::strictJsonObject(file.readAll(), &object);
+    if (!parseError.isEmpty()
+        || (object.value(QStringLiteral("version")) != QJsonValue(1) && object.value(QStringLiteral("version")) != QJsonValue(2))
         || !object.value(QStringLiteral("windows")).isArray()) {
-        *error = QStringLiteral("windows.json must contain version 1 and a windows array.");
+        *error = QStringLiteral("windows.json must contain version 1 or 2 and a windows array.");
         return false;
     }
     const auto windows = object.value(QStringLiteral("windows")).toArray();
@@ -426,12 +479,24 @@ bool VideoService::restore(QString *error)
         const auto paths = item.value(QStringLiteral("paths")).toArray();
         queueBytes += QJsonDocument(paths).toJson(QJsonDocument::Compact).size();
         const auto repeat = item.value(QStringLiteral("repeat")).toString();
+        const QString mode = item.value(QStringLiteral("playbackMode")).toString(QStringLiteral("manual"));
         bool valid = validDefinition(item) && !ids.contains(id) && queueBytes <= MaxQueueBytes
             && item.value(QStringLiteral("paths")).isArray()
             && paths.size() <= 1000 && integer(item.value(QStringLiteral("volumePercent")), 0, 100)
             && item.value(QStringLiteral("muted")).isBool()
             && (repeat == QStringLiteral("off") || repeat == QStringLiteral("all") || repeat == QStringLiteral("one"))
-            && integer(item.value(QStringLiteral("currentIndex")), paths.isEmpty() ? -1 : 0, paths.size() - 1);
+            && integer(item.value(QStringLiteral("currentIndex")), paths.isEmpty() ? -1 : 0, paths.size() - 1)
+            && (mode == QStringLiteral("manual") || mode == QStringLiteral("schedule"))
+            && (!item.contains("playbackMode") || item.value("playbackMode").isString())
+            && (mode != QStringLiteral("schedule") || item.value("schedule").isObject());
+        if (item.contains("schedule")) {
+            QJsonObject effective;
+            valid = valid && item.value("schedule").isObject()
+                && restoreSchedule(item.value("schedule").toObject(), &effective, nullptr).isEmpty();
+            if (mode == QStringLiteral("schedule"))
+                queueBytes += qMax(pathsBytes(paths), scheduledQueueBytes(item.value("schedule").toObject())) - pathsBytes(paths);
+            valid = valid && queueBytes <= MaxQueueBytes;
+        }
         for (const auto &path : paths) {
             valid = valid && path.isString() && !path.toString().isEmpty() && path.toString().size() <= 4096
                 && !path.toString().contains(QChar::Null) && QDir::isAbsolutePath(path.toString());
@@ -476,6 +541,23 @@ bool VideoService::restore(QString *error)
         record.engine->execute({{QStringLiteral("command"), QStringLiteral("volume")}, {QStringLiteral("value"), item.value(QStringLiteral("volumePercent"))}});
         record.engine->execute({{QStringLiteral("command"), QStringLiteral("mute")}, {QStringLiteral("value"), item.value(QStringLiteral("muted"))}});
         record.engine->execute({{QStringLiteral("command"), QStringLiteral("repeat")}, {QStringLiteral("mode"), item.value(QStringLiteral("repeat"))}});
+        if (item.value("schedule").isObject()) {
+            record.schedule = item.value("schedule").toObject();
+            record.scheduleQueueBytes = scheduledQueueBytes(record.schedule);
+            QJsonObject effective;
+            QStringList unavailable;
+            const QString scheduleError = restoreSchedule(record.schedule, &effective, &unavailable);
+            if (scheduleError.isEmpty()) {
+                const auto response = record.engine->execute({{"command", item.value("playbackMode").toString() == QStringLiteral("schedule")
+                    ? QStringLiteral("schedule") : QStringLiteral("setSchedule")}, {"schedule", effective}});
+                if (!response.value("ok").toBool())
+                    record.restoreError = response.value("error").toObject().value("message").toString();
+            } else {
+                record.restoreError = scheduleError;
+            }
+            if (!unavailable.isEmpty())
+                record.restoreError = tr("Пропущены недоступные файлы: %1").arg(unavailable.join(QStringLiteral("; ")));
+        }
     }
     emit statusChanged();
     return true;

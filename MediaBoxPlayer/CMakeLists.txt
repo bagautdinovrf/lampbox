@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
 
-project(MediaBoxPlayer VERSION 0.2.0 LANGUAGES CXX)
+project(MediaBoxPlayer VERSION 0.3.0 LANGUAGES CXX)
 
 if(PROJECT_IS_TOP_LEVEL)
     set(CMAKE_CXX_STANDARD 23)
@@ -11,7 +11,7 @@ if(PROJECT_IS_TOP_LEVEL)
     include(GNUInstallDirs)
 endif()
 
-find_package(Qt6 6.12 REQUIRED COMPONENTS Core Network Multimedia)
+find_package(Qt6 6.12 REQUIRED COMPONENTS Core Network Multimedia Sql)
 if(PROJECT_IS_TOP_LEVEL)
     qt_standard_project_setup(REQUIRES 6.12)
 endif()
@@ -22,7 +22,8 @@ endif()
 
 if(NOT TARGET MediaBoxScheduleCore)
     add_library(MediaBoxScheduleCore STATIC
-        ../src/schedulecore/schedulecore.cpp ../src/schedulecore/schedulecore.h)
+        ../src/schedulecore/schedulecore.cpp ../src/schedulecore/schedulecore.h
+        ../src/schedulecore/schedulev1.cpp ../src/schedulecore/schedulev1.h)
     target_include_directories(MediaBoxScheduleCore PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../src")
     target_link_libraries(MediaBoxScheduleCore PUBLIC Qt6::Core)
     target_compile_features(MediaBoxScheduleCore PUBLIC cxx_std_23)
@@ -37,10 +38,11 @@ add_library(MediaBoxPlayerCore STATIC
     src/playbackschedule.cpp src/playbackschedule.h
     src/controlserver.cpp src/controlserver.h
     src/desktopservice.cpp src/desktopservice.h
+    src/schedulev1runtime.cpp src/schedulev1runtime.h
 )
 target_include_directories(MediaBoxPlayerCore PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_compile_features(MediaBoxPlayerCore PUBLIC cxx_std_23)
-target_link_libraries(MediaBoxPlayerCore PUBLIC MediaBoxScheduleCore Qt6::Core Qt6::Network)
+target_link_libraries(MediaBoxPlayerCore PUBLIC MediaBoxScheduleCore Qt6::Core Qt6::Network Qt6::Sql)
 if(WIN32)
     target_link_libraries(MediaBoxPlayerCore PRIVATE advapi32)
 endif()

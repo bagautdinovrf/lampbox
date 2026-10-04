@@ -16,6 +16,7 @@
 #include <QPushButton>
 #include <QSignalSpy>
 #include <QSpinBox>
+#include <QSlider>
 #include <QStandardPaths>
 #include <QTcpServer>
 #include <QTcpSocket>
@@ -394,6 +395,132 @@ private slots:
         QTRY_VERIFY(client->isReady());
         QCOMPARE(windows->count(), 1);
         QCOMPARE(peer.requests.size(), 7);
+    }
+
+    void completePlaybackControlsUseConfirmedSelectedWindow()
+    {
+        Peer peer;
+        QVERIFY(Settings().setVideoPlayerConnection(peer.settings()));
+        MediaBoxVPlayerClient client;
+        client.setTiming({60000, 2000, 5000, 60000, 60000});
+        VideoControlWidget widget(nullptr, &client);
+        widget.resize(1200, 900); widget.show();
+        auto *windows = widget.findChild<QListWidget *>("videoWindows");
+        auto *queue = widget.findChild<QListWidget *>("videoConfirmedQueue");
+        auto *seek = widget.findChild<QSlider *>("videoSeek");
+        auto *volume = widget.findChild<QSlider *>("videoVolume");
+        auto *mute = widget.findChild<QCheckBox *>("videoMuted");
+        auto *repeat = widget.findChild<QComboBox *>("videoRepeat");
+        auto *enqueue = widget.findChild<QPushButton *>("videoEnqueue");
+        auto *clear = widget.findChild<QPushButton *>("videoClearQueue");
+        auto *position = widget.findChild<QLabel *>("videoPosition");
+        QVERIFY(windows && queue && seek && volume && mute && repeat && enqueue && clear && position);
+        QVERIFY(!seek->isEnabled());
+        client.connectToPlayer(peer.settings());
+        QTRY_COMPARE(peer.requests.size(), 1);
+        auto state = snapshot("playing");
+        auto first = state.value("windows").toArray().first().toObject();
+        auto second = first;
+        second.insert("id", "second"); second.insert("name", "Второй зал");
+        auto otherPlayback = second.value("playback").toObject();
+        otherPlayback.insert("queue", QJsonArray{"/remote/другой.mp4"});
+        otherPlayback.insert("currentTrack", "/remote/другой.mp4");
+        otherPlayback.insert("volumePercent", 80);
+        second.insert("playback", otherPlayback);
+        state.insert("windows", QJsonArray{first, second});
+        const auto changeFirst = [&](const QJsonObject &fields) {
+            auto playback = first.value("playback").toObject();
+            for (auto it = fields.begin(); it != fields.end(); ++it) playback.insert(it.key(), it.value());
+            first.insert("playback", playback);
+            state.insert("windows", QJsonArray{first, second});
+        };
+        peer.answer(0, state);
+        QTRY_VERIFY(client.isReady());
+        QCOMPARE(windows->count(), 2);
+        QCOMPARE(queue->count(), 2);
+        QCOMPARE(queue->item(0)->data(Qt::UserRole).toString(), QString("/remote/первое.mp4"));
+        QVERIFY(position->text().contains("00:00:00 / 00:01:30"));
+        QCOMPARE(volume->value(), 100);
+        QCOMPARE(peer.requests.size(), 1); // Rendering telemetry never sends commands.
+        seek->setSliderDown(true); seek->setValue(5000); seek->setSliderDown(false);
+        QTRY_COMPARE(peer.requests.size(), 2);
+        QCOMPARE(peer.command(1), QString("seek"));
+        QCOMPARE(peer.requests[1].object.value("positionMs").toInteger(), qint64(45000));
+        QCOMPARE(peer.requests[1].object.value("windowId").toString(), QString("lobby"));
+        QVERIFY(position->text().contains("00:00:00"));
+        changeFirst({{"positionMs", 45000}}); peer.answer(1, state);
+        QTRY_VERIFY(seek->isEnabled());
+        QCOMPARE(seek->value(), 5000);
+        volume->setSliderDown(true); volume->setValue(37); volume->setSliderDown(false);
+        QTRY_COMPARE(peer.requests.size(), 3);
+        QCOMPARE(peer.command(2), QString("volume"));
+        QCOMPARE(peer.requests[2].object.value("value").toInt(), 37);
+        QCOMPARE(volume->value(), 100);
+        changeFirst({{"volumePercent", 37}}); peer.answer(2, state);
+        QTRY_COMPARE(volume->value(), 37);
+        QTRY_VERIFY(mute->isEnabled());
+        mute->click();
+        QTRY_COMPARE(peer.requests.size(), 4);
+        QCOMPARE(peer.command(3), QString("mute"));
+        QVERIFY(peer.requests[3].object.value("value").toBool());
+        QVERIFY(!mute->isChecked());
+        changeFirst({{"muted", true}}); peer.answer(3, state);
+        QTRY_VERIFY(mute->isChecked());
+        QTRY_VERIFY(repeat->isEnabled());
+        const int all = repeat->findData("all");
+        repeat->setCurrentIndex(all);
+        QVERIFY(QMetaObject::invokeMethod(repeat, "activated", Qt::DirectConnection, Q_ARG(int, all)));
+        QTRY_COMPARE(peer.requests.size(), 5);
+        QCOMPARE(peer.command(4), QString("repeat"));
+        QCOMPARE(peer.requests[4].object.value("mode").toString(), QString("all"));
+        QCOMPARE(repeat->currentData().toString(), QString("off"));
+        changeFirst({{"repeat", "all"}}); peer.answer(4, state);
+        QTRY_COMPARE(repeat->currentData().toString(), QString("all"));
+        QTRY_VERIFY(enqueue->isEnabled());
+        QVERIFY(Restyle::verifiedCyrillicFont());
+        QVERIFY(capture(widget, "video-complete-playback"));
+        enqueue->click();
+        QTRY_COMPARE(peer.requests.size(), 6);
+        QCOMPARE(peer.command(5), QString("enqueue"));
+        QCOMPARE(peer.requests[5].object.value("paths").toArray().size(), 2);
+        QCOMPARE(queue->count(), 2);
+        changeFirst({{"queue", QJsonArray{"/remote/первое.mp4", "/remote/второе.mp4", "/remote/первое.mp4", "/remote/второе.mp4"}}});
+        peer.answer(5, state);
+        QTRY_COMPARE(queue->count(), 4);
+        QTRY_VERIFY(clear->isEnabled());
+        clear->click();
+        QTRY_COMPARE(peer.requests.size(), 7);
+        QCOMPARE(peer.command(6), QString("clear"));
+        QCOMPARE(queue->count(), 4);
+        peer.fail(6, "Очистка отклонена");
+        QTRY_VERIFY(clear->isEnabled());
+        QCOMPARE(queue->count(), 4);
+        clear->click(); QTRY_COMPARE(peer.requests.size(), 8);
+        changeFirst({{"state", "stopped"}, {"playbackRequested", false}, {"queue", QJsonArray{}}, {"currentIndex", -1}, {"currentTrack", ""}, {"positionMs", 0}, {"durationMs", 0}});
+        peer.answer(7, state);
+        QTRY_COMPARE(queue->count(), 0);
+        QTRY_VERIFY(!clear->isEnabled());
+        QVERIFY(!seek->isEnabled());
+        windows->setCurrentRow(1);
+        QCOMPARE(queue->count(), 1);
+        QCOMPARE(volume->value(), 80);
+        QVERIFY(seek->isEnabled());
+        seek->setSliderDown(true); seek->setValue(7000);
+        windows->setCurrentRow(0); // An in-progress gesture must not seek another window.
+        seek->setSliderDown(false);
+        QTest::qWait(30);
+        QCOMPARE(peer.requests.size(), 8);
+        windows->setCurrentRow(1);
+        volume->triggerAction(QAbstractSlider::SliderSingleStepAdd);
+        QTRY_COMPARE(peer.requests.size(), 9);
+        QCOMPARE(peer.requests[8].object.value("windowId").toString(), QString("second"));
+        QCOMPARE(peer.requests[8].object.value("value").toInt(), 81);
+        peer.answer(8, state);
+        QTRY_VERIFY(volume->isEnabled());
+        client.disconnectFromPlayer();
+        QVERIFY(!volume->isEnabled()); QVERIFY(!mute->isEnabled()); QVERIFY(!repeat->isEnabled());
+        QVERIFY(!enqueue->isEnabled()); QVERIFY(!clear->isEnabled());
+        QCOMPARE(queue->count(), 0);
     }
 
     void importedWindowPreservesDraftAndPendingDeletionTargetsId()

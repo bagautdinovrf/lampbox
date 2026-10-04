@@ -177,6 +177,15 @@ private slots:
             const auto reply = QJsonDocument::fromJson(socket.readLine()).object();
             QCOMPARE(reply.value("error").toObject().value("code").toString(), QStringLiteral("invalid_json"));
         }
+        // Duplicate fields, including nested active-publication metadata, are
+        // rejected before an authenticated command can mutate player state.
+        const QByteArray duplicate = QByteArray("{\"protocolVersion\":1,\"token\":\"") + token
+            + "\",\"command\":\"volume\",\"value\":0,\"value\":99}\n";
+        socket.write(duplicate);
+        QTRY_VERIFY(socket.canReadLine());
+        QCOMPARE(QJsonDocument::fromJson(socket.readLine()).object().value("error").toObject()
+                     .value("code").toString(), QStringLiteral("invalid_json"));
+        QCOMPARE(engine.status().value("volumePercent").toInt(), 37);
         auto wrongVersion = QJsonDocument::fromJson(request({{"command", "clear"}})).object();
         wrongVersion.insert("protocolVersion", 2);
         socket.write(QJsonDocument(wrongVersion).toJson(QJsonDocument::Compact) + '\n');
