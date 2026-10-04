@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
 
-project(MediaBoxManager VERSION 1.2.9 LANGUAGES C CXX)
+include(cmake/Version.cmake)
+project(MediaBoxManager VERSION ${MEDIABOX_VERSION} LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -149,7 +150,6 @@ target_include_directories(MediaBoxManagerUi PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
 target_compile_definitions(MediaBoxManagerUi PUBLIC
-    VERSION="${PROJECT_VERSION}"
     "$<$<CONFIG:Debug>:SHOW_DEBUG_OUTPUT>"
 )
 target_link_libraries(MediaBoxManagerUi PUBLIC

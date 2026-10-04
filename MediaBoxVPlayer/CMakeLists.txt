@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
-project(MediaBoxVPlayer VERSION 0.2.1 LANGUAGES CXX)
+include("${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Version.cmake")
+project(MediaBoxVPlayer VERSION ${MEDIABOX_VERSION} LANGUAGES CXX)
 
 if(PROJECT_IS_TOP_LEVEL)
     set(CMAKE_CXX_STANDARD 23)

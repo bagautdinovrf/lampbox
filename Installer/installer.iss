@@ -1,7 +1,16 @@
 ﻿; MediaBoxManager installer. Compile with Inno Setup 6.
 #define AppName "MediaBoxManager"
-#ifndef AppVersion
-  #define AppVersion "1.2.9"
+#ifdef AppVersion
+  #error AppVersion must be read from VERSION.txt; remove the /DAppVersion override.
+#endif
+#define VersionFile FileOpen(SourcePath + "..\VERSION.txt")
+#if !VersionFile
+  #error Cannot read the root VERSION.txt.
+#endif
+#define AppVersion Trim(FileRead(VersionFile))
+#expr FileClose(VersionFile)
+#if AppVersion == ""
+  #error The root VERSION.txt is empty.
 #endif
 #ifndef PackageDir
   #define PackageDir "..\agent_build\deploy\Release"

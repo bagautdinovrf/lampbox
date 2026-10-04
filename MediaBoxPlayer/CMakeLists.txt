@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
 
-project(MediaBoxPlayer VERSION 0.3.2 LANGUAGES CXX)
+include("${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Version.cmake")
+project(MediaBoxPlayer VERSION ${MEDIABOX_VERSION} LANGUAGES CXX)
 
 if(PROJECT_IS_TOP_LEVEL)
     set(CMAKE_CXX_STANDARD 23)
@@ -59,11 +60,20 @@ target_compile_definitions(MediaBoxPlayer PRIVATE
 target_link_libraries(MediaBoxPlayer PRIVATE MediaBoxPlayerCore MediaBoxPaths Qt6::Multimedia)
 if(ANDROID)
     target_link_libraries(MediaBoxPlayer PRIVATE Qt6::CorePrivate)
+    # Encode major.minor.patch as a monotonically increasing Android version.
+    if(PROJECT_VERSION_MAJOR GREATER 2099 OR PROJECT_VERSION_MINOR GREATER 999
+            OR PROJECT_VERSION_PATCH GREATER 999 OR PROJECT_VERSION VERSION_EQUAL "0.0.0")
+        message(FATAL_ERROR "Android requires major <= 2099, minor/patch <= 999 and a nonzero version")
+    endif()
+    math(EXPR _android_version_code
+        "${PROJECT_VERSION_MAJOR} * 1000000 + ${PROJECT_VERSION_MINOR} * 1000 + ${PROJECT_VERSION_PATCH}")
     set_target_properties(MediaBoxPlayer PROPERTIES
         QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android"
         QT_ANDROID_PACKAGE_NAME "org.mediabox.player"
         QT_ANDROID_MIN_SDK_VERSION 28
         QT_ANDROID_TARGET_SDK_VERSION 36
+        QT_ANDROID_VERSION_NAME "${PROJECT_VERSION}"
+        QT_ANDROID_VERSION_CODE "${_android_version_code}"
     )
 endif()
 if(MSVC)

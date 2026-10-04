@@ -304,17 +304,16 @@ try {
     if ($InnoSetupCompiler -and -not $Installer) {
         throw '-InnoSetupCompiler is used with -Installer.'
     }
-    $rootCMakePath = Assert-File (Join-Path $sourceDirectory 'CMakeLists.txt') 'Root CMakeLists.txt'
+    $null = Assert-File (Join-Path $sourceDirectory 'CMakeLists.txt') 'Root CMakeLists.txt'
     if ($Installer) {
         $Deploy = $true
         $installerScript = Assert-File (Join-Path $sourceDirectory 'Installer\installer.iss') 'Inno Setup script'
         $installerCompiler = Get-InnoSetupCompiler
-        $versionMatch = [regex]::Match((Get-Content -LiteralPath $rootCMakePath -Raw),
-            '(?im)^\s*project\s*\(\s*MediaBoxManager\s+VERSION\s+(\d+\.\d+\.\d+)\b')
-        if (-not $versionMatch.Success) {
-            throw 'MediaBoxManager project VERSION was not found in the root CMakeLists.txt.'
+        $versionPath = Assert-File (Join-Path $sourceDirectory 'VERSION.txt') 'Product version'
+        $appVersion = (Get-Content -LiteralPath $versionPath -Raw).Trim()
+        if ($appVersion -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') {
+            throw 'VERSION.txt must contain a version in major.minor.patch format.'
         }
-        $appVersion = $versionMatch.Groups[1].Value
         $installerOutputDirectory = Join-Path $sourceDirectory 'Installer\bin'
         $installerOutputPath = Join-Path $installerOutputDirectory "MediaBoxManager-$appVersion-Setup.exe"
         $runInformation.InnoSetupCompiler = $installerCompiler
@@ -398,7 +397,6 @@ try {
             $runInformation.MsvcRuntimeDirectory = $runtimeSource
             Write-Host "MSVC runtime: $runtimeSource"
             Invoke-LoggedCommand 'installer' $installerCompiler @(
-                "/DAppVersion=$appVersion",
                 "/DPackageDir=$deployDirectory",
                 "/DOutputDir=$installerOutputDirectory",
                 $installerScript

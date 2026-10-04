@@ -19,11 +19,6 @@ int main(int argc, char *argv[])
     if(argc == 2){
         if(QString(argv[1]) == "version") {
            std::cout << VERSION;
-           QFile file("version");
-           if(file.open(QIODevice::WriteOnly)) {
-            file.write( VERSION );
-            file.close();
-           }
            return 0;
         }
     }

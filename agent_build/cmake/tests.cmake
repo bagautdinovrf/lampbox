@@ -38,9 +38,10 @@ add_test(NAME MediaBoxManager_settings COMMAND "${CMAKE_COMMAND}"
 set_tests_properties(MediaBoxManager_settings PROPERTIES TIMEOUT 30)
 
 add_test(NAME MediaBoxManager_version COMMAND MediaBoxManager version)
+string(REPLACE "." "\\." _version_regex "${MEDIABOX_VERSION}")
 set_tests_properties(MediaBoxManager_version PROPERTIES
     WORKING_DIRECTORY "${_test_report_directory}"
-    PASS_REGULAR_EXPRESSION "${PROJECT_VERSION}"
+    PASS_REGULAR_EXPRESSION "^${_version_regex}[\r\n]*$"
     TIMEOUT 10
 )
 
@@ -178,14 +179,8 @@ add_test(NAME MediaBoxPlayer_process COMMAND MediaBoxPlayerProcessTests)
 set_tests_properties(MediaBoxPlayer_process PROPERTIES TIMEOUT 30)
 
 add_test(NAME MediaBoxPlayer_version COMMAND MediaBoxPlayer --version)
-get_target_property(_player_definitions MediaBoxPlayer COMPILE_DEFINITIONS)
-string(REGEX MATCH "MEDIABOXPLAYER_VERSION=\"([0-9.]+)\"" _player_version_definition "${_player_definitions}")
-if(NOT _player_version_definition)
-    message(FATAL_ERROR "MediaBoxPlayer version definition was not found")
-endif()
-string(REPLACE "." "\\." _player_version_regex "${CMAKE_MATCH_1}")
 set_tests_properties(MediaBoxPlayer_version PROPERTIES
-    PASS_REGULAR_EXPRESSION "MediaBoxPlayer ${_player_version_regex}"
+    PASS_REGULAR_EXPRESSION "MediaBoxPlayer ${_version_regex}"
     TIMEOUT 10
 )
 if(WIN32)
@@ -206,7 +201,7 @@ set_tests_properties(MediaBoxVPlayer_service PROPERTIES TIMEOUT 45
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME MediaBoxVPlayer_version COMMAND MediaBoxVPlayer --version)
 set_tests_properties(MediaBoxVPlayer_version PROPERTIES TIMEOUT 10
-    PASS_REGULAR_EXPRESSION "MediaBoxVPlayer 0\\.2\\.1"
+    PASS_REGULAR_EXPRESSION "MediaBoxVPlayer ${_version_regex}"
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 if(WIN32)
     get_target_property(_vplayer_qmake Qt6::qmake IMPORTED_LOCATION)

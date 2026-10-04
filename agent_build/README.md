@@ -50,7 +50,7 @@ powershell -ExecutionPolicy Bypass -File .\agent_build\build.ps1
 | `logs/<дата-время-id>/` | Отдельные журналы configure/build/build-tests/test/deploy/installer и сводка `run.json` |
 | `deploy/<конфигурация>/bin/` | Три приложения с библиотеками и плагинами Qt после `-Deploy` |
 
-Параметр `-Installer` включает `-Deploy` и после установки файлов запускает `ISCC.exe` для `Installer/installer.iss`. Нужен установленный Inno Setup 6: скрипт ищет компилятор в `PATH`, `Program Files (x86)` и `Program Files`; путь можно задать параметром `-InnoSetupCompiler`. Версия берётся из `project(MediaBoxManager VERSION ...)` корневого `CMakeLists.txt`. Готовый установщик сохраняется отдельно в `Installer/bin/MediaBoxManager-<версия>-Setup.exe`. `-ConfigureOnly` нельзя сочетать с `-Deploy` или `-Installer`.
+Параметр `-Installer` включает `-Deploy` и после установки файлов запускает `ISCC.exe` для `Installer/installer.iss`. Нужен установленный Inno Setup 6: скрипт ищет компилятор в `PATH`, `Program Files (x86)` и `Program Files`; путь можно задать параметром `-InnoSetupCompiler`. Версия трёх приложений и установщика берётся из корневого [VERSION.txt](../VERSION.txt); для нового выпуска меняется только этот файл. Готовый установщик сохраняется отдельно в `Installer/bin/MediaBoxManager-<версия>-Setup.exe`. `-ConfigureOnly` нельзя сочетать с `-Deploy` или `-Installer`.
 
 Перед компиляцией установщика `-Installer` копирует DLL среды MSVC из самой новой версии `VC/Redist/MSVC/<версия>/x64/Microsoft.VC143.CRT` выбранной Visual Studio в `deploy/<конфигурация>/bin`. Наличие `vcruntime140.dll`, `vcruntime140_1.dll` и `msvcp140.dll` обязательно. Библиотеки устанавливаются рядом с приложением, поэтому отдельная установка системного `vc_redist.x64.exe` не требуется. Сам установщик запрашивает права администратора и устанавливает приложение для всех пользователей в `C:\Program Files\MediaBox`.
 
@@ -63,12 +63,10 @@ powershell -ExecutionPolicy Bypass -File .\agent_build\build.ps1
 Если папка `agent_build/deploy/Release` уже собрана и проверена и содержит указанные DLL среды MSVC в `bin`, установщик можно пересобрать отдельно, без повторной сборки приложения и запуска тестов:
 
 ```powershell
-$projectVersion = [regex]::Match((Get-Content .\CMakeLists.txt -Raw),
-    '(?im)^\s*project\s*\(\s*MediaBoxManager\s+VERSION\s+(\d+\.\d+\.\d+)\b').Groups[1].Value
 $packageDirectory = (Resolve-Path .\agent_build\deploy\Release).Path
 $outputDirectory = Join-Path (Get-Location).Path 'Installer\bin'
 & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' `
-    "/DAppVersion=$projectVersion" "/DPackageDir=$packageDirectory" "/DOutputDir=$outputDirectory" `
+    "/DPackageDir=$packageDirectory" "/DOutputDir=$outputDirectory" `
     .\Installer\installer.iss
 if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
 ```
