@@ -2,29 +2,23 @@
 #include "advertmodel.h"
 #include "channelmodel.h"
 #include "scheduledocumentdialog.h"
+#include "scheduledocumentpreview.h"
 #include "schedulecore/schedulev1.h"
 #include "restyletheme.h"
 #include "restylewidgets.h"
 
 #include <QAbstractItemModel>
-#include <QAbstractTableModel>
 #include <QButtonGroup>
 #include <QDateEdit>
 #include <QDialog>
 #include <QDialogButtonBox>
-#include <QHeaderView>
 #include <QHBoxLayout>
-#include <QItemSelectionModel>
-#include <QLinearGradient>
 #include <QPainter>
 #include <QPersistentModelIndex>
 #include <QPointer>
 #include <QPushButton>
-#include <QResizeEvent>
 #include <QScreen>
 #include <QSignalBlocker>
-#include <QStyledItemDelegate>
-#include <QTableView>
 #include <QTextEdit>
 #include <QTimeEdit>
 #include <QTimer>
@@ -51,38 +45,10 @@ QTime timeValue(const QVariant &value)
     return parsed.toString(QStringLiteral("HH:mm")) == text ? parsed : QTime();
 }
 
-QString weekdayLabel(const QString &text)
+QTimeZone previewZone(const QJsonObject &document)
 {
-    const auto parsed = ScheduleCore::parseCalendar(text, 0, 6);
-    if (!parsed.valid)
-        return text;
-    if (parsed.values.size() == 7)
-        return QStringLiteral("Каждый день");
-    const QStringList names{QStringLiteral("Вс"), QStringLiteral("Пн"), QStringLiteral("Вт"),
-                            QStringLiteral("Ср"), QStringLiteral("Чт"), QStringLiteral("Пт"), QStringLiteral("Сб")};
-    QStringList output;
-    for (int index = 1; index <= 7; ++index)
-        if (parsed.values.contains(index % 7))
-            output.append(names.at(index % 7));
-    return output.join(QStringLiteral(", "));
-}
-
-QString monthLabel(const QString &text)
-{
-    const auto parsed = ScheduleCore::parseCalendar(text, 1, 12);
-    if (!parsed.valid)
-        return text;
-    if (parsed.values.size() == 12)
-        return QStringLiteral("Все");
-    const QStringList names{QStringLiteral("Янв"), QStringLiteral("Фев"), QStringLiteral("Мар"),
-                           QStringLiteral("Апр"), QStringLiteral("Май"), QStringLiteral("Июн"),
-                           QStringLiteral("Июл"), QStringLiteral("Авг"), QStringLiteral("Сен"),
-                           QStringLiteral("Окт"), QStringLiteral("Ноя"), QStringLiteral("Дек")};
-    QStringList output;
-    for (int month = 1; month <= 12; ++month)
-        if (parsed.values.contains(month))
-            output.append(names.at(month - 1));
-    return output.join(QStringLiteral(", "));
+    const QTimeZone zone(document.value(QStringLiteral("timeZone")).toString().toUtf8());
+    return zone.isValid() ? zone : QTimeZone::systemTimeZone();
 }
 
 }
@@ -132,193 +98,6 @@ SchedulePreview::Snapshot SchedulePreview::evaluate(const QAbstractItemModel *ch
 }
 
 namespace {
-class PreviewTableModel final : public QAbstractTableModel
-{
-public:
-    explicit PreviewTableModel(bool timeline, QObject *parent) : QAbstractTableModel(parent), mTimeline(timeline) {}
-    SchedulePreview::Snapshot plan;
-    void setPlan(const SchedulePreview::Snapshot &value) { beginResetModel(); plan = value; endResetModel(); }
-    int rowCount(const QModelIndex &parent = {}) const override { return parent.isValid() ? 0 : int(plan.channels.size()); }
-    int columnCount(const QModelIndex &parent = {}) const override { return parent.isValid() ? 0 : mTimeline ? 1 : 8; }
-    QVariant data(const QModelIndex &index, int role) const override
-    {
-        if (!index.isValid() || index.row() >= plan.channels.size())
-            return {};
-        const auto &channel = plan.channels.at(index.row());
-        if (role == Qt::AccessibleTextRole && index.column() == 7)
-            return QStringLiteral("Изменить правило канала ") + channel.name;
-        if (role == Qt::DecorationRole && index.column() == 7)
-            return Restyle::icon(QStringLiteral("edit"));
-        if (role == Qt::ToolTipRole)
-            return channel.name + QStringLiteral("\n") + channel.reason;
-        if (role != Qt::DisplayRole)
-            return {};
-        switch (index.column()) {
-        case 0: return channel.name;
-        case 1: return channel.untilDayOffset == 1 && channel.start == QTime(0, 0) && channel.end == QTime(0, 0)
-                    ? QStringLiteral("Полные сутки")
-                    : channel.start.toString(QStringLiteral("HH:mm")) + QStringLiteral("–") + channel.end.toString(QStringLiteral("HH:mm"))
-                      + (channel.untilDayOffset ? QStringLiteral(" +1 день") : QString());
-        case 2: return weekdayLabel(channel.weekdays);
-        case 3: return channel.days == QLatin1String("*") ? QStringLiteral("Все") : channel.days;
-        case 4: return monthLabel(channel.months);
-        case 5: return QStringLiteral("%1%").arg(channel.volume);
-        case 6: return channel.status;
-        default: return QString();
-        }
-    }
-    QVariant headerData(int section, Qt::Orientation orientation, int role) const override
-    {
-        if (orientation != Qt::Horizontal || role != Qt::DisplayRole)
-            return {};
-        const QStringList headings{QStringLiteral("Канал"), QStringLiteral("Время"), QStringLiteral("Дни недели"),
-                                   QStringLiteral("Дни"), QStringLiteral("Месяцы"), QStringLiteral("Звук"), QStringLiteral("Статус плана"), QString()};
-        return headings.value(section);
-    }
-private:
-    bool mTimeline;
-};
-
-class TimelineDelegate final : public QStyledItemDelegate
-{
-public:
-    explicit TimelineDelegate(QObject *parent) : QStyledItemDelegate(parent) {}
-    void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override
-    {
-        const auto *model = static_cast<const PreviewTableModel *>(index.model());
-        const auto &channel = model->plan.channels.at(index.row());
-        const auto &theme = Restyle::tokens();
-        const bool selected = option.state.testFlag(QStyle::State_Selected);
-        painter->save();
-        painter->setRenderHint(QPainter::Antialiasing);
-        painter->fillRect(option.rect, theme.panel);
-        painter->setFont(Restyle::font(10, selected ? QFont::DemiBold : QFont::Normal));
-        painter->setPen(selected ? theme.accentText : theme.secondary);
-        const QRect label = option.rect.adjusted(0, 0, 0, 0);
-        painter->drawText(QRect(label.left(), label.top(), 146, label.height()), Qt::AlignVCenter,
-                          painter->fontMetrics().elidedText(channel.name, Qt::ElideRight, 142));
-        const QRectF track(option.rect.left() + 156, option.rect.top() + 1, option.rect.width() - 158, 23);
-        if (track.width() <= 0) { painter->restore(); return; }
-        painter->setPen(Qt::NoPen);
-        painter->setBrush(theme.field);
-        painter->drawRoundedRect(track, theme.trackRadius, theme.trackRadius);
-        if (theme.relief) {
-            painter->setPen(QColor(0, 0, 0, theme.dark ? 65 : 13));
-            painter->drawLine(track.topLeft() + QPointF(4, 1), track.topRight() - QPointF(4, -1));
-        }
-        painter->setPen(theme.line);
-        for (int quarter = 1; quarter < 4; ++quarter) {
-            const qreal x = track.left() + track.width() * quarter / 4;
-            painter->drawLine(QPointF(x, track.top()), QPointF(x, track.bottom()));
-        }
-        if (channel.valid && channel.calendarMatches) {
-            for (const auto &span : channel.dayIntervals) {
-            const int start = span.first;
-            const int end = span.second;
-            QRectF interval(track.left() + track.width() * start / 1440, track.top() + 1,
-                            track.width() * (end - start) / 1440, 21);
-            if (theme.relief) {
-                painter->setPen(Qt::NoPen);
-                painter->setBrush(QColor(0, 0, 0, theme.dark ? 90 : 20));
-                painter->drawRoundedRect(interval.translated(1, 1), theme.intervalRadius, theme.intervalRadius);
-                QLinearGradient gradient(interval.topLeft(), interval.bottomRight());
-                gradient.setColorAt(0, theme.dark ? theme.buttonTop : theme.surface);
-                gradient.setColorAt(1, selected ? theme.accentSoft : theme.surface2);
-                painter->setBrush(gradient);
-            } else {
-                painter->setBrush(selected ? theme.accentSoft : theme.surface2);
-            }
-            painter->setPen(selected ? theme.accentLine : theme.line);
-            painter->drawRoundedRect(interval, theme.intervalRadius, theme.intervalRadius);
-            painter->setClipRect(interval);
-            painter->setFont(Restyle::font(9));
-            painter->setPen(selected ? theme.accentText : theme.secondary);
-            painter->drawText(interval.adjusted(5, 0, -3, 0), Qt::AlignCenter,
-                              channel.start.toString(QStringLiteral("HH:mm")) + QStringLiteral("–") + channel.end.toString(QStringLiteral("HH:mm"))
-                              + (channel.untilDayOffset ? QStringLiteral(" +1 день") : QString()));
-            painter->setClipping(false);
-            }
-        } else {
-            painter->setFont(Restyle::font(9));
-            painter->setPen(channel.valid ? theme.muted : theme.warning);
-            painter->drawText(track.adjusted(7, 0, -4, 0), Qt::AlignVCenter,
-                              channel.valid ? QStringLiteral("Нет выхода в этот день") : QStringLiteral("Условия требуют проверки"));
-        }
-        const QTime at = model->plan.at.time();
-        const qreal cursor = track.left() + track.width() * (at.hour() * 60 + at.minute()) / 1440;
-        painter->setPen(QPen(theme.error, 1));
-        painter->drawLine(QPointF(cursor, track.top() - 1), QPointF(cursor, track.bottom() + 1));
-        painter->fillRect(QRectF(cursor - 2, track.top() - 1, 4, 4), theme.error);
-        if (option.state.testFlag(QStyle::State_HasFocus)) {
-            painter->setBrush(Qt::NoBrush);
-            painter->setPen(QPen(theme.focus, 1, Qt::DotLine));
-            painter->drawRoundedRect(option.rect.adjusted(1, 1, -1, -1), 3, 3);
-        }
-        painter->restore();
-    }
-};
-
-class ConditionsDelegate final : public QStyledItemDelegate
-{
-public:
-    explicit ConditionsDelegate(QObject *parent) : QStyledItemDelegate(parent) {}
-    void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override
-    {
-        if (index.column() != 6 && index.column() != 7) {
-            QStyledItemDelegate::paint(painter, option, index);
-            return;
-        }
-        const auto *model = static_cast<const PreviewTableModel *>(index.model());
-        const auto &channel = model->plan.channels.at(index.row());
-        const auto &theme = Restyle::tokens();
-        painter->save();
-        painter->setRenderHint(QPainter::Antialiasing);
-        painter->fillRect(option.rect, option.state.testFlag(QStyle::State_Selected) ? theme.selection : theme.panel);
-        if (index.column() == 6) {
-            painter->setFont(Restyle::font(9));
-            const int width = std::min(option.rect.width() - 12, painter->fontMetrics().horizontalAdvance(channel.status) + 10);
-            const QRectF badge(option.rect.left() + 6, option.rect.center().y() - 8, width, 17);
-            painter->setPen(channel.active ? theme.successBg.darker(110) : theme.line);
-            painter->setBrush(!channel.valid ? theme.warningBg : channel.active ? theme.successBg : theme.surface);
-            painter->drawRoundedRect(badge, 2, 2);
-            painter->setPen(!channel.valid ? theme.warning : channel.active ? theme.success : theme.secondary);
-            painter->drawText(badge, Qt::AlignCenter, painter->fontMetrics().elidedText(channel.status, Qt::ElideRight, width - 8));
-        } else {
-            const QRectF button(option.rect.center().x() - 11, option.rect.center().y() - 11, 23, 23);
-            painter->setPen(theme.relief ? theme.surface : theme.line);
-            if (theme.relief) {
-                QLinearGradient gradient(button.topLeft(), button.bottomRight());
-                gradient.setColorAt(0, theme.buttonTop);
-                gradient.setColorAt(1, theme.buttonBottom);
-                painter->setBrush(gradient);
-            } else {
-                painter->setBrush(theme.surface);
-            }
-            painter->drawRoundedRect(button, theme.buttonRadius, theme.buttonRadius);
-            Restyle::paintIcon(*painter, button.adjusted(5, 5, -5, -5), QStringLiteral("edit"), theme.secondary);
-        }
-        painter->restore();
-    }
-};
-
-class TimelineScale final : public QWidget
-{
-public:
-    explicit TimelineScale(QWidget *parent) : QWidget(parent) { setFixedHeight(17); }
-    void paintEvent(QPaintEvent *) override
-    {
-        QPainter painter(this);
-        painter.setFont(Restyle::font(9));
-        painter.setPen(Restyle::tokens().muted);
-        for (int quarter = 0; quarter <= 4; ++quarter) {
-            const QString label = QStringLiteral("%1:00").arg(quarter * 6, 2, 10, QLatin1Char('0'));
-            const qreal x = 156 + (width() - 158) * quarter / 4.0;
-            const int textWidth = painter.fontMetrics().horizontalAdvance(label);
-            painter.drawText(QPointF(x - (quarter == 4 ? textWidth : quarter == 0 ? 0 : textWidth / 2), 12), label);
-        }
-    }
-};
-
 class ScheduleStatus final : public RestyleLabel
 {
 public:
@@ -343,25 +122,30 @@ public:
 }
 
 struct SchedulePreviewWidget::Private {
-    QPointer<QAbstractItemModel> channels, adverts;
+    QPointer<QAbstractItemModel> channels;
     QJsonObject document;
     ScheduleV1::Document compiledDocument;
-    QString documentError;
-    bool advanced = false;
+    QString documentError, documentDescription;
     bool followingCurrentTime = true;
-    QTextEdit *documentPreview;
-    QWidget *timelineScale;
+    ScheduleDocumentPreview *documentPreview;
     QList<QMetaObject::Connection> connections;
     SchedulePreview::Snapshot plan;
     QDateEdit *date;
     QTimeEdit *time;
     QButtonGroup *days;
     QList<QPushButton *> dayButtons;
-    QTableView *timeline, *conditions;
-    PreviewTableModel *timelineModel, *conditionsModel;
-    RestyleLabel *status, *legend;
+    RestyleLabel *status;
     int selected = -1;
+    QString selectedName, selectedId;
     QPersistentModelIndex selectedSource;
+
+    int channelRow(const QString &playlistId) const {
+        if (playlistId.isEmpty()) return -1;
+        for (int row = 0; channels && row < channels->rowCount(); ++row)
+            if (channels->index(row, 0).data(ChannelModel::RuleIdRole).toString() == playlistId)
+                return row;
+        return -1;
+    }
 };
 
 SchedulePreviewWidget::SchedulePreviewWidget(QWidget *parent) : QWidget(parent), d(new Private)
@@ -376,7 +160,7 @@ SchedulePreviewWidget::SchedulePreviewWidget(QWidget *parent) : QWidget(parent),
     layout->setSpacing(0);
     auto *heading = new QHBoxLayout;
     heading->setSpacing(6);
-    heading->addWidget(new RestyleLabel(tr("Расписание каналов"), 14, QFont::DemiBold, panel));
+    heading->addWidget(new RestyleLabel(tr("Расписание"), 14, QFont::DemiBold, panel));
     heading->addStretch();
     d->date = new QDateEdit(QDate::currentDate(), panel);
     d->date->setObjectName(QStringLiteral("previewDate"));
@@ -384,33 +168,30 @@ SchedulePreviewWidget::SchedulePreviewWidget(QWidget *parent) : QWidget(parent),
     d->date->setDisplayFormat(QStringLiteral("dd.MM.yyyy"));
     d->date->setAccessibleName(tr("Дата просмотра плана"));
     d->date->setFixedWidth(114);
-    d->date->hide();
     d->time = new QTimeEdit(QTime::currentTime(), panel);
     d->time->setObjectName(QStringLiteral("previewTime"));
     d->time->setDisplayFormat(QStringLiteral("HH:mm"));
     d->time->setAccessibleName(tr("Время просмотра плана"));
     d->time->setFixedWidth(72);
-    d->time->hide();
     heading->addWidget(d->date);
     heading->addWidget(d->time);
-    auto *details = new QPushButton(tr("Условия"), panel);
+    auto *details = new QPushButton(tr("Подробности"), panel);
+    details->setObjectName(QStringLiteral("scheduleDetailsButton"));
     details->setIcon(Restyle::icon(QStringLiteral("info")));
     Restyle::button(details, QStringLiteral("quiet"));
     heading->addWidget(details);
     heading->addSpacing(8);
     auto *dayStrip = new RestylePanel(panel, QStringLiteral("inset"));
     dayStrip->setFixedSize(298, 32);
-    auto *toolbar = new QHBoxLayout;
+    auto *toolbar = new QHBoxLayout(dayStrip);
     toolbar->setSpacing(3);
     toolbar->setContentsMargins(3, 3, 3, 3);
-    dayStrip->setLayout(toolbar);
     d->days = new QButtonGroup(this);
     d->days->setExclusive(true);
     for (int day = 0; day < 7; ++day) {
         auto *button = new QPushButton(panel);
         button->setCheckable(true);
         button->setFixedSize(39, 26);
-        button->setFont(Restyle::font(9));
         Restyle::button(button, QStringLiteral("day"));
         button->setFont(Restyle::font(9));
         d->days->addButton(button, day);
@@ -418,101 +199,46 @@ SchedulePreviewWidget::SchedulePreviewWidget(QWidget *parent) : QWidget(parent),
         toolbar->addWidget(button);
     }
     heading->addWidget(dayStrip);
-    d->legend = new RestyleLabel({}, 10, QFont::Normal, panel);
-    d->legend->setColorRole(QStringLiteral("secondary"));
-    d->legend->hide();
     layout->addLayout(heading);
     layout->addSpacing(10);
-    d->timelineScale = new TimelineScale(panel);
-    layout->addWidget(d->timelineScale);
-    d->documentPreview = new QTextEdit(panel);
-    d->documentPreview->setObjectName(QStringLiteral("scheduleDocumentPlan"));
-    d->documentPreview->setReadOnly(true);
-    d->documentPreview->setFont(Restyle::font(10));
-    d->documentPreview->setFrameShape(QFrame::NoFrame);
-    d->documentPreview->hide();
+    d->documentPreview = new ScheduleDocumentPreview(panel);
     layout->addWidget(d->documentPreview, 1);
-    layout->addSpacing(4);
-
-    d->timeline = new QTableView(panel);
-    d->timeline->setObjectName(QStringLiteral("scheduleTimeline"));
-    d->conditions = new QTableView(panel);
-    d->conditions->setObjectName(QStringLiteral("scheduleConditions"));
-    d->conditions->setIconSize(QSize(14, 14));
-    d->timelineModel = new PreviewTableModel(true, this);
-    d->conditionsModel = new PreviewTableModel(false, this);
-    d->timeline->setModel(d->timelineModel);
-    d->conditions->setModel(d->conditionsModel);
-    d->timeline->setItemDelegate(new TimelineDelegate(d->timeline));
-    d->conditions->setItemDelegate(new ConditionsDelegate(d->conditions));
-    for (auto *view : {d->timeline, d->conditions}) {
-        view->setFrameShape(QFrame::NoFrame);
-        view->setShowGrid(false);
-        view->setEditTriggers(QAbstractItemView::NoEditTriggers);
-        view->setSelectionBehavior(QAbstractItemView::SelectRows);
-        view->setSelectionMode(QAbstractItemView::SingleSelection);
-        view->verticalHeader()->hide();
-        view->verticalHeader()->setMinimumSectionSize(25);
-        view->verticalHeader()->setDefaultSectionSize(view == d->timeline ? 29 : 31);
-        view->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
-        view->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
-        view->setFont(Restyle::font(10));
-    }
-    d->timeline->horizontalHeader()->hide();
-    d->timeline->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    d->timeline->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    d->timeline->setMinimumHeight(29);
-    d->timeline->setMaximumHeight(87);
-    d->timeline->setAccessibleName(tr("Временная шкала каналов; стрелки выбирают канал"));
-    layout->addWidget(d->timeline, 1);
-    layout->addSpacing(9);
+    layout->addSpacing(7);
     d->status = new ScheduleStatus(panel);
+    d->status->setObjectName(QStringLiteral("scheduleStatus"));
     d->status->setFixedHeight(33);
     d->status->setTextInteractionFlags(Qt::TextSelectableByMouse);
     layout->addWidget(d->status);
-    layout->addSpacing(7);
-    d->conditions->horizontalHeader()->setFixedHeight(26);
-    d->conditions->horizontalHeader()->setFont(Restyle::font(10));
-    d->conditions->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-    d->conditions->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
-    const int widths[]{150, 100, 130, 65, 85, 50, 135, 68};
-    for (int column = 0; column < 8; ++column)
-        d->conditions->setColumnWidth(column, widths[column]);
-    d->conditions->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Stretch);
-    d->conditions->setMinimumHeight(57);
-    d->conditions->setAccessibleName(tr("Календарные условия каналов"));
-    layout->addWidget(d->conditions, 1);
     connect(details, &QPushButton::clicked, this, &SchedulePreviewWidget::showConditions);
-    connect(d->date, &QDateEdit::dateChanged, this, [this] { setPreviewDateTime(previewDateTime()); });
-    connect(d->time, &QTimeEdit::timeChanged, this, [this] { setPreviewDateTime(previewDateTime()); });
+    const auto editPreviewTime = [this] {
+        // Keep wall-clock fields intact, including a nonexistent DST time.
+        setPreviewDateTime(QDateTime(d->date->date(), d->time->time(), QTimeZone::UTC));
+    };
+    connect(d->date, &QDateEdit::dateChanged, this, editPreviewTime);
+    connect(d->time, &QTimeEdit::timeChanged, this, editPreviewTime);
     connect(d->days, &QButtonGroup::idClicked, this, [this](int day) {
         const QDate date = d->date->date().addDays(day + 1 - d->date->date().dayOfWeek());
-        if (date == QDate::currentDate())
+        if (date == QDateTime::currentDateTimeUtc().toTimeZone(previewZone(d->document)).date())
             showCurrentTime();
         else
             d->date->setDate(date);
     });
-    for (auto *view : {d->timeline, d->conditions}) {
-        connect(view->selectionModel(), &QItemSelectionModel::currentRowChanged, this,
-                [this](const QModelIndex &current) {
-            if (current.isValid()) {
-                setSelectedRow(current.row());
-                emit selectedRowChanged(current.row());
-            }
-        });
-    }
-    connect(d->conditions, &QTableView::clicked, this, [this](const QModelIndex &index) {
-        if (index.column() == 7)
-            emit editRequested(index.row());
+    connect(d->documentPreview, &ScheduleDocumentPreview::playlistSelected, this, [this](const QString &id) {
+        const int row = d->channelRow(id);
+        if (row < 0) return;
+        setSelectedRow(row);
+        emit selectedRowChanged(row);
     });
-    connect(d->conditions, &QTableView::doubleClicked, this, [this](const QModelIndex &index) { emit editRequested(index.row()); });
+    connect(d->documentPreview, &ScheduleDocumentPreview::playlistEditRequested, this, [this](const QString &id) {
+        const int row = d->channelRow(id);
+        if (row >= 0) emit editRequested(row);
+    });
     auto *clock = new QTimer(this);
     clock->setObjectName(QStringLiteral("scheduleClock"));
     clock->setInterval(60 * 1000);
     clock->setTimerType(Qt::PreciseTimer);
     connect(clock, &QTimer::timeout, this, [this] {
-        if (d->followingCurrentTime)
-            showCurrentTime();
+        if (d->followingCurrentTime) showCurrentTime();
     });
     clock->start();
     refresh();
@@ -520,23 +246,23 @@ SchedulePreviewWidget::SchedulePreviewWidget(QWidget *parent) : QWidget(parent),
 
 SchedulePreviewWidget::~SchedulePreviewWidget()
 {
-    for (const auto &connection : std::as_const(d->connections))
-        disconnect(connection);
+    for (const auto &connection : std::as_const(d->connections)) disconnect(connection);
     delete d;
 }
 
 void SchedulePreviewWidget::setModels(QAbstractItemModel *channels, QAbstractItemModel *adverts)
 {
-    for (const auto &connection : std::as_const(d->connections))
-        disconnect(connection);
+    for (const auto &connection : std::as_const(d->connections)) disconnect(connection);
     d->connections.clear();
     d->channels = channels;
-    d->adverts = adverts;
     d->selected = -1;
+    d->selectedName.clear();
+    d->selectedId.clear();
     d->selectedSource = QPersistentModelIndex();
+    // Models provide channel identity/selection only. The compiled document is
+    // always the source of the plan, including after edits to channel settings.
     for (auto *model : {channels, adverts}) {
-        if (!model)
-            continue;
+        if (!model) continue;
         d->connections.append(connect(model, &QAbstractItemModel::dataChanged, this, &SchedulePreviewWidget::refresh));
         d->connections.append(connect(model, &QAbstractItemModel::modelReset, this, &SchedulePreviewWidget::refresh));
         d->connections.append(connect(model, &QAbstractItemModel::rowsInserted, this, &SchedulePreviewWidget::refresh));
@@ -549,12 +275,19 @@ void SchedulePreviewWidget::setModels(QAbstractItemModel *channels, QAbstractIte
 
 void SchedulePreviewWidget::setDocument(const QJsonObject &document)
 {
-    if (!d->advanced || d->document != document) {
+    if (!d->compiledDocument.compiled || !d->documentError.isEmpty() || d->document != document) {
         d->compiledDocument = {};
         d->documentError = ScheduleV1::decode(document, &d->compiledDocument);
     }
     d->document = document;
-    d->advanced = true;
+    if (d->followingCurrentTime) showCurrentTime();
+    else refresh();
+}
+
+void SchedulePreviewWidget::setDocumentError(const QString &error)
+{
+    d->compiledDocument = {};
+    d->documentError = error.trimmed().isEmpty() ? tr("Не удалось обновить расписание.") : error;
     refresh();
 }
 
@@ -563,31 +296,24 @@ void SchedulePreviewWidget::clearDocument()
     d->document = {};
     d->compiledDocument = {};
     d->documentError.clear();
-    d->advanced = false;
-    refresh();
+    d->documentDescription.clear();
+    if (d->followingCurrentTime) showCurrentTime();
+    else refresh();
 }
 
 void SchedulePreviewWidget::setSelectedRow(int row)
 {
-    d->selected = row >= 0 && row < d->plan.channels.size() ? row : -1;
+    d->selected = d->channels && row >= 0 && row < d->channels->rowCount() ? row : -1;
     d->selectedSource = d->channels && d->selected >= 0 ? d->channels->index(d->selected, 0) : QModelIndex();
-    for (auto *view : {d->timeline, d->conditions}) {
-        const QSignalBlocker blocker(view->selectionModel());
-        if (d->selected < 0) {
-            view->clearSelection();
-            view->setCurrentIndex({});
-        } else {
-            view->setCurrentIndex(view->model()->index(d->selected, 0));
-            view->selectRow(d->selected);
-        }
-    }
+    d->selectedName = d->selectedSource.isValid() ? field(d->channels, d->selected, 0).toString() : QString();
+    d->selectedId = d->selectedSource.data(ChannelModel::RuleIdRole).toString();
+    d->documentPreview->selectPlaylist(d->selectedId);
 }
 
 int SchedulePreviewWidget::selectedRow() const { return d->selected; }
 void SchedulePreviewWidget::setPreviewDateTime(const QDateTime &dateTime)
 {
-    if (!dateTime.isValid())
-        return;
+    if (!dateTime.isValid()) return;
     d->followingCurrentTime = false;
     const QSignalBlocker dateBlocker(d->date), timeBlocker(d->time);
     d->date->setDate(dateTime.date());
@@ -597,95 +323,112 @@ void SchedulePreviewWidget::setPreviewDateTime(const QDateTime &dateTime)
 void SchedulePreviewWidget::showCurrentTime()
 {
     d->followingCurrentTime = true;
-    const QDateTime now = QDateTime::currentDateTime();
+    const QDateTime now = QDateTime::currentDateTimeUtc().toTimeZone(previewZone(d->document));
     const QSignalBlocker dateBlocker(d->date), timeBlocker(d->time);
     d->date->setDate(now.date());
     d->time->setTime(now.time());
     refresh();
 }
-QDateTime SchedulePreviewWidget::previewDateTime() const { return QDateTime(d->date->date(), d->time->time()); }
+QDateTime SchedulePreviewWidget::previewDateTime() const
+{
+    return QDateTime(d->date->date(), d->time->time(), previewZone(d->document));
+}
 const SchedulePreview::Snapshot &SchedulePreviewWidget::snapshot() const { return d->plan; }
 QSize SchedulePreviewWidget::sizeHint() const { return QSize(1177, 349); }
 
-void SchedulePreviewWidget::resizeEvent(QResizeEvent *event)
-{
-    QWidget::resizeEvent(event);
-    const int width = std::max(700, event->size().width() - 32);
-    const qreal proportions[]{.227, .146, .166, .075, .095, .069};
-    for (int column = 0; column < 6; ++column)
-        d->conditions->setColumnWidth(column, qRound(width * proportions[column]));
-    d->conditions->setColumnWidth(7, 31);
-}
-
 void SchedulePreviewWidget::refresh()
 {
-    const QString previousName = d->selected >= 0 && d->selected < d->plan.channels.size()
-            ? d->plan.channels.at(d->selected).name : QString();
-    d->timeline->setVisible(!d->advanced);
-    d->conditions->setVisible(!d->advanced);
-    d->timelineScale->setVisible(!d->advanced);
-    d->date->setVisible(d->advanced); d->time->setVisible(d->advanced);
-    d->documentPreview->setVisible(d->advanced);
-    if (d->advanced) {
+    QList<QPair<QString, QString>> playlists;
+    for (int row = 0; d->channels && row < d->channels->rowCount(); ++row) {
+        const auto id = d->channels->index(row, 0).data(ChannelModel::RuleIdRole).toString();
+        if (!id.isEmpty()) playlists.append({id, field(d->channels, row, 0).toString()});
+    }
+    d->documentPreview->setChannelPlaylists(playlists);
+    const QDateTime wallTime(d->date->date(), d->time->time(), QTimeZone::UTC);
+    d->documentPreview->setPlan(d->compiledDocument, wallTime);
+    d->plan = d->documentPreview->snapshot();
+    d->documentDescription = d->documentError.isEmpty()
+            ? ScheduleDocumentUi::describe(d->compiledDocument, wallTime)
+            : tr("Расписание требует исправления:\n") + d->documentError;
+    if (!d->documentError.isEmpty()) {
         d->plan = {};
         d->plan.at = previewDateTime();
-        const QString description = d->documentError.isEmpty()
-                ? ScheduleDocumentUi::describe(d->compiledDocument, d->plan.at)
-                : QStringLiteral("Проект требует исправления:\n") + d->documentError;
-        const QStringList descriptionLines = description.split(QLatin1Char('\n'));
-        d->plan.currentSummary = descriptionLines.size() > 1
-                ? descriptionLines.mid(1, 2).join(QStringLiteral(" · ")) : description;
-        if (!d->documentError.isEmpty()) { d->plan.issues.append(d->documentError); d->plan.hasUnresolvedRules = true; }
-        d->documentPreview->setPlainText(description);
-    } else d->plan = SchedulePreview::evaluate(d->channels, d->adverts, previewDateTime());
-    // Persistent indexes follow insertions/removals. ChannelModel resets after
-    // reloading its storage; unique channel names recover selection in that case.
-    if (d->selectedSource.isValid()) {
-        d->selected = d->selectedSource.row();
-    } else if (!previousName.isEmpty()) {
-        d->selected = -1;
-        for (const auto &channel : std::as_const(d->plan.channels)) {
-            if (channel.name == previousName) {
-                d->selected = channel.sourceRow;
-                break;
+        d->plan.issues = {d->documentError};
+        d->plan.hasUnresolvedRules = true;
+    }
+    if (d->plan.hasUnresolvedRules) {
+        d->plan.currentSummary = tr("Расчёт недоступен: %1").arg(d->plan.issues.value(0));
+        d->plan.nextChannelSummary = tr("Расчёт смен недоступен");
+        d->plan.nextAdvertSummary = tr("Расчёт вставок недоступен");
+    } else {
+        // Sidebar badges use the same resolved rules as the grid and player.
+        const auto sources = [](const ScheduleV1::Evaluation &plan) {
+            QSet<QString> ids;
+            if (plan.silence) return ids;
+            if (plan.mixRuleId.isEmpty()) ids.insert(plan.playlistId);
+            else for (const auto &value : plan.pattern) {
+                const auto source = value.toObject();
+                ids.insert(source.value("type") == QJsonValue("active_base")
+                           ? plan.playlistId : source.value("playlistId").toString());
             }
+            return ids;
+        };
+        const auto current = sources(ScheduleV1::evaluate(d->compiledDocument, d->plan.at));
+        const auto zone = previewZone(d->document);
+        const auto intervals = ScheduleV1::intervals(d->compiledDocument,
+                d->date->date().startOfDay(zone), d->date->date().addDays(1).startOfDay(zone));
+        for (int row = 0; d->channels && row < d->channels->rowCount(); ++row) {
+            const QString id = d->channels->index(row, 0).data(ChannelModel::RuleIdRole).toString();
+            if (id.isEmpty()) continue;
+            ScheduleCore::Channel channel;
+            channel.sourceRow = row;
+            channel.name = field(d->channels, row, 0).toString();
+            channel.valid = true;
+            channel.active = current.contains(id);
+            bool later = false;
+            for (const auto &interval : intervals) {
+                if (!sources(interval.plan).contains(id)) continue;
+                channel.calendarMatches = true;
+                later = later || interval.from > d->plan.at;
+            }
+            channel.status = channel.active ? tr("По плану сейчас") : later ? tr("Позже")
+                    : channel.calendarMatches ? tr("Уже завершён") : tr("Нет выхода");
+            channel.reason = channel.status;
+            d->plan.channels.append(channel);
+            if (channel.active) d->plan.activeRows.append(row);
         }
     }
-    // Resetting view models clears selection. Preserve the independently chosen
-    // channel and suppress selection feedback while refreshing computed rows.
-    const QSignalBlocker timelineBlocker(d->timeline->selectionModel());
-    const QSignalBlocker conditionsBlocker(d->conditions->selectionModel());
-    d->timelineModel->setPlan(d->plan);
-    d->conditionsModel->setPlan(d->plan);
-    setSelectedRow(d->selected);
+    if (d->selectedSource.isValid()) d->selected = d->selectedSource.row();
+    else if (!d->selectedId.isEmpty()) d->selected = d->channelRow(d->selectedId);
+    else if (!d->selectedName.isEmpty()) {
+        d->selected = -1;
+        for (int row = 0; d->channels && row < d->channels->rowCount(); ++row)
+            if (field(d->channels, row, 0).toString() == d->selectedName) { d->selected = row; break; }
+    }
+    const auto previousId = d->selectedId;
+    d->selectedSource = d->channels && d->selected >= 0 ? d->channels->index(d->selected, 0) : QModelIndex();
+    d->selectedName = d->selectedSource.isValid() ? field(d->channels, d->selected, 0).toString() : QString();
+    d->selectedId = d->selectedSource.data(ChannelModel::RuleIdRole).toString();
+    if (previousId != d->selectedId || !d->documentPreview->hasSelection())
+        d->documentPreview->selectPlaylist(d->selectedId);
     const QDate monday = d->date->date().addDays(1 - d->date->date().dayOfWeek());
+    const QDate today = QDateTime::currentDateTimeUtc().toTimeZone(previewZone(d->document)).date();
     const QStringList days{tr("Пн"), tr("Вт"), tr("Ср"), tr("Чт"), tr("Пт"), tr("Сб"), tr("Вс")};
     for (int day = 0; day < 7; ++day) {
         const QDate date = monday.addDays(day);
         auto *button = d->dayButtons.at(day);
         button->setText(days.at(day) + QStringLiteral(" %1").arg(date.day()));
         button->setToolTip(date.toString(QStringLiteral("dd.MM.yyyy"))
-                          + (date == QDate::currentDate()
-                             ? tr(" · Текущее время, обновление раз в минуту") : QString()));
+                          + (date == today ? tr(" · Текущее время, обновление раз в минуту") : QString()));
         button->setAccessibleName(days.at(day) + QStringLiteral(" ") + date.toString(QStringLiteral("dd.MM.yyyy")));
         button->setChecked(date == d->date->date());
     }
-    d->legend->setText(d->time->time().toString(QStringLiteral("HH:mm")) + tr(" · просмотр плана"));
-    QString status;
-    if (!d->plan.issues.isEmpty())
-        status = d->plan.issues.first();
-    else if (d->advanced)
-        status = tr("Проект расписания · правила редактируются в «Проект расписания», каналы управляют медиатекой");
-    else if (d->plan.channels.isEmpty())
-        status = tr("Каналы пока не созданы");
-    else if (std::none_of(d->plan.channels.cbegin(), d->plan.channels.cend(), [](const auto &channel) {
-                 return channel.valid && channel.calendarMatches;
-             }))
-        status = tr("На этот день нет назначенных каналов");
-    else
-        status = tr("Нет пересечений и внутренних разрывов");
-    if (d->plan.issues.size() > 1)
-        status += tr(" · ещё %1").arg(d->plan.issues.size() - 1);
+    QString status = d->plan.issues.isEmpty() ? d->plan.currentSummary : d->plan.issues.first();
+    if (d->plan.issues.size() > 1) status += tr(" · ещё %1").arg(d->plan.issues.size() - 1);
+    const QString zoneName = d->document.value(QStringLiteral("timeZone")).toString();
+    if (!zoneName.isEmpty()) status += QStringLiteral(" · ") + zoneName;
+    d->date->setToolTip(zoneName.isEmpty() ? QString() : tr("Дата и время в часовом поясе %1").arg(zoneName));
+    d->time->setToolTip(d->date->toolTip());
     d->status->setColorRole(d->plan.issues.isEmpty() ? QStringLiteral("secondary") : QStringLiteral("warning"));
     d->status->setProperty("scheduleIssue", !d->plan.issues.isEmpty());
     d->status->setText(d->status->fontMetrics().elidedText(status, Qt::ElideRight, std::max(350, width() - 40)));
@@ -695,22 +438,9 @@ void SchedulePreviewWidget::refresh()
 
 void SchedulePreviewWidget::showConditions()
 {
-    QStringList lines;
-    lines << tr("Просмотр: %1").arg(d->plan.at.toString(QStringLiteral("dd.MM.yyyy HH:mm"))) << d->plan.currentSummary;
-    if (d->selected >= 0 && d->selected < d->plan.channels.size())
-        lines << QString() << d->plan.channels.at(d->selected).name + QStringLiteral(": ") + d->plan.channels.at(d->selected).reason;
-    lines << QString() << tr("Следующая смена канала: %1").arg(d->plan.nextChannelSummary)
-          << tr("Следующий точный выход рекламы: %1").arg(d->plan.nextAdvertSummary);
-    if (!d->plan.exactAdvertsNow.isEmpty())
-        lines << tr("Реклама в выбранную минуту: %1").arg(d->plan.exactAdvertsNow.join(QStringLiteral(", ")));
-    lines << d->plan.frequencyAdvertsNow;
-    lines << QString() << d->plan.issues << QString()
-          << tr("Расчёт использует календарные условия дня начала и интервалы [начало, окончание). Начало включено, окончание исключено.")
-          << tr("Для ночных интервалов укажите следующий день окончания. Полные сутки — 00:00 до 00:00 следующего дня; равные времена без этого признака не проигрываются.")
-          << tr("При переводе часов несуществующее или неоднозначное локальное время исключено из поиска точных событий; поведение внешнего плеера не предполагается.")
-          << tr("Минуты частотной рекламы рассчитаны тем же правилом, что и экспорт. Текущий файл и факт воспроизведения этим расчётом не определяются.")
-          << tr("Поиск ограничен %1 календарными днями. Просмотр не изменяет расписание и системное время.").arg(d->plan.horizonDays);
-    if (d->advanced) lines = {d->documentPreview->toPlainText(), tr("Правила проекта проверены по контракту расписания v1. Срок действия и часовой пояс берутся из проекта.")};
+    QStringList lines{d->documentDescription};
+    if (d->documentError.isEmpty() && d->compiledDocument.compiled)
+        lines << tr("Срок действия и часовой пояс берутся из настроек расписания.");
     QDialog dialog(this);
     dialog.setWindowTitle(tr("Проверка плана"));
     auto *layout = new QVBoxLayout(&dialog);

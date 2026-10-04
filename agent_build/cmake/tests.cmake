@@ -57,6 +57,7 @@ foreach(_suite IN ITEMS restyle schedulepreview ruleeditors secondary playbackui
     add_test(NAME MediaBoxManager_${_suite} COMMAND "${CMAKE_COMMAND}"
         "-DTEST_EXECUTABLE=$<TARGET_FILE:MediaBoxManager_${_suite}Tests>"
         "-DTEST_REPORT=${_test_report_directory}/${_suite}-results.txt"
+        -DTEST_TIMEOUT=80
         -P "${CMAKE_CURRENT_LIST_DIR}/run_qt_test.cmake")
     set_tests_properties(MediaBoxManager_${_suite} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
     if(WIN32)
@@ -196,7 +197,11 @@ endif()
 
 qt_add_executable(MediaBoxVPlayerServiceTests "${_vplayer_test_source}/tst_videoservice.cpp")
 target_link_libraries(MediaBoxVPlayerServiceTests PRIVATE MediaBoxVPlayerCore Qt6::Test)
-add_test(NAME MediaBoxVPlayer_service COMMAND MediaBoxVPlayerServiceTests)
+add_test(NAME MediaBoxVPlayer_service COMMAND "${CMAKE_COMMAND}"
+    "-DTEST_EXECUTABLE=$<TARGET_FILE:MediaBoxVPlayerServiceTests>"
+    "-DTEST_REPORT=${_test_report_directory}/vplayer-service-results.txt"
+    -DTEST_TIMEOUT=40
+    -P "${CMAKE_CURRENT_LIST_DIR}/run_qt_test.cmake")
 set_tests_properties(MediaBoxVPlayer_service PROPERTIES TIMEOUT 45
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME MediaBoxVPlayer_version COMMAND MediaBoxVPlayer --version)

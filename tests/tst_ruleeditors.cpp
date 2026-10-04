@@ -27,6 +27,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QTimeZone>
+#include <QToolButton>
 
 using namespace RuleEditors;
 
@@ -326,6 +328,7 @@ private slots:
         QVERIFY(expired.contains(QStringLiteral("Резервный источник")));
         QVERIFY(expired.contains(QStringLiteral("Тишина")));
         ScheduledDocumentDialog dialog(source.object);
+        dialog.findChild<QToolButton *>(QStringLiteral("scheduleDocumentDetails"))->setChecked(true);
         auto *section = dialog.findChild<QComboBox *>(QStringLiteral("scheduleDocumentSection"));
         auto *editor = dialog.findChild<QPlainTextEdit *>(QStringLiteral("scheduleDocumentJson"));
         QVERIFY(section && editor);
@@ -356,6 +359,73 @@ private slots:
         }
         dialog.accept();
         QCOMPARE(dialog.result(), int(QDialog::Accepted));
+    }
+
+    void holidayFormAddsInclusiveRotationToExistingSchedule()
+    {
+        QFile file(QFINDTESTDATA("../Documentation/schedule-v1/example.new-year.json"));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        auto source = QJsonDocument::fromJson(file.readAll()).object();
+        source.insert("mixRules", QJsonArray{});
+        source.insert("requiredCapabilities", QJsonArray::fromStringList(ScheduleV1::requiredCapabilities(source)));
+        ScheduledDocumentDialog dialog(source);
+        QCOMPARE(dialog.windowTitle(), QStringLiteral("Настройки расписания"));
+        QVERIFY(dialog.findChild<QWidget *>(QStringLiteral("scheduleDocumentDetailsPanel"))->isHidden());
+        auto *name = dialog.findChild<QLineEdit *>(QStringLiteral("scheduleHolidayName"));
+        auto *playlist = dialog.findChild<QComboBox *>(QStringLiteral("scheduleHolidayPlaylist"));
+        auto *from = dialog.findChild<QDateEdit *>(QStringLiteral("scheduleHolidayFrom"));
+        auto *until = dialog.findChild<QDateEdit *>(QStringLiteral("scheduleHolidayUntil"));
+        auto *add = dialog.findChild<QPushButton *>(QStringLiteral("scheduleHolidayAdd"));
+        auto *error = dialog.findChild<QLabel *>(QStringLiteral("scheduleDocumentError"));
+        QVERIFY(name && playlist && from && until && add && error);
+        name->setText(QStringLiteral("Новогодняя музыка"));
+        playlist->setCurrentIndex(playlist->count() - 1);
+        from->setDate(QDate(2026, 12, 15));
+        until->setDate(QDate(2027, 1, 15));
+        add->click();
+        QVERIFY2(error->text().isEmpty(), qPrintable(error->text()));
+        const auto result = dialog.document();
+        QCOMPARE(result.value("baseRules"), source.value("baseRules"));
+        QCOMPARE(result.value("dayTemplates"), source.value("dayTemplates"));
+        QCOMPARE(result.value("eventRules"), source.value("eventRules"));
+        QCOMPARE(result.value("mixRules").toArray().size(), 1);
+        const auto rule = result.value("mixRules").toArray().first().toObject();
+        QCOMPARE(rule.value("pattern").toArray().size(), 2);
+        QCOMPARE(rule.value("pattern").toArray().first().toObject().value("type").toString(), QStringLiteral("active_base"));
+        QCOMPARE(rule.value("pattern").toArray().last().toObject().value("playlistId").toString(), playlist->currentData().toString());
+        ScheduleV1::Document compiled;
+        const auto validationError = ScheduleV1::decode(result, &compiled);
+        QVERIFY2(validationError.isEmpty(), qPrintable(validationError));
+        const QTimeZone zone(result.value("timeZone").toString().toUtf8());
+        const auto evaluate = [&](const QDate &date) {
+            return ScheduleV1::evaluate(compiled, QDateTime(date, QTime(12, 0), zone));
+        };
+        QVERIFY(evaluate(QDate(2026, 12, 14)).mixRuleId.isEmpty());
+        QCOMPARE(evaluate(QDate(2026, 12, 15)).mixRuleId, rule.value("id").toString());
+        QCOMPARE(evaluate(QDate(2027, 1, 15)).mixRuleId, rule.value("id").toString());
+        QVERIFY(evaluate(QDate(2027, 1, 16)).mixRuleId.isEmpty());
+        const QString capture = qEnvironmentVariable("PLAYBACK_UI_CAPTURE_DIR");
+        if (!capture.isEmpty()) {
+            QVERIFY(Restyle::verifiedCyrillicFont());
+            QVERIFY(QDir().mkpath(capture));
+            dialog.show(); QTest::qWait(50);
+            QVERIFY(dialog.grab().save(QDir(capture).filePath(QStringLiteral("schedule-settings.png"))));
+            dialog.hide();
+        }
+        add->click(); // An overlapping rotation must not silently replace the existing one.
+        QVERIFY(!error->text().isEmpty());
+        QCOMPARE(dialog.document().value("mixRules"), result.value("mixRules"));
+        dialog.findChild<QPushButton *>(QStringLiteral("scheduleHolidayRemove"))->click();
+        QVERIFY(dialog.document().value("mixRules").toArray().isEmpty());
+        from->setDate(QDate(2026, 12, 20));
+        until->setDate(QDate(2026, 12, 19));
+        add->click();
+        QVERIFY(error->text().contains(QStringLiteral("окончания")));
+        QVERIFY(dialog.document().value("mixRules").toArray().isEmpty());
+        until->setDate(QDate(2027, 2, 1));
+        add->click();
+        QVERIFY(error->text().contains(QStringLiteral("срок расписания")));
+        QVERIFY(dialog.document().value("mixRules").toArray().isEmpty());
     }
 
     void channelPickerUsesCronNumbers()

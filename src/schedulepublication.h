@@ -15,8 +15,10 @@ struct Publication {
 };
 
 // Channel input belongs to the editor/compiler only, including media paths.
-// In channel mode it is compiled afresh; an explicitly edited project uses its
-// saved document. Opening/validating never marks a publication as accepted.
+// In channel mode it is compiled afresh. Advanced projects receive only changes
+// since the persisted channel baseline, retaining unrelated manual rules.
+// A conflicting draft is returned for diagnosis; publish validates before use.
+// Opening/validating never marks a publication as accepted.
 bool draft(const QString &directory, const QString &contentRoot, const QJsonObject &channels,
            QJsonObject *document, bool *advanced, QString *error,
            const QString &mediaType = QStringLiteral("audio"));

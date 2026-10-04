@@ -53,6 +53,8 @@ QVariant ChannelModel::data(const QModelIndex &index, int nRole) const
     if (!index.isValid() || index.row() < 0 || index.row() >= rowCount() || index.column() >= columnCount())
         return QVariant();
 
+    if (nRole == RuleIdRole)
+        return mChannelManager_->channel(index.row()).ruleId();
     if (nRole == UntilDayOffsetRole)
         return mChannelManager_->channel(index.row()).untilDayOffset();
     if (nRole == PlaybackOrderRole)

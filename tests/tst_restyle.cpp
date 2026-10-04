@@ -7,6 +7,7 @@
 #include <QDateEdit>
 #include <QDateTimeEdit>
 #include <QDialog>
+#include <QDialogButtonBox>
 #include <QDirIterator>
 #include <QFile>
 #include <QFontInfo>
@@ -15,10 +16,12 @@
 #include <QJsonObject>
 #include <QLineEdit>
 #include <QListView>
+#include <QListWidget>
 #include <QMimeData>
 #include <QMessageBox>
 #include <QPainter>
 #include <QProcess>
+#include <QPushButton>
 #include <QScreen>
 #include <QSettings>
 #include <QSignalSpy>
@@ -727,6 +730,108 @@ int capture(MainWindow &window, const QString &directory, bool smoke)
     return 0;
 }
 
+int captureSchedule(MainWindow &window, const QString &directory)
+{
+    if (!QDir().mkpath(directory)) return 2;
+    if (!Restyle::verifiedCyrillicFont())
+        qFatal("Schedule capture requires a verified Cyrillic font");
+    Restyle::apply("tide-relief", "denim");
+    window.resize(1440, 900);
+    window.show();
+    settle();
+    auto *panel = window.findChild<SchedulePreviewWidget *>("schedulePanel");
+    auto *table = panel ? panel->findChild<QTableView *>("scheduleDocumentTable") : nullptr;
+    auto *timeline = panel ? panel->findChild<QWidget *>("scheduleDocumentTimeline") : nullptr;
+    auto *settings = button(window, "scheduleProjectButton");
+    if (!panel || !table || !timeline || !settings)
+        qFatal("Missing schedule capture controls");
+    const QDate date = QDate::currentDate();
+    panel->setPreviewDateTime(QDateTime(date, QTime(10, 24)));
+    settle();
+    if (panel->snapshot().hasUnresolvedRules || table->model()->rowCount() == 0)
+        qFatal("Schedule fixture has no valid plan: %s", qPrintable(panel->snapshot().issues.join('\n')));
+
+    QJsonArray captures;
+    auto save = [&](const QString &name) {
+        settle();
+        const QPixmap pixmap = composite(window);
+        if (!pixmap.save(directory + '/' + name + ".png"))
+            qFatal("Cannot save schedule preview image");
+        QJsonArray rows;
+        for (int row = 0; row < table->model()->rowCount(); ++row) {
+            QJsonArray cells;
+            for (int column = 0; column < table->model()->columnCount(); ++column)
+                cells.append(table->model()->index(row, column).data().toString());
+            rows.append(cells);
+        }
+        QJsonObject item{{"id", name}, {"width", window.width()}, {"height", window.height()},
+            {"pixelWidth", pixmap.width()}, {"pixelHeight", pixmap.height()}, {"dpr", pixmap.devicePixelRatio()},
+            {"date", panel->previewDateTime().date().toString(Qt::ISODate)},
+            {"time", panel->previewDateTime().time().toString("HH:mm")},
+            {"summary", panel->snapshot().currentSummary}, {"rows", rows},
+            {"timelineAccessibleName", timeline->accessibleName()}};
+        if (timeline->property("laneNames").isValid())
+            item.insert("laneNames", QJsonArray::fromStringList(timeline->property("laneNames").toStringList()));
+        QJsonArray dialogs;
+        for (auto *top : QApplication::topLevelWidgets()) {
+            if (auto *dialog = qobject_cast<QDialog *>(top); dialog && dialog->isVisible()) {
+                const auto bounds = dialog->frameGeometry();
+                dialogs.append(QJsonObject{{"objectName", dialog->objectName()},
+                    {"width", dialog->width()}, {"height", dialog->height()},
+                    {"fitsAvailableScreen", dialog->screen()->availableGeometry().contains(bounds)}});
+            }
+        }
+        item.insert("dialogs", dialogs);
+        captures.append(item);
+    };
+    save("01-channel-lanes");
+    bool saved = false;
+    QTimer::singleShot(100, &window, [&] {
+        auto *dialog = window.findChild<QDialog *>("scheduledDocumentDialog");
+        auto *name = dialog ? dialog->findChild<QLineEdit *>("scheduleHolidayName") : nullptr;
+        auto *playlist = dialog ? dialog->findChild<QComboBox *>("scheduleHolidayPlaylist") : nullptr;
+        auto *from = dialog ? dialog->findChild<QDateEdit *>("scheduleHolidayFrom") : nullptr;
+        auto *until = dialog ? dialog->findChild<QDateEdit *>("scheduleHolidayUntil") : nullptr;
+        auto *add = dialog ? button(*dialog, "scheduleHolidayAdd") : nullptr;
+        auto *rules = dialog ? dialog->findChild<QListWidget *>("scheduleHolidayRules") : nullptr;
+        auto *buttons = dialog ? dialog->findChild<QDialogButtonBox *>() : nullptr;
+        if (!dialog || !name || !playlist || !from || !until || !add || !rules || !buttons)
+            qFatal("Missing schedule settings form controls");
+        const int selected = playlist->findText(QStringLiteral("Дневной_ритм"));
+        if (selected < 0) qFatal("Missing additional playlist in schedule fixture");
+        name->setText(QStringLiteral("Праздничная программа"));
+        playlist->setCurrentIndex(selected);
+        from->setDate(date);
+        until->setDate(date.addDays(6));
+        save("02-schedule-settings");
+        QTest::mouseClick(add, Qt::LeftButton);
+        settle();
+        if (rules->count() != 1)
+            qFatal("Schedule form did not add the alternating playlist rule");
+        auto *saveButton = buttons->button(QDialogButtonBox::Save);
+        if (!saveButton || !saveButton->isEnabled())
+            qFatal("Schedule save action is unavailable");
+        QTest::mouseClick(saveButton, Qt::LeftButton);
+        saved = dialog->result() == QDialog::Accepted;
+        if (!saved) qFatal("Schedule settings were not accepted");
+    });
+    QTest::mouseClick(settings, Qt::LeftButton);
+    settle();
+    if (!saved || panel->snapshot().hasUnresolvedRules)
+        qFatal("Updated schedule was not applied: %s", qPrintable(panel->snapshot().issues.join('\n')));
+    if (panel->findChild<QTableView *>("scheduleDocumentTable") != table
+            || panel->findChild<QWidget *>("scheduleDocumentTimeline") != timeline)
+        qFatal("Adding a schedule rule replaced the schedule grid");
+    if (!panel->snapshot().currentSummary.contains(QStringLiteral(" → ")))
+        qFatal("Alternation is missing from the captured schedule plan");
+    save("03-channel-lanes-with-alternation");
+    const QJsonObject report{{"captures", captures}, {"fontFamily", Restyle::fontFamily()},
+        {"cyrillicVerified", Restyle::verifiedCyrillicFont()}, {"platform", QGuiApplication::platformName()},
+        {"sameGridAfterSaving", true}, {"fixture", "Temporary isolated station; rule added and saved through schedule settings"}};
+    writeFile(directory + "/capture.json", QJsonDocument(report).toJson());
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     QApplication application(argc, argv);
@@ -751,6 +856,11 @@ int main(int argc, char **argv)
         seedRestyleWindow(window);
         window.show();
         return application.exec();
+    }
+    if (arguments.size() == 3 && arguments[1] == "--capture-schedule") {
+        MainWindow window;
+        seedRestyleWindow(window);
+        return captureSchedule(window, QDir(arguments[2]).absolutePath());
     }
     if (arguments.size() == 3 && (arguments[1] == "--capture" || arguments[1] == "--capture-smoke")) {
         MainWindow window;

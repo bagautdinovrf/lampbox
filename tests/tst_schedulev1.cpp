@@ -3,6 +3,7 @@
 #include <QFile>
 #include <QJsonDocument>
 #include <QTest>
+#include <QTimeZone>
 
 using namespace ScheduleV1;
 
@@ -165,6 +166,116 @@ private slots:
         QCOMPARE(evaluate(d,at("2026-10-05T12:00:00+03:00")).mixRuleId,id(41));
         const auto returned = evaluate(d,at("2026-10-05T13:00:00+03:00"));
         QCOMPARE(returned.mixRuleId,id(40)); QCOMPARE(returned.activationStart,at("2026-10-05T10:00:00Z"));
+    }
+    void intervalsCoverFallbackGapsAndValidity()
+    {
+        auto o = fixture();
+        o.insert("validity",QJsonObject{{"from","2026-10-04"},{"until","2026-10-05"}});
+        replaceWindow(o,window("08:00:01","09:00:02",0));
+        Document d; QVERIFY(read(o,&d).isEmpty());
+        const auto from = at("2026-10-03T23:00:00+03:00"), until = at("2026-10-05T01:00:00+03:00");
+        const auto list = intervals(d,from,until);
+        QCOMPARE(list.size(),5);
+        const QList<QDateTime> bounds{from,at("2026-10-04T00:00:00+03:00"),at("2026-10-04T08:00:01+03:00"),
+                at("2026-10-04T09:00:02+03:00"),at("2026-10-05T00:00:00+03:00"),until};
+        for (qsizetype i = 0; i < list.size(); ++i) {
+            QCOMPARE(list[i].from,bounds[i]); QCOMPARE(list[i].until,bounds[i + 1]);
+            QCOMPARE(list[i].from.timeZone().id(),QByteArray("Europe/Moscow"));
+            QCOMPARE(list[i].plan.withinValidity,i > 0 && i < 4);
+            QCOMPARE(list[i].plan.usingFallback,i != 2);
+            QCOMPARE(list[i].plan.silence,i != 2);
+        }
+        QCOMPARE(list[2].plan.playlistId,id(11));
+        QCOMPARE(list[2].plan.volumePercent,65);
+        QVERIFY(intervals(Document{},from,until).isEmpty());
+        QVERIFY(intervals(d,QDateTime{},until).isEmpty());
+        QVERIFY(intervals(d,from,QDateTime{}).isEmpty());
+        QVERIFY(intervals(d,from,from).isEmpty());
+        QVERIFY(intervals(d,until,from).isEmpty());
+        const auto clipped = intervals(d,bounds[2].addMSecs(250),bounds[3]);
+        QCOMPARE(clipped.size(),1);
+        QCOMPARE(clipped.first().from,bounds[2].addMSecs(250));
+        QVERIFY(!clipped.first().plan.usingFallback);
+    }
+    void intervalsIncludeOvernightTailFromPreviousStartDate()
+    {
+        auto o = fixture(); replaceWindow(o,window("22:00:00","02:00:00",1));
+        o.insert("baseRules",QJsonArray{base(30,20,10,when({{"type","weekdays"},{"days",QJsonArray{6}}}))});
+        Document d; QVERIFY(read(o,&d).isEmpty());
+        const auto list = intervals(d,at("2026-10-04T00:00:00+03:00"),at("2026-10-05T00:00:00+03:00"));
+        QCOMPARE(list.size(),2);
+        QCOMPARE(list[0].from,at("2026-10-04T00:00:00+03:00"));
+        QCOMPARE(list[0].until,at("2026-10-04T02:00:00+03:00"));
+        QCOMPARE(list[0].plan.baseRuleId,id(30));
+        QCOMPARE(list[1].from,list[0].until);
+        QCOMPARE(list[1].until,at("2026-10-05T00:00:00+03:00"));
+        QVERIFY(list[1].plan.usingFallback);
+    }
+    void intervalsPreserveWinningBaseAndMixSwitchesToTheSecond()
+    {
+        auto o = fixture();
+        o.insert("dayTemplates",QJsonArray{
+            QJsonObject{{"id",id(20)},{"name","День"},{"slots",QJsonArray{
+                slot(21,window("00:00:00","12:00:00",0)),slot(24,window("12:00:00","00:00:00",1))}}},
+            QJsonObject{{"id",id(22)},{"name","Приоритет"},{"slots",QJsonArray{
+                slot(23,window("11:59:58","12:00:02",0),source(12))}}}});
+        o.insert("baseRules",QJsonArray{base(),base(31,22,20)});
+        o.insert("mixRules",QJsonArray{mix(),mix(41,{window("12:00:01","12:00:03",0)},20)});
+        Document d; QVERIFY(read(o,&d).isEmpty());
+        const auto list = intervals(d,at("2026-10-04T11:59:57+03:00"),at("2026-10-04T12:00:04+03:00"));
+        QCOMPARE(list.size(),5);
+        const QList<QDateTime> bounds{at("2026-10-04T11:59:57+03:00"),at("2026-10-04T11:59:58+03:00"),
+            at("2026-10-04T12:00:01+03:00"),at("2026-10-04T12:00:02+03:00"),
+            at("2026-10-04T12:00:03+03:00"),at("2026-10-04T12:00:04+03:00")};
+        const QList<int> rules{30,31,31,30,30}, slotIds{21,23,23,24,24}, mixes{40,40,41,41,40};
+        for (qsizetype i = 0; i < list.size(); ++i) {
+            QCOMPARE(list[i].from,bounds[i]); QCOMPARE(list[i].until,bounds[i + 1]);
+            QCOMPARE(list[i].plan.baseRuleId,id(rules[i]));
+            QCOMPARE(list[i].plan.baseSlotId,id(slotIds[i]));
+            QCOMPARE(list[i].plan.mixRuleId,id(mixes[i]));
+        }
+        QCOMPARE(list[1].plan.playlistId,id(12));
+        QCOMPARE(list[0].plan.activationStart,at("2026-10-04T00:00:00+03:00"));
+        QCOMPARE(list[1].plan.activationStart,list[0].plan.activationStart);
+        QCOMPARE(list[4].plan.activationStart,bounds[4]);
+        QVERIFY(list[4].plan.activationStart != list[0].plan.activationStart);
+    }
+    void intervalsKeepSlotIdentityAndMergeContinuousDays()
+    {
+        auto o = fixture(); Document d; QVERIFY(read(o,&d).isEmpty());
+        const auto from = at("2026-10-04T00:00:00+03:00"), until = at("2026-10-06T00:00:00+03:00");
+        const auto continuous = intervals(d,from,until);
+        QCOMPARE(continuous.size(),1);
+        QCOMPARE(continuous.first().from,from); QCOMPARE(continuous.first().until,until);
+        o.insert("dayTemplates",QJsonArray{QJsonObject{{"id",id(20)},{"name","День"},{"slots",QJsonArray{
+            slot(21,window("00:00:00","12:00:00",0)),slot(24,window("12:00:00","00:00:00",1))}}}});
+        QVERIFY(read(o,&d).isEmpty());
+        const auto daySlots = intervals(d,at("2026-10-04T11:00:00+03:00"),at("2026-10-04T13:00:00+03:00"));
+        QCOMPARE(daySlots.size(),2);
+        QCOMPARE(daySlots[0].until,at("2026-10-04T12:00:00+03:00"));
+        QCOMPARE(daySlots[0].plan.playlistId,daySlots[1].plan.playlistId);
+        QCOMPARE(daySlots[0].plan.baseSlotId,id(21)); QCOMPARE(daySlots[1].plan.baseSlotId,id(24));
+    }
+    void intervalsRespectDstElapsedTimeAndFirstOverlap()
+    {
+        auto o = fixture(); o.insert("timeZone","Europe/Berlin");
+        o.insert("validity",QJsonObject{{"from","2026-03-29"},{"until","2026-03-30"}});
+        replaceWindow(o,window("01:59:59","03:00:01",0));
+        Document d; QVERIFY(read(o,&d).isEmpty());
+        auto list = intervals(d,at("2026-03-29T00:59:58Z"),at("2026-03-29T01:00:02Z"));
+        QCOMPARE(list.size(),3);
+        QCOMPARE(list[1].from,at("2026-03-29T00:59:59Z"));
+        QCOMPARE(list[1].until,at("2026-03-29T01:00:01Z"));
+        QCOMPARE(list[1].from.secsTo(list[1].until),2);
+        QVERIFY(!list[1].plan.usingFallback);
+        o.insert("validity",QJsonObject{{"from","2026-10-25"},{"until","2026-10-26"}});
+        replaceWindow(o,window("02:30:00","03:00:00",0));
+        QVERIFY(read(o,&d).isEmpty());
+        list = intervals(d,at("2026-10-25T00:00:00Z"),at("2026-10-25T02:30:00Z"));
+        QCOMPARE(list.size(),3);
+        QCOMPARE(list[1].from,at("2026-10-25T00:30:00Z"));
+        QCOMPARE(list[1].until,at("2026-10-25T02:00:00Z"));
+        QCOMPARE(list[1].from.secsTo(list[1].until),90 * 60);
     }
     void dstGapSkipsAndOverlapUsesFirstOccurrence()
     {

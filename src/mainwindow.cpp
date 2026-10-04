@@ -570,9 +570,9 @@ QWidget *MainWindow::buildMediaPage(int page) {
         connect(screens, &QPushButton::clicked, this, &MainWindow::showVideoControls);
     }
     if (!ads) {
-        auto *project = button("Проект", "calendar");
+        auto *project = button("Настройки расписания", "calendar");
         project->setObjectName(page == PAGE_MUSIC ? "scheduleProjectButton" : "videoScheduleProjectButton");
-        project->setToolTip("Календарь, полные сутки, ночные интервалы и чередование плейлистов");
+        project->setToolTip("Чередование плейлистов, календари и дополнительные правила расписания");
         h->addWidget(project);
         connect(project, &QPushButton::clicked, this, [this, page] { editScheduleProject(page); });
     }
@@ -1106,13 +1106,14 @@ void MainWindow::updateSummary(int page) {
     if (page < 2 && p.channels) {
         QStringList statuses, counts;
         QVariantList active;
-        for (const auto &channel : snapshot.channels) {
-            statuses << channel.status;
-            active << channel.active;
-            counts << QString::number(
-                channel.sourceRow >= 0 && channel.sourceRow < mChannelManagers[page]->channelCount()
-                    ? mChannelManagers[page]->channel(channel.sourceRow).mediaManager().mediaCount()
-                    : 0);
+        for (int row = 0; row < mChannelManagers[page]->channelCount(); ++row) {
+            const auto planned = std::find_if(snapshot.channels.cbegin(), snapshot.channels.cend(),
+                [row](const auto &channel) { return channel.sourceRow == row; });
+            statuses << (planned != snapshot.channels.cend() ? planned->status
+                : snapshot.hasUnresolvedRules ? QStringLiteral("Ошибка расписания")
+                : QStringLiteral("Правила проекта"));
+            active << (planned != snapshot.channels.cend() && planned->active);
+            counts << QString::number(channelFiles(mChannelManagers[page]->channel(row).mediaManager()).size());
         }
         p.channels->setProperty("channelStatuses", statuses);
         p.channels->setProperty("channelFileCounts", counts);
@@ -1597,8 +1598,7 @@ void MainWindow::editScheduleProject(int page) {
     const QString directory = page == PAGE_VIDEO ? QDir(STATIONPATH).filePath("video-schedule") : STATIONPATH;
     const QString mediaType = page == PAGE_VIDEO ? QStringLiteral("video") : QStringLiteral("audio");
     QJsonObject document;
-    bool advanced = false;
-    if (!SchedulePublication::draft(directory, STATIONMEDIA, source, &document, &advanced, &error, mediaType)) {
+    if (!SchedulePublication::draft(directory, STATIONMEDIA, source, &document, nullptr, &error, mediaType)) {
         showError(error); return;
     }
     ScheduledDocumentDialog dialog(document, this, mediaType);
@@ -1609,25 +1609,23 @@ void MainWindow::editScheduleProject(int page) {
 }
 
 void MainWindow::updateScheduleDocumentPreview() {
-    if (!qApp->property("restylePreviewStation").toString().isEmpty()) return;
     for (int page : {PAGE_MUSIC, PAGE_VIDEO}) {
         QString error;
         const auto source = playbackSchedule(page, &error);
-        if (!error.isEmpty()) continue;
         QJsonObject document;
-        bool advanced = false;
         const QString directory = page == PAGE_VIDEO ? QDir(STATIONPATH).filePath("video-schedule") : STATIONPATH;
         const QString mediaType = page == PAGE_VIDEO ? QStringLiteral("video") : QStringLiteral("audio");
-        if (!SchedulePublication::draft(directory, STATIONMEDIA, source, &document, &advanced, &error, mediaType)) continue;
         auto &previous = mScheduleDocuments[page];
-        if (advanced) {
-            if (previous != document && mPages[page].schedule) mPages[page].schedule->setDocument(document);
-            previous = document;
-            mPages[page].subtitle->setText("Каналы · медиатека. Календарь и правила — в проекте расписания");
-        } else if (!previous.isEmpty()) {
-            if (mPages[page].schedule) mPages[page].schedule->clearDocument();
+        if (!error.isEmpty()
+                || !SchedulePublication::draft(directory, STATIONMEDIA, source, &document, nullptr, &error, mediaType)) {
             previous = {};
+            if (mPages[page].schedule) mPages[page].schedule->setDocumentError(error);
+            continue;
         }
+        previous = document;
+        // Every schedule uses the same compiled document and grid, regardless
+        // of whether optional rules have been added in its settings.
+        if (mPages[page].schedule) mPages[page].schedule->setDocument(document);
     }
 }
 
@@ -1635,8 +1633,7 @@ bool MainWindow::publishMusicSchedule(bool autoplay, QString *error) {
     const auto source = playbackSchedule(PAGE_MUSIC, error);
     if (!error->isEmpty()) return false;
     QJsonObject document;
-    bool advanced = false;
-    if (!SchedulePublication::draft(STATIONPATH, STATIONMEDIA, source, &document, &advanced, error)) return false;
+    if (!SchedulePublication::draft(STATIONPATH, STATIONMEDIA, source, &document, nullptr, error)) return false;
     SchedulePublication::Publication publication;
     if (!SchedulePublication::publish(STATIONPATH, STATIONMEDIA, document, &publication, error)) return false;
     if ((playerAvailable() && mMediaController->loadPublication(publication.activePath, publication.contentRoot, autoplay).isEmpty())
@@ -1653,11 +1650,10 @@ bool MainWindow::updateVideoPlaybackContext(QString *error) {
     QString reason;
     const auto schedule = playbackSchedule(PAGE_VIDEO, &reason);
     QJsonObject document;
-    bool advanced = false;
     SchedulePublication::Publication publication;
     const QString directory = QDir(STATIONPATH).filePath("video-schedule");
     const bool prepared = reason.isEmpty()
-        && SchedulePublication::draft(directory, STATIONMEDIA, schedule, &document, &advanced, &reason, "video")
+        && SchedulePublication::draft(directory, STATIONMEDIA, schedule, &document, nullptr, &reason, "video")
         && SchedulePublication::publish(directory, STATIONMEDIA, document, &publication, &reason);
     mVideoScheduleActivePath = prepared ? publication.activePath : QString();
     mVideoScheduleContentRoot = prepared ? publication.contentRoot : QString();

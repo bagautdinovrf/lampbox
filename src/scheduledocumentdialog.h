@@ -7,8 +7,8 @@
 
 namespace ScheduleV1 { struct Document; }
 
-// Expert editor for the complete, versioned schedule. Saving a draft and
-// publishing it are separate caller-owned operations.
+// Settings for the single schedule: common additions are available as forms,
+// and the complete document editor opens on demand. Publication is caller-owned.
 class ScheduledDocumentDialog final : public QDialog
 {
 public:

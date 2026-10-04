@@ -28,8 +28,10 @@ class SchedulePreviewWidget : public QWidget
 public:
     explicit SchedulePreviewWidget(QWidget *parent = nullptr);
     ~SchedulePreviewWidget() override;
+    // Models provide channel identity and selection; setDocument supplies the plan.
     void setModels(QAbstractItemModel *channels, QAbstractItemModel *adverts = nullptr);
     void setDocument(const QJsonObject &document);
+    void setDocumentError(const QString &error);
     void clearDocument();
     void setSelectedRow(int row);
     int selectedRow() const;
@@ -47,9 +49,6 @@ signals:
     void selectedRowChanged(int row);
     void editRequested(int row);
     void snapshotChanged();
-
-protected:
-    void resizeEvent(QResizeEvent *event) override;
 
 private:
     struct Private;

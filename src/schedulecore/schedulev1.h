@@ -33,6 +33,11 @@ struct Evaluation {
     QStringList diagnostics;
 };
 
+struct PlanInterval {
+    QDateTime from, until; // Half-open bounds in the document's time zone.
+    Evaluation plan;
+};
+
 struct EventOccurrence {
     QString ruleId, assetId;
     QDateTime scheduledUtc;
@@ -49,6 +54,10 @@ QString decode(const QJsonObject &object, Document *result);
 QString strictJsonObject(const QByteArray &bytes, QJsonObject *result);
 QStringList requiredCapabilities(const QJsonObject &object);
 Evaluation evaluate(const Document &document, const QDateTime &at);
+// Covers the entire requested range, including fallback gaps and times outside
+// validity. Uses exact winning-rule boundaries, preserving second precision.
+QList<PlanInterval> intervals(const Document &document, const QDateTime &fromInclusive,
+                             const QDateTime &untilExclusive);
 QList<EventOccurrence> events(const Document &document, const QDateTime &fromInclusive,
                              const QDateTime &toInclusive);
 } // namespace ScheduleV1

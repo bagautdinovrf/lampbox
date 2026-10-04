@@ -223,7 +223,7 @@ private slots:
         QVERIFY(!manager.deleteChannel(0));
         QCOMPARE(get(projectFile()), QByteArray("broken\n"));
         put(projectFile(), good); QVERIFY(manager.collectChannels());
-        QVERIFY(manager.setRule(0, channelFields("One", 71)));
+        QVERIFY2(manager.setRule(0, channelFields("One", 71)), qPrintable(manager.lastError()));
     }
     void loadingMultipleChannelsPreservesMedia()
     {
@@ -358,14 +358,22 @@ private slots:
                                            &saved, &advanced, &error), qPrintable(error));
         QVERIFY(advanced);
         QCOMPARE(saved["assets"], document["assets"]);
-        QCOMPARE(saved["playlists"], document["playlists"]);
-        SchedulePublication::Publication unchanged;
+        const auto previousPlaylist = document["playlists"].toArray().first().toObject();
+        const auto renamedPlaylist = saved["playlists"].toArray().first().toObject();
+        QCOMPARE(renamedPlaylist.value("name"), QJsonValue("Renamed"));
+        QCOMPARE(renamedPlaylist.value("id"), previousPlaylist.value("id"));
+        QCOMPARE(renamedPlaylist.value("entries"), previousPlaylist.value("entries"));
+        QCOMPARE(renamedPlaylist.value("revision"), previousPlaylist.value("revision"));
+        SchedulePublication::Publication updated;
         QVERIFY2(SchedulePublication::publish(publicationDirectory.path(), contentRoot, saved,
-                                             &unchanged, &error), qPrintable(error));
-        QCOMPARE(unchanged.bytes, publication.bytes);
+                                             &updated, &error), qPrintable(error));
+        QCOMPARE(updated.active.value("revision").toInt(), publication.active.value("revision").toInt() + 1);
+        QCOMPARE(get(publicationDirectory.filePath(publication.active.value("snapshotPath").toString())), publication.bytes);
         {
             MediaBox::ScheduleV1Runtime restored(database);
             QCOMPARE(restored.restore(), QString());
+            QCOMPARE(QDir::cleanPath(restored.selectMusic(now).path), QDir::cleanPath(track));
+            QCOMPARE(restored.accept(updated.bytes, contentRoot, updated.active, now), QString());
             QCOMPARE(QDir::cleanPath(restored.selectMusic(now).path), QDir::cleanPath(track));
         }
         QVERIFY2(manager.collectChannels(), qPrintable(manager.lastError()));

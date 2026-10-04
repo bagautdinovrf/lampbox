@@ -401,7 +401,7 @@ void appendWindow(QList<Segment> &segments, Compiled &c, const QDate &d,
     if (begin < end) segments.append({begin,end,rule.value("priority").toInt(),rule,slot});
 }
 
-QList<Segment> winners(const QList<Segment> &segments, const QString &group)
+QList<Segment> winners(const QList<Segment> &segments, const QString &group, const QTimeZone &zone)
 {
     struct Edge { qint64 at; int index; bool start; };
     QList<Edge> edges; edges.reserve(segments.size() * 2);
@@ -419,9 +419,21 @@ QList<Segment> winners(const QList<Segment> &segments, const QString &group)
         }
         for (qsizetype j = i; j < end; ++j) if (edges[j].start) {
             const auto &s = segments[edges[j].index]; auto &same = active[s.priority];
-            if (!same.empty()) fail(group,QStringLiteral("Пересечение при одинаковом приоритете: %1 и %2 (%3)")
-                .arg(segments[*same.begin()].rule.value("name").toString(),s.rule.value("name").toString(),
-                     QDateTime::fromMSecsSinceEpoch(at,QTimeZone::UTC).toString(Qt::ISODate)));
+            if (!same.empty()) {
+                const auto &other = segments[*same.begin()];
+                const auto ruleName = [](const QJsonObject &rule) {
+                    const QString name = rule.value("name").toString().trimmed();
+                    return name.isEmpty() ? rule.value("id").toString() : name;
+                };
+                const QString kind = group == QLatin1String("baseRules")
+                        ? QStringLiteral("Базовые правила") : QStringLiteral("Правила чередования");
+                const QString from = QDateTime::fromMSecsSinceEpoch(at,zone).toString(QStringLiteral("dd.MM.yyyy HH:mm:ss"));
+                const QString until = QDateTime::fromMSecsSinceEpoch(std::min(other.until,s.until),zone)
+                        .toString(QStringLiteral("dd.MM.yyyy HH:mm:ss"));
+                fail(QStringLiteral("Расписание"),QStringLiteral("%1 «%2» и «%3» пересекаются при одинаковом приоритете %4: %5–%6 (%7).")
+                     .arg(kind,ruleName(other.rule),ruleName(s.rule)).arg(s.priority)
+                     .arg(from,until,QString::fromUtf8(zone.id())));
+            }
             same.insert(edges[j].index);
         }
         if (end < edges.size() && !active.empty()) {
@@ -479,7 +491,7 @@ QSharedPointer<Compiled> compile(const QJsonObject &o, const Validator &v)
             }
         }
     }
-    c->base = winners(base,"baseRules"); c->mix = winners(mix,"mixRules");
+    c->base = winners(base,"baseRules",c->zone); c->mix = winners(mix,"mixRules",c->zone);
     return c;
 }
 
@@ -560,6 +572,55 @@ Evaluation evaluate(const Document &document, const QDateTime &at)
     } else result.diagnostics.append(QStringLiteral("Расписание вне validity; применяется резервный источник"));
     result.silence = source.value("type") == "silence";
     result.playlistId = source.value("playlistId").toString();
+    return result;
+}
+
+QList<PlanInterval> intervals(const Document &document, const QDateTime &fromInclusive, const QDateTime &untilExclusive)
+{
+    QList<PlanInterval> result;
+    if (!document.compiled || !fromInclusive.isValid() || !untilExclusive.isValid() || fromInclusive >= untilExclusive)
+        return result;
+    const auto &c = *document.compiled;
+    const qint64 from = fromInclusive.toMSecsSinceEpoch(), until = untilExclusive.toMSecsSinceEpoch();
+    QList<qint64> boundaries{from,until};
+    const auto addBoundary = [&](qint64 boundary) {
+        if (boundary > from && boundary < until) boundaries.append(boundary);
+    };
+    addBoundary(c.from); addBoundary(c.until);
+    const auto addSegments = [&](const QList<Segment> &segments) {
+        auto segment = std::upper_bound(segments.cbegin(),segments.cend(),from,
+                [](qint64 at,const Segment &s) { return at < s.until; });
+        for (; segment != segments.cend() && segment->from < until; ++segment) {
+            addBoundary(segment->from); addBoundary(segment->until);
+        }
+    };
+    addSegments(c.base); addSegments(c.mix);
+    // evaluate() reports skipped DST occurrences on their date and the next
+    // local day. Retain those changes even if the audible plan stays the same.
+    for (const auto &diagnostic : c.diagnostics) {
+        for (const auto &date : {diagnostic.date,diagnostic.date.addDays(2)}) {
+            const auto boundary = date.startOfDay(c.zone);
+            if (boundary.isValid() && boundary.toMSecsSinceEpoch() > c.from && boundary.toMSecsSinceEpoch() < c.until)
+                addBoundary(boundary.toMSecsSinceEpoch());
+        }
+    }
+    std::sort(boundaries.begin(),boundaries.end());
+    boundaries.erase(std::unique(boundaries.begin(),boundaries.end()),boundaries.end());
+    const auto samePlan = [](const Evaluation &left,const Evaluation &right) {
+        return left.withinValidity == right.withinValidity && left.usingFallback == right.usingFallback
+                && left.baseRuleId == right.baseRuleId && left.baseSlotId == right.baseSlotId
+                && left.playlistId == right.playlistId && left.silence == right.silence
+                && left.volumePercent == right.volumePercent && left.mixRuleId == right.mixRuleId
+                && left.pattern == right.pattern && left.activationStart == right.activationStart
+                && left.diagnostics == right.diagnostics;
+    };
+    for (qsizetype i = 0; i + 1 < boundaries.size(); ++i) {
+        const auto begin = QDateTime::fromMSecsSinceEpoch(boundaries[i],c.zone);
+        const auto end = QDateTime::fromMSecsSinceEpoch(boundaries[i + 1],c.zone);
+        const auto plan = evaluate(document,begin);
+        if (!result.isEmpty() && samePlan(result.last().plan,plan)) result.last().until = end;
+        else result.append({begin,end,plan});
+    }
     return result;
 }
 

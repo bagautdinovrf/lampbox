@@ -8,8 +8,10 @@
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QHash>
 #include <QLockFile>
 #include <QSaveFile>
+#include <QSet>
 #include <QTimeZone>
 #include <QUuid>
 #include <algorithm>
@@ -56,7 +58,8 @@ bool loadProject(const QString &directory, QJsonObject *project, QString *error)
             || (mode != "channels" && mode != "advanced") || !project->value("document").isObject()
             || !project->value("lastRevision").isDouble()
             || project->value("lastRevision").toDouble() != project->value("lastRevision").toInt(-1)
-            || project->value("lastRevision").toInt(-1) < 0)
+            || project->value("lastRevision").toInt(-1) < 0
+            || (project->contains("channelDocument") && !project->value("channelDocument").isObject()))
         return fail(error, QStringLiteral("Некорректный проект расписания: %1").arg(projectPath(directory)));
     return true;
 }
@@ -66,6 +69,200 @@ QJsonObject comparable(QJsonObject document)
     return document;
 }
 
+QString derived(const QString &space, const QString &name)
+{
+    return QUuid::createUuidV5(QUuid(space), name.toUtf8()).toString(QUuid::WithoutBraces);
+}
+QHash<QString, QJsonObject> byId(const QJsonArray &array)
+{
+    QHash<QString, QJsonObject> result;
+    for (const auto &value : array) {
+        const auto object = value.toObject();
+        result.insert(object.value("id").toString(), object);
+    }
+    return result;
+}
+bool idArray(const QJsonArray &array)
+{
+    QSet<QString> seen;
+    for (const auto &value : array) {
+        const QString id = value.toObject().value("id").toString();
+        if (id.isEmpty() || seen.contains(id)) return false;
+        seen.insert(id);
+    }
+    return true;
+}
+
+// Only edits made in the channel editor win over a manually edited project.
+// Object members and stable-ID array entries untouched by that edit survive.
+QJsonValue channelDelta(const QJsonValue &before, const QJsonValue &after, const QJsonValue &current)
+{
+    if (before == after) return current;
+    // A manually removed entity stays removed when its former channel changes;
+    // additions have no baseline object and still enter the project normally.
+    if (before.isObject() && after.isObject() && current.isUndefined()) return current;
+    if (before.isObject() && after.isObject() && current.isObject()) {
+        auto result = current.toObject();
+        const auto oldObject = before.toObject(), newObject = after.toObject();
+        // A changed channel calendar replaces a different selector kind as a
+        // unit; mixing calendarId with annual_filter fields is not valid JSON
+        // under the schedule contract.
+        if (newObject.contains("type") && result.value("type") != newObject.value("type")) return after;
+        QSet<QString> keys;
+        for (auto it = oldObject.begin(); it != oldObject.end(); ++it) keys.insert(it.key());
+        for (auto it = newObject.begin(); it != newObject.end(); ++it) keys.insert(it.key());
+        for (const auto &key : keys) {
+            const auto value = channelDelta(oldObject.value(key), newObject.value(key), result.value(key));
+            if (value.isUndefined()) result.remove(key);
+            else result.insert(key, value);
+        }
+        return result;
+    }
+    if (before.isArray() && after.isArray() && current.isArray()
+            && idArray(before.toArray()) && idArray(after.toArray()) && idArray(current.toArray())) {
+        const auto oldArray = before.toArray(), newArray = after.toArray(), currentArray = current.toArray();
+        const auto oldItems = byId(oldArray), newItems = byId(newArray), currentItems = byId(currentArray);
+        QStringList oldOrder, newOrder, order;
+        for (const auto &value : oldArray) oldOrder << value.toObject().value("id").toString();
+        for (const auto &value : newArray) newOrder << value.toObject().value("id").toString();
+        for (const auto &value : currentArray) {
+            const QString id = value.toObject().value("id").toString();
+            if (!oldItems.contains(id) || newItems.contains(id)) order << id;
+        }
+        QStringList managedOrder, previousManagedOrder;
+        for (const auto &id : newOrder)
+            if (oldItems.contains(id) && currentItems.contains(id)) managedOrder << id;
+        for (const auto &id : oldOrder)
+            if (newItems.contains(id) && currentItems.contains(id)) previousManagedOrder << id;
+        if (previousManagedOrder != managedOrder) {
+            int managed = 0;
+            for (auto &id : order)
+                if (oldItems.contains(id) && newItems.contains(id)) id = managedOrder.at(managed++);
+        }
+        for (qsizetype i = 0; i < newOrder.size(); ++i) {
+            const QString id = newOrder[i];
+            if (oldItems.contains(id) || order.contains(id)) continue;
+            qsizetype position = order.size();
+            for (qsizetype next = i + 1; next < newOrder.size(); ++next) {
+                const auto neighbor = order.indexOf(newOrder[next]);
+                if (neighbor >= 0) { position = neighbor; break; }
+            }
+            order.insert(position, id);
+        }
+        QJsonArray result;
+        for (const auto &id : order) {
+            const QJsonValue oldValue = oldItems.contains(id) ? QJsonValue(oldItems.value(id)) : QJsonValue(QJsonValue::Undefined);
+            const QJsonValue newValue = newItems.contains(id) ? QJsonValue(newItems.value(id)) : QJsonValue(QJsonValue::Undefined);
+            const QJsonValue currentValue = currentItems.contains(id) ? QJsonValue(currentItems.value(id)) : QJsonValue(QJsonValue::Undefined);
+            const auto value = channelDelta(oldValue, newValue, currentValue);
+            if (!value.isUndefined()) result.append(value);
+        }
+        return result;
+    }
+    return after;
+}
+
+// Older envelopes have no baseline. Recognize generated UUIDv5 relationships
+// rather than interpreting arbitrary advanced entities as channel-owned data.
+QJsonObject legacyChannelDocument(const QJsonObject &saved, const QJsonObject &next)
+{
+    auto baseline = next;
+    const auto savedTemplates = byId(saved.value("dayTemplates").toArray());
+    const auto savedRules = byId(saved.value("baseRules").toArray());
+    const auto nextTemplates = byId(next.value("dayTemplates").toArray());
+    const auto nextRules = byId(next.value("baseRules").toArray());
+    const auto savedAssets = byId(saved.value("assets").toArray());
+    QJsonArray playlists, templates, rules, events, assets;
+    QSet<QString> assetIds;
+    const auto addAsset = [&](const QString &id) {
+        if (!assetIds.contains(id) && savedAssets.contains(id)) {
+            assets.append(savedAssets.value(id)); assetIds.insert(id);
+        }
+    };
+    for (const auto &value : saved.value("playlists").toArray()) {
+        auto playlist = value.toObject();
+        const QString id = playlist.value("id").toString();
+        const QString templateId = derived(id, "template"), ruleId = derived(id, "base");
+        auto day = savedTemplates.value(templateId), rule = savedRules.value(ruleId);
+        const auto daySlots = byId(day.value("slots").toArray());
+        auto generatedSlot = daySlots.value(derived(id, "slot"));
+        const bool generated = rule.value("templateId") == QJsonValue(templateId) && !generatedSlot.isEmpty();
+        // An existing playlist without its original generated rule may have had
+        // that rule intentionally removed. Do not recreate it during migration.
+        if (!generated && !nextTemplates.contains(templateId)) continue;
+        QJsonArray entries;
+        QHash<QString, int> occurrences;
+        for (const auto &entryValue : playlist.value("entries").toArray()) {
+            const auto entry = entryValue.toObject();
+            const QString assetId = entry.value("assetId").toString();
+            const QString expected = derived(id, "entry:" + assetId + ":" + QString::number(occurrences[assetId]++));
+            if (entry.value("id") == QJsonValue(expected)) { entries.append(entry); addAsset(assetId); }
+        }
+        playlist.insert("entries", entries); playlists.append(playlist);
+        if (generated) {
+            // Priority, exclusions and custom selector kinds belong to the
+            // project; the simple channel editor cannot have created them.
+            rule.insert("priority", 0); rule.insert("enabled", true);
+            auto condition = rule.value("when").toObject();
+            condition.remove("range"); condition.insert("excludeDates", QJsonArray{});
+            if (condition.value("select").toObject().value("type") != QJsonValue("annual_filter")
+                    && nextRules.contains(ruleId))
+                condition.insert("select", nextRules.value(ruleId).value("when").toObject().value("select"));
+            rule.insert("when", condition);
+            generatedSlot.insert("source", QJsonObject{{"type", "playlist"}, {"playlistId", id}});
+            day.insert("slots", QJsonArray{generatedSlot});
+            templates.append(day); rules.append(rule);
+        } else {
+            templates.append(nextTemplates.value(templateId)); rules.append(nextRules.value(ruleId));
+        }
+    }
+    for (const auto &value : saved.value("eventRules").toArray()) {
+        auto rule = value.toObject();
+        const QString id = rule.value("id").toString();
+        const QString assetId = rule.value("action").toObject().value("assetId").toString();
+        if (assetId != derived(saved.value("scheduleId").toString(), "asset:" + id)) continue;
+        rule.insert("priority", 0); rule.insert("enabled", true);
+        rule.insert("delivery", QJsonObject{{"start", "interrupt"}, {"maxLateSeconds", 59}, {"expired", "skip"}, {"after", "resume_music"}});
+        auto condition = rule.value("when").toObject(); condition.insert("excludeDates", QJsonArray{}); rule.insert("when", condition);
+        events.append(rule); addAsset(assetId);
+    }
+    baseline.insert("assets", assets); baseline.insert("playlists", playlists);
+    baseline.insert("dayTemplates", templates); baseline.insert("baseRules", rules); baseline.insert("eventRules", events);
+    return baseline;
+}
+
+void preserveReferencedEntities(const QJsonObject &before, QJsonObject *after)
+{
+    const QHash<QString, QString> sections{{"assetId", "assets"}, {"playlistId", "playlists"},
+        {"templateId", "dayTemplates"}, {"calendarId", "calendars"}};
+    QHash<QString, QSet<QString>> references;
+    const auto collect = [&](auto &&self, const QJsonValue &value) -> void {
+        if (value.isArray()) {
+            for (const auto &item : value.toArray()) self(self, item);
+        } else if (value.isObject()) {
+            const auto object = value.toObject();
+            for (auto it = object.begin(); it != object.end(); ++it) {
+                if (sections.contains(it.key())) references[sections.value(it.key())].insert(it.value().toString());
+                self(self, it.value());
+            }
+        }
+    };
+    // Channel removal must not erase content still used by a custom mix,
+    // event, fallback or day template. Keep only the referenced dependency
+    // closure; these entities no longer belong to the generated baseline.
+    bool restored;
+    do {
+        restored = false; references.clear(); collect(collect, *after);
+        for (auto it = references.cbegin(); it != references.cend(); ++it) {
+            auto items = after->value(it.key()).toArray(); const auto remaining = byId(items);
+            for (const auto &value : before.value(it.key()).toArray()) {
+                const QString id = value.toObject().value("id").toString();
+                if (it.value().contains(id) && !remaining.contains(id)) { items.append(value); restored = true; }
+            }
+            after->insert(it.key(), items);
+        }
+    } while (restored);
+}
 }
 
 QString projectPath(const QString &directory) { return QDir(directory).filePath("schedule-project.json"); }
@@ -74,6 +271,9 @@ bool draft(const QString &directory, const QString &contentRoot, const QJsonObje
            QJsonObject *document, bool *advanced, QString *error, const QString &mediaType)
 {
     if (error) error->clear();
+    if (!document) return fail(error, QStringLiteral("Не задан получатель проекта расписания."));
+    *document = {};
+    if (advanced) *advanced = false;
     if (!QDir().mkpath(directory)) return fail(error, QStringLiteral("Не удалось создать каталог проекта расписания."));
     QLockFile lock(projectPath(directory) + ".lock");
     if (!lock.tryLock(3000)) return fail(error, QStringLiteral("Проект расписания занят другим редактором."));
@@ -81,9 +281,39 @@ bool draft(const QString &directory, const QString &contentRoot, const QJsonObje
     if (!loadProject(directory, &project, error)) return false;
     const bool saved = project.value("mode") == QJsonValue("advanced");
     if (advanced) *advanced = saved;
-    if (saved) { *document = project.value("document").toObject(); return true; }
+    const auto existing = project.value("document").toObject();
+    auto baseline = project.value("channelDocument").toObject();
     QJsonObject result;
-    if (!ScheduleCompiler::fromChannels(channels, contentRoot, project.value("document").toObject(), &result, error, mediaType)) return false;
+    if (!ScheduleCompiler::fromChannels(channels, contentRoot, saved && !baseline.isEmpty() ? baseline : existing,
+                                       &result, error, mediaType)) return false;
+    if (saved) {
+        if (baseline.isEmpty()) baseline = legacyChannelDocument(existing, result);
+        // A baseline is compiler state, not a new release. Keep its publication
+        // metadata stable so a timer tick does not rewrite an unchanged project.
+        for (const auto *key : {"publicationId", "revision", "publishedAt"})
+            if (baseline.contains(key)) result.insert(key, baseline.value(key));
+        const auto generated = result;
+        result = existing;
+        for (const auto *section : {"assets", "playlists", "dayTemplates", "baseRules", "eventRules"})
+            result.insert(section, channelDelta(baseline.value(section), generated.value(section), existing.value(section)));
+        preserveReferencedEntities(existing, &result);
+        const auto previousLists = byId(existing.value("playlists").toArray());
+        auto lists = result.value("playlists").toArray();
+        for (qsizetype i = 0; i < lists.size(); ++i) {
+            auto list = lists[i].toObject(); const auto previous = previousLists.value(list.value("id").toString());
+            if (!previous.isEmpty()) {
+                const int revision = previous.value("revision").toInt();
+                if (list.value("entries") != previous.value("entries") || list.value("order") != previous.value("order")) {
+                    if (revision == std::numeric_limits<int>::max()) return fail(error, QStringLiteral("Исчерпана ревизия плейлиста."));
+                    list.insert("revision", qMax(revision + 1, list.value("revision").toInt()));
+                } else list.insert("revision", revision);
+                lists[i] = list;
+            }
+        }
+        result.insert("playlists", lists);
+        result.insert("requiredCapabilities", QJsonArray::fromStringList(ScheduleV1::requiredCapabilities(result)));
+        project.insert("channelDocument", generated);
+    } else project.insert("channelDocument", result);
     project.insert("document", result);
     if (!write(projectPath(directory), json(project), error)) return false;
     *document = result;

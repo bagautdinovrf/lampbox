@@ -9,6 +9,7 @@
 #include "mediamodel.h"
 #include "playerengine.h"
 #include "restyletheme.h"
+#include "schedulepreview.h"
 #include "schedulepublication.h"
 #include "projectfixture.h"
 #include "mediafixture.h"
@@ -28,6 +29,7 @@
 #include <QFontDatabase>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QRawFont>
@@ -260,6 +262,110 @@ private slots:
         QVERIFY(result.value("ok").toBool());
         QCOMPARE(engine.status().value("publicationId"), after.value("publicationId"));
         QCOMPARE(engine.status().value("volumePercent").toInt(), 33);
+    }
+
+    void channelEditsRefreshSavedProjectGridWithoutPublishing()
+    {
+        ProjectRepository::Project project;
+        project.music = {ProjectFixture::channel("Первый", QTime(8, 0), QTime(22, 0), 17)};
+        put(fixtureRoot + "/project.json", ProjectRepository::encode(project));
+        mediaFile(fixtureRoot + "/media/music/Первый/Первый трек.mp3");
+
+        MainWindow window;
+        auto *manager = window.mChannelManagers[MainWindow::PAGE_MUSIC];
+        auto &page = window.mPages[MainWindow::PAGE_MUSIC];
+        window.selectChannel(MainWindow::PAGE_MUSIC, 0);
+        window.mScheduleUpdateTimer->stop();
+        QCOMPARE(manager->channelCount(), 1);
+        QCOMPARE(manager->channel(0).mediaManager().mediaCount(), 1);
+
+        QString error;
+        const auto source = window.playbackSchedule(MainWindow::PAGE_MUSIC, &error);
+        QVERIFY2(error.isEmpty(), qPrintable(error));
+        QJsonObject document;
+        bool advanced = false;
+        QVERIFY2(SchedulePublication::draft(fixtureRoot, fixtureRoot + "/media", source,
+            &document, &advanced, &error), qPrintable(error));
+        QVERIFY(!advanced);
+        const QDate previewDate = QDate::fromString(
+            document.value("validity").toObject().value("from").toString(), Qt::ISODate);
+        QVERIFY(previewDate.isValid());
+        page.schedule->setPreviewDateTime(QDateTime(previewDate, QTime(15, 0)));
+        window.updateScheduleDocumentPreview();
+        auto *initialGrid = page.schedule->findChild<QTableView *>("scheduleDocumentTable");
+        QVERIFY(initialGrid && initialGrid->model()->rowCount() > 0);
+        QVERIFY(page.schedule->snapshot().currentSummary.contains("Первый"));
+        QCOMPARE(page.schedule->snapshot().activeRows, QList<int>{0});
+        const auto initialSummary = page.schedule->snapshot().currentSummary;
+        QVERIFY2(SchedulePublication::saveDraft(fixtureRoot, document, &error), qPrintable(error));
+        SchedulePublication::Publication publication;
+        QVERIFY2(SchedulePublication::publish(fixtureRoot, fixtureRoot + "/media", document,
+            &publication, &error), qPrintable(error));
+        auto activeBytes = [&] {
+            QFile file(publication.activePath);
+            return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+        };
+        const QByteArray publishedPointer = activeBytes();
+        QVERIFY(!publishedPointer.isEmpty());
+
+        window.updateScheduleDocumentPreview();
+        auto *grid = page.schedule->findChild<QTableView *>("scheduleDocumentTable");
+        QCOMPARE(grid, initialGrid);
+        QCOMPARE(page.schedule->snapshot().currentSummary, initialSummary);
+
+        // Saving the extended project must not freeze the channel-derived slots.
+        // Keep the existing publication untouched while previewing the new plan.
+        page.source->setMediaManager(nullptr);
+        QVERIFY2(manager->setRule(0, {"Первый", QTime(8, 0), QTime(14, 0),
+            "*", "*", "*", 17}), qPrintable(manager->lastError()));
+        QVERIFY2(manager->createChannel({"Второй", QTime(14, 0), QTime(22, 0),
+            "*", "*", "*", 33}), qPrintable(manager->lastError()));
+        mediaFile(fixtureRoot + "/media/music/Второй/Второй трек.mp3");
+        manager->channel(0).mediaManager().collectMediaFiles();
+        manager->channel(1).mediaManager().collectMediaFiles();
+        window.selectChannel(MainWindow::PAGE_MUSIC, 1);
+        window.mScheduleUpdateTimer->stop();
+        window.updateScheduleDocumentPreview();
+
+        auto slotTime = [&](const QString &playlist) {
+            for (int row = 0; row < grid->model()->rowCount(); ++row)
+                if (grid->model()->index(row, 1).data().toString() == playlist)
+                    return grid->model()->index(row, 0).data().toString();
+            return QString();
+        };
+        QCOMPARE(slotTime("Первый"), QStringLiteral("08:00–14:00"));
+        QCOMPARE(slotTime("Второй"), QStringLiteral("14:00–22:00"));
+        QVERIFY(page.schedule->snapshot().currentSummary.contains("Второй"));
+        QVERIFY(!page.schedule->snapshot().hasUnresolvedRules);
+        QCOMPARE(page.schedule->selectedRow(), 1);
+        QCOMPARE(page.channels->property("channelFileCounts").toStringList(), QStringList({"1", "1"}));
+        QCOMPARE(activeBytes(), publishedPointer);
+
+        // A failed draft must clear the old successful plan, including the side
+        // panel's current/next labels; it must not display yesterday's grid.
+        QVERIFY2(manager->setRule(0, {"Первый", QTime(8, 0), QTime(18, 0),
+            "*", "*", "*", 17}), qPrintable(manager->lastError()));
+        window.mScheduleUpdateTimer->stop();
+        window.updateScheduleDocumentPreview();
+        const auto &invalid = page.schedule->snapshot();
+        QVERIFY(invalid.hasUnresolvedRules);
+        QVERIFY(!invalid.issues.isEmpty());
+        QVERIFY(invalid.currentSummary.startsWith(QStringLiteral("Расчёт недоступен:")));
+        QCOMPARE(page.planNow->text(), invalid.currentSummary);
+        QVERIFY(!invalid.nextChannelTime.isValid());
+        QCOMPARE(grid->model()->rowCount(), 0);
+        QCOMPARE(activeBytes(), publishedPointer);
+
+        // Restoring the last valid channel values must also restore the grid,
+        // even when its JSON matches the document cached before the error.
+        QVERIFY2(manager->setRule(0, {"Первый", QTime(8, 0), QTime(14, 0),
+            "*", "*", "*", 17}), qPrintable(manager->lastError()));
+        window.mScheduleUpdateTimer->stop();
+        window.updateScheduleDocumentPreview();
+        QVERIFY(!page.schedule->snapshot().hasUnresolvedRules);
+        QCOMPARE(slotTime("Второй"), QStringLiteral("14:00–22:00"));
+        QVERIFY(page.planNow->text().contains("Второй"));
+        QCOMPARE(activeBytes(), publishedPointer);
     }
 
     void creatingFullDayChannelPreservesOffset()

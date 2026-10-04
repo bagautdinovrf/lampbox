@@ -1,6 +1,10 @@
 #include "schedulepreview.h"
 #include "advertmodel.h"
 #include "channelmodel.h"
+#include "schedulecore/schedulev1.h"
+#include <QDialog>
+#include <QJsonArray>
+#include <QLabel>
 #include <QTextEdit>
 
 #include <QDateEdit>
@@ -41,6 +45,58 @@ QDateTime at(int year, int month, int day, int hour = 10, int minute = 0)
 {
     return QDateTime(QDate(year, month, day), QTime(hour, minute), QTimeZone::UTC);
 }
+
+QString id(int value)
+{
+    return QStringLiteral("00000000-0000-4000-8000-%1").arg(value, 12, 10, QLatin1Char('0'));
+}
+
+QJsonObject documentFixture()
+{
+    const QJsonObject when{{"select", QJsonObject{{"type", "all"}}}, {"excludeDates", QJsonArray{"2026-10-05"}}};
+    const auto playlist = [](int number, const QString &name) {
+        return QJsonObject{{"id", id(number)}, {"revision", 1}, {"name", name}, {"order", "sequential"},
+                           {"entries", QJsonArray{QJsonObject{{"id", id(number + 10)}, {"assetId", id(10)}}}}};
+    };
+    const auto slot = [](int number, const QString &from, const QString &until, int offset, int playlistNumber) {
+        return QJsonObject{{"id", id(number)}, {"window", QJsonObject{{"from", from}, {"until", until}, {"untilDayOffset", offset}}},
+                           {"source", QJsonObject{{"type", "playlist"}, {"playlistId", id(playlistNumber)}}}, {"volumePercent", 17}};
+    };
+    QJsonObject object{
+        {"format", "mediabox.schedule"}, {"schemaVersion", 1}, {"scheduleId", id(1)}, {"stationId", id(2)},
+        {"publicationId", id(3)}, {"revision", 1}, {"publishedAt", "2026-10-03T09:00:00Z"}, {"timeZone", "Europe/Moscow"},
+        {"validity", QJsonObject{{"from", "2026-10-04"}, {"until", "2026-10-07"}}},
+        {"musicTransition", "finish_track"}, {"timeResolution", QJsonObject{{"gap", "skip"}, {"overlap", "first"}}},
+        {"fallback", QJsonObject{{"source", QJsonObject{{"type", "silence"}}}, {"volumePercent", 0}}},
+        {"assets", QJsonArray{QJsonObject{{"id", id(10)}, {"path", QStringLiteral("music/Реклама.wav")}, {"mediaType", "audio"}}}},
+        {"playlists", QJsonArray{playlist(11, QStringLiteral("Первый проекта")), playlist(12, QStringLiteral("Второй проекта"))}},
+        {"calendars", QJsonArray{}},
+        {"dayTemplates", QJsonArray{QJsonObject{{"id", id(30)}, {"name", "День"}, {"slots", QJsonArray{
+            slot(31, "00:00:00", "12:00:00", 0, 11), slot(32, "12:00:00", "00:00:00", 1, 12)}}}}},
+        {"baseRules", QJsonArray{QJsonObject{{"id", id(40)}, {"name", QStringLiteral("Будни проекта")}, {"enabled", true},
+                                           {"priority", 10}, {"when", when}, {"templateId", id(30)}}}},
+        {"mixRules", QJsonArray{}},
+        {"eventRules", QJsonArray{QJsonObject{{"id", id(50)}, {"name", QStringLiteral("Рекламная вставка")}, {"enabled", true},
+                                            {"priority", 0}, {"when", when}, {"times", QJsonArray{"12:15:00"}},
+                                            {"action", QJsonObject{{"assetId", id(10)}, {"volumePercent", 80}}},
+                                            {"delivery", QJsonObject{{"start", "after_track"}, {"maxLateSeconds", 300},
+                                                                     {"expired", "skip"}, {"after", "resume_music"}}}}}}
+    };
+    QJsonArray capabilities;
+    for (const auto &capability : ScheduleV1::requiredCapabilities(object))
+        capabilities.append(capability);
+    object.insert(QStringLiteral("requiredCapabilities"), capabilities);
+    return object;
+}
+
+QString tableText(const QTableView *table)
+{
+    QStringList cells;
+    for (int row = 0; row < table->model()->rowCount(); ++row)
+        for (int column = 0; column < table->model()->columnCount(); ++column)
+            cells.append(table->model()->index(row, column).data().toString());
+    return cells.join(QLatin1Char('\n'));
+}
 }
 
 class SchedulePreviewTests : public QObject
@@ -52,7 +108,15 @@ private slots:
     void intervalBoundsAndAmbiguity();
     void unsupportedIntervals();
     void explicitFullDayAndNightUseModelRole();
-    void advancedDocumentReplacesChannelPlan();
+    void documentShowsRulesAndEvents();
+    void documentGridSelectsAndEditsChannelsById();
+    void additionalRulesKeepTheSameGrid();
+    void invalidDocumentClearsGrid();
+    void overlappingDocumentShowsErrorAndRecovers();
+    void externalDocumentErrorClearsPlanAndRecovers();
+    void documentDateRefreshAndChannelSelection();
+    void documentClockUsesDocumentTimeZone();
+    void documentManualDstGapIsReported();
     void boundedLookaheadAndSimultaneousChanges();
     void advertsRespectCalendarAndMinutes();
     void advertFrequencyUsesCompiledMinutesAndNeverIsEmpty();
@@ -150,22 +214,399 @@ void SchedulePreviewTests::explicitFullDayAndNightUseModelRole()
     QCOMPARE(tail.channels.first().dayIntervals, (QList<QPair<int, int>>{{0, 360}}));
 }
 
-void SchedulePreviewTests::advancedDocumentReplacesChannelPlan()
+void SchedulePreviewTests::documentShowsRulesAndEvents()
 {
     QStandardItemModel model(0, 7);
-    channel(model, QStringLiteral("Канал"));
+    channel(model, QStringLiteral("Посторонний канал медиатеки"));
+    channel(model, QStringLiteral("Выбранный канал медиатеки"));
     SchedulePreviewWidget widget;
     widget.setModels(&model);
-    widget.setDocument(QJsonObject{});
+    widget.setSelectedRow(1);
+    widget.setPreviewDateTime(at(2026, 10, 4));
+    const auto document = documentFixture();
+    ScheduleV1::Document compiled;
+    const auto error = ScheduleV1::decode(document, &compiled);
+    QVERIFY2(error.isEmpty(), qPrintable(error));
+    widget.setDocument(document);
     QVERIFY(widget.snapshot().channels.isEmpty());
+    QVERIFY(widget.snapshot().activeRows.isEmpty());
+    QVERIFY(!widget.snapshot().hasUnresolvedRules);
+    QCOMPARE(widget.findChildren<QTableView *>().size(), 1);
+    auto *grid = widget.findChild<QWidget *>(QStringLiteral("scheduleDocumentGrid"));
+    auto *timeline = widget.findChild<QWidget *>(QStringLiteral("scheduleDocumentTimeline"));
+    auto *table = widget.findChild<QTableView *>(QStringLiteral("scheduleDocumentTable"));
+    QVERIFY(grid && timeline && table);
+    QVERIFY(!grid->isHidden());
+    QVERIFY(!timeline->isHidden());
+    QVERIFY(!table->isHidden());
+    QCOMPARE(table->editTriggers(), QAbstractItemView::NoEditTriggers);
+    const auto text = tableText(table);
+    QVERIFY(text.contains(QStringLiteral("Первый проекта")));
+    QVERIFY(text.contains(QStringLiteral("Второй проекта")));
+    QVERIFY(text.contains(QStringLiteral("12:00")));
+    QVERIFY(text.contains(QStringLiteral("17%")));
+    QVERIFY(text.contains(QStringLiteral("12:15")));
+    QVERIFY(text.contains(QStringLiteral("после трека"), Qt::CaseInsensitive));
+    QVERIFY(text.contains(QStringLiteral("Рекламная вставка")));
+    QVERIFY(!text.contains(QStringLiteral("Посторонний канал")));
+    QVERIFY(!text.contains(QStringLiteral("Базовое правило:")));
+    QVERIFY(widget.findChildren<QTextEdit *>().isEmpty());
+
+    QSignalSpy edits(&widget, &SchedulePreviewWidget::editRequested);
+    QSignalSpy selections(&widget, &SchedulePreviewWidget::selectedRowChanged);
+    table->setCurrentIndex(table->model()->index(0, 0));
+    QVERIFY(QMetaObject::invokeMethod(table, "doubleClicked", Qt::DirectConnection,
+                                     Q_ARG(QModelIndex, table->currentIndex())));
+    QCOMPARE(widget.selectedRow(), 1);
+    QCOMPARE(edits.size(), 0);
+    QCOMPARE(selections.size(), 0);
+
+    auto *details = widget.findChild<QPushButton *>(QStringLiteral("scheduleDetailsButton"));
+    QVERIFY(details);
+    QCOMPARE(details->text(), QStringLiteral("Подробности"));
+    QString description;
+    QTimer::singleShot(0, &widget, [&] {
+        if (auto *dialog = widget.findChild<QDialog *>()) {
+            if (auto *explanation = dialog->findChild<QTextEdit *>())
+                description = explanation->toPlainText();
+            dialog->accept();
+        }
+    });
+    details->click();
+    QVERIFY(description.contains(QStringLiteral("Базовое правило:")));
+    QVERIFY(description.contains(QStringLiteral("Это расчёт плана")));
+}
+
+void SchedulePreviewTests::documentGridSelectsAndEditsChannelsById()
+{
+    QStandardItemModel model(0, 7);
+    channel(model, QStringLiteral("Первый проекта"));
+    channel(model, QStringLiteral("Канал A"));
+    channel(model, QStringLiteral("Канал B"));
+    model.setData(model.index(0, 0), id(99), ChannelModel::RuleIdRole);
+    model.setData(model.index(1, 0), id(11), ChannelModel::RuleIdRole);
+    model.setData(model.index(2, 0), id(12), ChannelModel::RuleIdRole);
+    const QSignalSpy dataChanges(&model, &QAbstractItemModel::dataChanged);
+    SchedulePreviewWidget widget;
+    widget.setModels(&model);
+    widget.setPreviewDateTime(at(2026, 10, 4));
+    widget.setDocument(documentFixture());
+    widget.setSelectedRow(2);
+    auto *table = widget.findChild<QTableView *>(QStringLiteral("scheduleDocumentTable"));
+    QVERIFY(table);
+    QCOMPARE(table->model()->rowCount(), 3);
+    QCOMPARE(table->currentIndex().row(), 1);
+    QCOMPARE(table->model()->index(0, 0).data(Qt::UserRole).toString(), id(11));
+    QCOMPARE(table->model()->index(1, 0).data(Qt::UserRole).toString(), id(12));
+    QSignalSpy selections(&widget, &SchedulePreviewWidget::selectedRowChanged);
+    QSignalSpy edits(&widget, &SchedulePreviewWidget::editRequested);
+
+    table->setCurrentIndex(table->model()->index(0, 0));
+    QCOMPARE(widget.selectedRow(), 1);
+    QCOMPARE(selections.size(), 1);
+    QCOMPARE(selections.first().first().toInt(), 1);
+    QVERIFY(QMetaObject::invokeMethod(table, "doubleClicked", Qt::DirectConnection,
+                                     Q_ARG(QModelIndex, table->currentIndex())));
+    QCOMPARE(edits.size(), 1);
+    QCOMPARE(edits.first().first().toInt(), 1);
+    QCOMPARE(dataChanges.size(), 0);
+
+    // The playlist ID, not either displayed name, identifies the editor row.
+    model.setData(model.index(1, 0), QStringLiteral("Переименованный канал"));
+    table->setCurrentIndex(table->model()->index(1, 0));
+    QCOMPARE(widget.selectedRow(), 2);
+    table->setCurrentIndex(table->model()->index(0, 0));
+    QCOMPARE(widget.selectedRow(), 1);
+    QVERIFY(QMetaObject::invokeMethod(table, "doubleClicked", Qt::DirectConnection,
+                                     Q_ARG(QModelIndex, table->currentIndex())));
+    QCOMPARE(edits.size(), 2);
+    QCOMPARE(edits.last().first().toInt(), 1);
+    QCOMPARE(dataChanges.size(), 1);
+
+    model.insertRow(0);
+    QCOMPARE(widget.selectedRow(), 2);
+    QCOMPARE(table->currentIndex().row(), 0);
+    widget.setSelectedRow(3);
+    QCOMPARE(table->currentIndex().row(), 1);
+    model.removeRow(0);
+    QCOMPARE(widget.selectedRow(), 2);
+    QCOMPARE(table->currentIndex().row(), 1);
+
+    // Event rows must not accidentally select or edit an unrelated channel.
+    selections.clear();
+    table->setCurrentIndex(table->model()->index(2, 0));
+    QVERIFY(QMetaObject::invokeMethod(table, "doubleClicked", Qt::DirectConnection,
+                                     Q_ARG(QModelIndex, table->currentIndex())));
+    QCOMPARE(widget.selectedRow(), 2);
+    QCOMPARE(selections.size(), 0);
+    QCOMPARE(edits.size(), 2);
+}
+
+void SchedulePreviewTests::additionalRulesKeepTheSameGrid()
+{
+    SchedulePreviewWidget widget;
+    widget.setPreviewDateTime(at(2026, 10, 4));
+    const auto initial = documentFixture();
+    widget.setDocument(initial);
+    auto *grid = widget.findChild<QWidget *>(QStringLiteral("scheduleDocumentGrid"));
+    auto *table = widget.findChild<QTableView *>(QStringLiteral("scheduleDocumentTable"));
+    auto *date = widget.findChild<QDateEdit *>(QStringLiteral("previewDate"));
+    auto *time = widget.findChild<QTimeEdit *>(QStringLiteral("previewTime"));
+    QVERIFY(grid && table && date && time);
+    auto withMix = initial;
+    withMix.insert(QStringLiteral("mixRules"), QJsonArray{QJsonObject{
+        {"id", id(70)}, {"name", QStringLiteral("Праздничное чередование")}, {"enabled", true}, {"priority", 10},
+        {"when", QJsonObject{{"select", QJsonObject{{"type", "all"}}}, {"excludeDates", QJsonArray{}}}},
+        {"windows", QJsonArray{QJsonObject{{"from", "00:00:00"}, {"until", "12:00:00"}, {"untilDayOffset", 0}}}},
+        {"pattern", QJsonArray{QJsonObject{{"type", "active_base"}},
+                              QJsonObject{{"type", "playlist"}, {"playlistId", id(12)}}}},
+        {"emptyAdditionalSource", "use_base"}}});
+    withMix.insert(QStringLiteral("requiredCapabilities"),
+                   QJsonArray::fromStringList(ScheduleV1::requiredCapabilities(withMix)));
+    widget.setDocument(withMix);
+    QVERIFY2(!widget.snapshot().hasUnresolvedRules, qPrintable(widget.snapshot().issues.join(QLatin1Char('\n'))));
+    QVERIFY(tableText(table).contains(QStringLiteral("Чередование")));
+    QVERIFY(tableText(table).contains(QStringLiteral("Праздничное чередование")));
+    QVERIFY(!grid->isHidden());
+    QVERIFY(!date->isHidden());
+    QVERIFY(!time->isHidden());
+    QCOMPARE(widget.previewDateTime().date(), QDate(2026, 10, 4));
+    QCOMPARE(widget.previewDateTime().time(), QTime(10, 0));
+    widget.setDocument(initial);
+    QVERIFY(!widget.snapshot().hasUnresolvedRules);
+    QVERIFY(!tableText(table).contains(QStringLiteral("Чередование")));
+    QCOMPARE(widget.findChild<QTableView *>(QStringLiteral("scheduleDocumentTable")), table);
+    QCOMPARE(widget.findChildren<QTableView *>().size(), 1);
+    QVERIFY(!grid->isHidden());
+    QVERIFY(!date->isHidden());
+    QVERIFY(!time->isHidden());
+}
+
+void SchedulePreviewTests::invalidDocumentClearsGrid()
+{
+    QStandardItemModel model(0, 7);
+    channel(model, QStringLiteral("Старый канал"));
+    SchedulePreviewWidget widget;
+    widget.setModels(&model);
+    widget.setPreviewDateTime(at(2026, 10, 4));
+    widget.setDocument(documentFixture());
+    auto *grid = widget.findChild<QWidget *>(QStringLiteral("scheduleDocumentGrid"));
+    auto *table = widget.findChild<QTableView *>(QStringLiteral("scheduleDocumentTable"));
+    QVERIFY(grid && table);
+    QVERIFY(table->model()->rowCount() > 0);
+    widget.setDocument(QJsonObject{});
     QVERIFY(widget.snapshot().hasUnresolvedRules);
-    QVERIFY(widget.findChild<QTableView *>(QStringLiteral("scheduleTimeline"))->isHidden());
-    auto *advanced = widget.findChild<QTextEdit *>(QStringLiteral("scheduleDocumentPlan"));
-    QVERIFY(advanced && !advanced->isHidden());
-    QVERIFY(advanced->toPlainText().contains(QStringLiteral("исправления")));
+    QVERIFY(!widget.snapshot().issues.isEmpty());
+    QVERIFY(widget.snapshot().channels.isEmpty());
+    QCOMPARE(table->model()->rowCount(), 0);
+    QVERIFY(!grid->isHidden());
+    QCOMPARE(widget.findChildren<QTableView *>().size(), 1);
+    widget.refresh();
+    QCOMPARE(table->model()->rowCount(), 0);
     widget.clearDocument();
-    QCOMPARE(widget.snapshot().channels.size(), 1);
-    QVERIFY(advanced->isHidden());
+    QVERIFY(widget.snapshot().channels.isEmpty());
+    QVERIFY(widget.snapshot().activeRows.isEmpty());
+    QCOMPARE(table->model()->rowCount(), 0);
+    QVERIFY(!grid->isHidden());
+    QCOMPARE(widget.findChildren<QTableView *>().size(), 1);
+    model.setData(model.index(0, 0), QStringLiteral("Изменённый канал"));
+    QCOMPARE(table->model()->rowCount(), 0);
+    QVERIFY(widget.snapshot().channels.isEmpty());
+    widget.setDocument(documentFixture());
+    QVERIFY(!widget.snapshot().hasUnresolvedRules);
+    QVERIFY(tableText(table).contains(QStringLiteral("Первый проекта")));
+    QCOMPARE(widget.findChild<QTableView *>(QStringLiteral("scheduleDocumentTable")), table);
+}
+
+void SchedulePreviewTests::overlappingDocumentShowsErrorAndRecovers()
+{
+    SchedulePreviewWidget widget;
+    widget.setPreviewDateTime(at(2026, 10, 4));
+    const auto valid = documentFixture();
+    widget.setDocument(valid);
+    auto *table = widget.findChild<QTableView *>(QStringLiteral("scheduleDocumentTable"));
+    auto *status = widget.findChild<QLabel *>(QStringLiteral("scheduleStatus"));
+    QVERIFY(table && status);
+    QVERIFY(table->model()->rowCount() > 0);
+    QVERIFY(widget.snapshot().nextChannelTime.isValid());
+    QVERIFY(widget.snapshot().nextAdvertTime.isValid());
+
+    auto overlapping = valid;
+    auto rules = overlapping.value(QStringLiteral("baseRules")).toArray();
+    auto duplicate = rules.first().toObject();
+    duplicate.insert(QStringLiteral("id"), id(60));
+    duplicate.insert(QStringLiteral("name"), QStringLiteral("Конфликтующий канал"));
+    rules.append(duplicate);
+    overlapping.insert(QStringLiteral("baseRules"), rules);
+    widget.setDocument(overlapping);
+    const auto &snapshot = widget.snapshot();
+    QVERIFY(snapshot.hasUnresolvedRules);
+    QCOMPARE(table->model()->rowCount(), 0);
+    QCOMPARE(widget.findChildren<QTableView *>().size(), 1);
+    QVERIFY(!status->isHidden());
+    QVERIFY(status->property("scheduleIssue").toBool());
+    QVERIFY(status->toolTip().contains(QStringLiteral("Будни проекта")));
+    QVERIFY(status->toolTip().contains(QStringLiteral("Конфликтующий канал")));
+    QVERIFY(status->toolTip().contains(QStringLiteral("одинаковом приоритете")));
+    QVERIFY(status->toolTip().contains(QStringLiteral("04.10.2026 00:00:00")));
+    QVERIFY(status->toolTip().contains(QStringLiteral("04.10.2026 12:00:00")));
+    QVERIFY(status->toolTip().contains(QStringLiteral("Europe/Moscow")));
+    QVERIFY(!status->toolTip().contains(id(60)));
+    QVERIFY(snapshot.currentSummary.startsWith(QStringLiteral("Расчёт недоступен:")));
+    QVERIFY(!snapshot.currentSummary.contains(QStringLiteral("По плану:")));
+    QVERIFY(snapshot.nextChannelSummary.contains(QStringLiteral("недоступен")));
+    QVERIFY(snapshot.nextAdvertSummary.contains(QStringLiteral("недоступен")));
+    QVERIFY(!snapshot.nextChannelTime.isValid());
+    QVERIFY(!snapshot.nextAdvertTime.isValid());
+    QVERIFY(snapshot.nextChannelNames.isEmpty());
+    QVERIFY(snapshot.nextAdvertNames.isEmpty());
+
+    widget.setDocument(valid);
+    QVERIFY(!widget.snapshot().hasUnresolvedRules);
+    QVERIFY(table->model()->rowCount() > 0);
+    QVERIFY(tableText(table).contains(QStringLiteral("Первый проекта")));
+    QVERIFY(!status->property("scheduleIssue").toBool());
+    QVERIFY(!widget.snapshot().currentSummary.contains(QStringLiteral("недоступен")));
+}
+
+void SchedulePreviewTests::externalDocumentErrorClearsPlanAndRecovers()
+{
+    SchedulePreviewWidget widget;
+    widget.setPreviewDateTime(at(2026, 10, 4));
+    const auto document = documentFixture();
+    widget.setDocument(document);
+    auto *table = widget.findChild<QTableView *>(QStringLiteral("scheduleDocumentTable"));
+    auto *status = widget.findChild<QLabel *>(QStringLiteral("scheduleStatus"));
+    QVERIFY(table && status);
+    QVERIFY(table->model()->rowCount() > 0);
+    const QString error = QStringLiteral("Не удалось обновить правила канала «Изменённый».");
+    widget.setDocumentError(error);
+    QCOMPARE(widget.snapshot().issues, QStringList{error});
+    QCOMPARE(table->model()->rowCount(), 0);
+    QVERIFY(widget.snapshot().hasUnresolvedRules);
+    QVERIFY(widget.snapshot().currentSummary.contains(error));
+    QVERIFY(widget.snapshot().nextChannelSummary.contains(QStringLiteral("недоступен")));
+    QVERIFY(widget.snapshot().nextAdvertSummary.contains(QStringLiteral("недоступен")));
+    QVERIFY(!widget.snapshot().nextChannelTime.isValid());
+    QVERIFY(!widget.snapshot().nextAdvertTime.isValid());
+    QVERIFY(widget.snapshot().nextChannelNames.isEmpty());
+    QVERIFY(widget.snapshot().nextAdvertNames.isEmpty());
+    QVERIFY(status->toolTip().contains(error));
+    widget.refresh();
+    QCOMPARE(table->model()->rowCount(), 0);
+    QCOMPARE(widget.snapshot().issues, QStringList{error});
+
+    QString description;
+    QTimer::singleShot(0, &widget, [&] {
+        if (auto *dialog = widget.findChild<QDialog *>()) {
+            if (auto *explanation = dialog->findChild<QTextEdit *>())
+                description = explanation->toPlainText();
+            dialog->accept();
+        }
+    });
+    widget.showConditions();
+    QVERIFY(description.contains(error));
+    QVERIFY(!description.contains(QStringLiteral("Правила проекта проверены")));
+    QVERIFY(!description.contains(QStringLiteral("Базовое правило:")));
+
+    // The stored JSON has not changed, so recovery must invalidate the decode cache.
+    widget.setDocument(document);
+    QVERIFY(!widget.snapshot().hasUnresolvedRules);
+    QVERIFY(widget.snapshot().issues.isEmpty());
+    QVERIFY(table->model()->rowCount() > 0);
+    QVERIFY(tableText(table).contains(QStringLiteral("Первый проекта")));
+    QVERIFY(!status->property("scheduleIssue").toBool());
+    QVERIFY(widget.snapshot().nextChannelTime.isValid());
+    QVERIFY(widget.snapshot().nextAdvertTime.isValid());
+}
+
+void SchedulePreviewTests::documentDateRefreshAndChannelSelection()
+{
+    QStandardItemModel model(0, 7);
+    channel(model, QStringLiteral("Первый канал"));
+    channel(model, QStringLiteral("Сохранённый выбор"));
+    SchedulePreviewWidget widget;
+    widget.setModels(&model);
+    widget.setSelectedRow(1);
+    widget.setPreviewDateTime(at(2026, 10, 4));
+    widget.setDocument(documentFixture());
+    auto *table = widget.findChild<QTableView *>(QStringLiteral("scheduleDocumentTable"));
+    auto *date = widget.findChild<QDateEdit *>(QStringLiteral("previewDate"));
+    auto *time = widget.findChild<QTimeEdit *>(QStringLiteral("previewTime"));
+    QVERIFY(table && date && time);
+    QVERIFY(tableText(table).contains(QStringLiteral("Первый проекта")));
+    QCOMPARE(widget.selectedRow(), 1);
+    date->setDate(QDate(2026, 10, 5));
+    QCOMPARE(widget.snapshot().at.date(), QDate(2026, 10, 5));
+    QVERIFY(!tableText(table).contains(QStringLiteral("Первый проекта")));
+    QVERIFY(!tableText(table).contains(QStringLiteral("Рекламная вставка")));
+    date->setDate(QDate(2026, 10, 4));
+    time->setTime(QTime(13, 0));
+    QVERIFY(widget.snapshot().currentSummary.contains(QStringLiteral("Второй проекта")));
+    QCOMPARE(widget.snapshot().at.timeZone(), QTimeZone("Europe/Moscow"));
+    QCOMPARE(widget.snapshot().at.time(), QTime(13, 0));
+    model.insertRow(0);
+    QCOMPARE(widget.selectedRow(), 2);
+    widget.clearDocument();
+    QCOMPARE(widget.selectedRow(), 2);
+    QVERIFY(widget.snapshot().channels.isEmpty());
+    QCOMPARE(table->model()->rowCount(), 0);
+    QVERIFY(!table->isHidden());
+    QCOMPARE(widget.findChildren<QTableView *>().size(), 1);
+}
+
+void SchedulePreviewTests::documentClockUsesDocumentTimeZone()
+{
+    SchedulePreviewWidget widget;
+    auto document = documentFixture();
+    document.insert(QStringLiteral("timeZone"), QStringLiteral("Pacific/Kiritimati"));
+    widget.setDocument(document);
+    const QTimeZone zone("Pacific/Kiritimati");
+    const auto now = QDateTime::currentDateTimeUtc().toTimeZone(zone);
+    QCOMPARE(widget.previewDateTime().timeZone(), zone);
+    QVERIFY(qAbs(widget.previewDateTime().msecsTo(now)) < 2000);
+    auto *clock = widget.findChild<QTimer *>(QStringLiteral("scheduleClock"));
+    QVERIFY(clock);
+    QVERIFY(QMetaObject::invokeMethod(clock, "timeout", Qt::DirectConnection));
+    QVERIFY(qAbs(widget.previewDateTime().msecsTo(QDateTime::currentDateTimeUtc())) < 2000);
+
+    widget.setPreviewDateTime(at(2026, 10, 4, 23, 45));
+    QCOMPARE(widget.previewDateTime().date(), QDate(2026, 10, 4));
+    QCOMPARE(widget.previewDateTime().time(), QTime(23, 45));
+    QCOMPARE(widget.previewDateTime().timeZone(), zone);
+    document.insert(QStringLiteral("timeZone"), QStringLiteral("Pacific/Honolulu"));
+    widget.setDocument(document);
+    QCOMPARE(widget.previewDateTime().timeZone(), QTimeZone("Pacific/Honolulu"));
+    QCOMPARE(widget.previewDateTime().date(), QDate(2026, 10, 4));
+    QCOMPARE(widget.previewDateTime().time(), QTime(23, 45));
+    widget.showCurrentTime();
+    QVERIFY(qAbs(widget.previewDateTime().msecsTo(QDateTime::currentDateTimeUtc())) < 2000);
+}
+
+void SchedulePreviewTests::documentManualDstGapIsReported()
+{
+    SchedulePreviewWidget widget;
+    auto document = documentFixture();
+    document.insert(QStringLiteral("timeZone"), QStringLiteral("Europe/Berlin"));
+    document.insert(QStringLiteral("validity"), QJsonObject{{"from", "2026-03-28"}, {"until", "2026-03-31"}});
+    widget.setPreviewDateTime(at(2026, 3, 29, 1, 30));
+    widget.setDocument(document);
+    auto *table = widget.findChild<QTableView *>(QStringLiteral("scheduleDocumentTable"));
+    auto *date = widget.findChild<QDateEdit *>(QStringLiteral("previewDate"));
+    auto *time = widget.findChild<QTimeEdit *>(QStringLiteral("previewTime"));
+    QVERIFY(table && date && time);
+    QVERIFY(table->model()->rowCount() > 0);
+    QVERIFY(date->toolTip().contains(QStringLiteral("Europe/Berlin")));
+    // The editor must retain 02:30 and report the gap instead of silently
+    // showing the plan for 01:30 or 03:30 after QDateTime normalization.
+    time->setTime(QTime(2, 30));
+    QCOMPARE(time->time(), QTime(2, 30));
+    QVERIFY(widget.snapshot().hasUnresolvedRules);
+    QVERIFY(!widget.snapshot().issues.isEmpty());
+    QCOMPARE(table->model()->rowCount(), 0);
+    time->setTime(QTime(3, 30));
+    QVERIFY(!widget.snapshot().hasUnresolvedRules);
+    QVERIFY(table->model()->rowCount() > 0);
 }
 
 void SchedulePreviewTests::boundedLookaheadAndSimultaneousChanges()
@@ -298,46 +739,58 @@ void SchedulePreviewTests::localTimeTransitionsDoNotInventExactEvents()
 void SchedulePreviewTests::widgetIsReadOnlyAndRefreshes()
 {
     QStandardItemModel model(0, 7);
-    channel(model, QStringLiteral("Первый"));
-    channel(model, QStringLiteral("Второй"), QStringLiteral("18:00"), QStringLiteral("23:00"));
+    channel(model, QStringLiteral("Первый проекта"));
+    channel(model, QStringLiteral("Второй проекта"), QStringLiteral("12:00"), QStringLiteral("00:00"));
     const QSignalSpy dataChanges(&model, &QAbstractItemModel::dataChanged);
     SchedulePreviewWidget widget;
     widget.setModels(&model);
     widget.setSelectedRow(1);
     widget.setPreviewDateTime(at(2026, 10, 4));
+    auto *table = widget.findChild<QTableView *>(QStringLiteral("scheduleDocumentTable"));
+    QVERIFY(table);
+    // Editor models keep channel selection, but cannot provide a second plan.
+    QCOMPARE(table->model()->rowCount(), 0);
+    auto document = documentFixture();
+    widget.setDocument(document);
     QCOMPARE(widget.selectedRow(), 1);
     QCOMPARE(dataChanges.size(), 0);
-    const auto tables = widget.findChildren<QTableView *>();
-    QCOMPARE(tables.size(), 2);
-    for (const auto *table : tables) {
-        QCOMPARE(table->currentIndex().row(), 1);
-        QCOMPARE(table->editTriggers(), QAbstractItemView::NoEditTriggers);
-    }
+    QCOMPARE(widget.findChildren<QTableView *>().size(), 1);
+    QCOMPARE(table->editTriggers(), QAbstractItemView::NoEditTriggers);
+    QVERIFY(tableText(table).contains(QStringLiteral("Первый проекта")));
     auto *date = widget.findChild<QDateEdit *>(QStringLiteral("previewDate"));
     auto *time = widget.findChild<QTimeEdit *>(QStringLiteral("previewTime"));
     QVERIFY(date);
     QVERIFY(time);
-    date->setDate(QDate(2027, 1, 1));
+    date->setDate(QDate(2026, 10, 6));
     time->setTime(QTime(19, 0));
-    QCOMPARE(widget.snapshot().activeRows, QList<int>{1});
+    QVERIFY(widget.snapshot().currentSummary.contains(QStringLiteral("Второй проекта")));
     QCOMPARE(dataChanges.size(), 0);
     model.setData(model.index(1, 0), QStringLiteral("Переименован"));
-    QCOMPARE(widget.snapshot().channels.at(1).name, QStringLiteral("Переименован"));
+    QVERIFY(widget.snapshot().currentSummary.contains(QStringLiteral("Второй проекта")));
+    QVERIFY(!tableText(table).contains(QStringLiteral("Переименован")));
+    auto playlists = document.value(QStringLiteral("playlists")).toArray();
+    auto renamed = playlists.at(1).toObject();
+    renamed.insert(QStringLiteral("name"), QStringLiteral("Переименован"));
+    playlists[1] = renamed;
+    document.insert(QStringLiteral("playlists"), playlists);
+    widget.setDocument(document);
+    QVERIFY(widget.snapshot().currentSummary.contains(QStringLiteral("Переименован")));
+    QVERIFY(tableText(table).contains(QStringLiteral("Переименован")));
+    QCOMPARE(dataChanges.size(), 1);
     QCOMPARE(widget.selectedRow(), 1);
     model.insertRow(0);
     QCOMPARE(widget.selectedRow(), 2);
-    for (const auto *table : tables)
-        QCOMPARE(table->currentIndex().row(), 2);
     model.removeRow(0);
     QCOMPARE(widget.selectedRow(), 1);
     model.removeRow(0);
     QCOMPARE(widget.selectedRow(), 0);
-    QCOMPARE(widget.snapshot().channels.at(widget.selectedRow()).name, QStringLiteral("Переименован"));
-    for (const auto *table : tables)
-        QCOMPARE(table->currentIndex().row(), 0);
+    QCOMPARE(model.index(widget.selectedRow(), 0).data().toString(), QStringLiteral("Переименован"));
     model.removeRows(0, model.rowCount());
     QVERIFY(widget.snapshot().channels.isEmpty());
     QCOMPARE(widget.selectedRow(), -1);
+    // The published plan remains visible until Manager supplies its new document.
+    QVERIFY(tableText(table).contains(QStringLiteral("Переименован")));
+    QCOMPARE(widget.findChild<QTableView *>(QStringLiteral("scheduleDocumentTable")), table);
 }
 
 void SchedulePreviewTests::clockFollowsCurrentTimeAndPreservesManualPreview()
@@ -349,6 +802,9 @@ void SchedulePreviewTests::clockFollowsCurrentTimeAndPreservesManualPreview()
     SchedulePreviewWidget widget;
     widget.setModels(&model);
     widget.setSelectedRow(1);
+    widget.setDocument(documentFixture());
+    const QTimeZone zone("Europe/Moscow");
+    const QDate todayInStation = QDateTime::currentDateTimeUtc().toTimeZone(zone).date();
     auto *clock = widget.findChild<QTimer *>(QStringLiteral("scheduleClock"));
     auto *date = widget.findChild<QDateEdit *>(QStringLiteral("previewDate"));
     auto *time = widget.findChild<QTimeEdit *>(QStringLiteral("previewTime"));
@@ -360,7 +816,7 @@ void SchedulePreviewTests::clockFollowsCurrentTimeAndPreservesManualPreview()
     // or waiting a minute. Programmatic refresh must not freeze live mode.
     {
         const QSignalBlocker dateBlocker(date), timeBlocker(time);
-        date->setDate(QDate::currentDate().addDays(-1));
+        date->setDate(todayInStation.addDays(-1));
         time->setTime(QTime(23, 59));
     }
     widget.refresh();
@@ -371,7 +827,7 @@ void SchedulePreviewTests::clockFollowsCurrentTimeAndPreservesManualPreview()
     QCOMPARE(widget.selectedRow(), 1);
     QCOMPARE(dataChanges.size(), 0);
 
-    const auto manual = QDateTime(QDate::currentDate(), QTime(3, 15));
+    const auto manual = QDateTime(todayInStation, QTime(3, 15), zone);
     widget.setPreviewDateTime(manual);
     snapshots.clear();
     QVERIFY(QMetaObject::invokeMethod(clock, "timeout", Qt::DirectConnection));
@@ -381,13 +837,13 @@ void SchedulePreviewTests::clockFollowsCurrentTimeAndPreservesManualPreview()
     // Clicking today's existing day button returns to the live clock.
     auto *days = widget.findChild<QButtonGroup *>();
     QVERIFY(days);
-    auto *today = qobject_cast<QPushButton *>(days->button(QDate::currentDate().dayOfWeek() - 1));
+    auto *today = qobject_cast<QPushButton *>(days->button(todayInStation.dayOfWeek() - 1));
     QVERIFY(today);
     today->click();
     QVERIFY(qAbs(widget.snapshot().at.msecsTo(QDateTime::currentDateTime())) < 2000);
     QCOMPARE(widget.selectedRow(), 1);
 
-    date->setDate(QDate::currentDate().addDays(2));
+    date->setDate(todayInStation.addDays(2));
     time->setTime(QTime(17, 30));
     const auto chosen = widget.previewDateTime();
     QVERIFY(QMetaObject::invokeMethod(clock, "timeout", Qt::DirectConnection));

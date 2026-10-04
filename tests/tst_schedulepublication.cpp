@@ -7,6 +7,7 @@
 #include <QJsonDocument>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTimeZone>
 
 namespace {
 QJsonObject channels(const QString &root, int offset = 1, const QString &start = "00:00", const QString &end = "00:00")
@@ -17,6 +18,12 @@ QJsonObject channels(const QString &root, int offset = 1, const QString &start =
         {"paths", QJsonArray{QDir(root).filePath("music/channel/трек.mp3")}}}}}, {"adverts", QJsonArray{}}};
 }
 QByteArray read(const QString &path) { QFile file(path); if (!file.open(QIODevice::ReadOnly)) return {}; return file.readAll(); }
+bool writeObject(const QString &path, const QJsonObject &object)
+{
+    QFile file(path);
+    return file.open(QIODevice::WriteOnly) && file.write(QJsonDocument(object).toJson()) >= 0;
+}
+QString id(int n) { return QStringLiteral("00000000-0000-4000-8000-%1").arg(n, 12, 10, QLatin1Char('0')); }
 }
 
 class SchedulePublicationTests : public QObject {
@@ -26,6 +33,14 @@ private slots:
     void unchangedReleaseAndPlaylistRevision();
     void explicitOvernightAndInvalidIntervals();
     void advancedDraftIsAuthoritative();
+    void legacyAdvancedChannelsReconcileWithoutReplacingCustomRules();
+    void advancedChangesPreserveProjectEdits();
+    void advancedEditsPreserveEntryPositionsAndDeletedRules();
+    void advancedMediaOrderNameAndRemoval_data();
+    void advancedMediaOrderNameAndRemoval();
+    void advancedOverlapCannotReplaceActivePublication();
+    void removedChannelRetainsCustomDependencies();
+    void invalidAdvancedChannelInputClearsResult();
     void rejectedPublicationPreservesPointer();
     void contentEscapeRejected();
     void distinctPathsAndRepeatedEntries();
@@ -136,6 +151,214 @@ void SchedulePublicationTests::advancedDraftIsAuthoritative()
     QVERIFY(advanced);
     QVERIFY(readback["baseRules"].toArray().isEmpty());
     QCOMPARE(readback["scheduleId"], document["scheduleId"]);
+}
+
+void SchedulePublicationTests::legacyAdvancedChannelsReconcileWithoutReplacingCustomRules()
+{
+    QTemporaryDir dir;
+    auto input = channels(dir.path(), 0, "08:00", "22:00");
+    auto first = input["channels"].toArray().first().toObject(); first["name"] = "Первый";
+    input["channels"] = QJsonArray{first};
+    QJsonObject document; bool advanced; QString error;
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), input, &document, &advanced, &error));
+    const QJsonObject calendar{{"id", id(201)}, {"revision", 1}, {"name", "Календарь проекта"},
+        {"coverage", document.value("validity")}, {"dates", QJsonArray{}}};
+    document["calendars"] = QJsonArray{calendar};
+    auto day = document["dayTemplates"].toArray().first().toObject();
+    const QJsonObject customSlot{{"id", id(207)}, {"window", QJsonObject{{"from", "22:00:00"}, {"until", "23:00:00"}, {"untilDayOffset", 0}}},
+        {"source", QJsonObject{{"type", "silence"}}}, {"volumePercent", 0}};
+    day["slots"] = QJsonArray{customSlot, day["slots"].toArray().first()};
+    document["dayTemplates"] = QJsonArray{day};
+    QVERIFY2(SchedulePublication::saveDraft(dir.path(), document, &error), qPrintable(error));
+    auto envelope = QJsonDocument::fromJson(read(SchedulePublication::projectPath(dir.path()))).object();
+    envelope.remove("channelDocument");
+    QVERIFY(writeObject(SchedulePublication::projectPath(dir.path()), envelope));
+    first["end"] = "14:00";
+    auto second = first; second["id"] = id(112); second["name"] = "Второй"; second["start"] = "14:00"; second["end"] = "22:00";
+    second["paths"] = QJsonArray{dir.filePath("music/Второй/трек.mp3")};
+    input["channels"] = QJsonArray{first, second};
+    QVERIFY2(SchedulePublication::draft(dir.path(), dir.path(), input, &document, &advanced, &error), qPrintable(error));
+    QVERIFY(advanced);
+    QCOMPARE(document["baseRules"].toArray().size(), 2);
+    QCOMPARE(document["calendars"].toArray(), QJsonArray{calendar});
+    QVERIFY(document["dayTemplates"].toArray().first().toObject()["slots"].toArray().contains(customSlot));
+    ScheduleV1::Document parsed;
+    const auto reason = ScheduleV1::decode(document, &parsed); QVERIFY2(reason.isEmpty(), qPrintable(reason));
+    const QTimeZone zone(document.value("timeZone").toString().toUtf8());
+    const QDate previewDay = QDate::fromString(document["validity"].toObject()["from"].toString(), Qt::ISODate);
+    QCOMPARE(ScheduleV1::evaluate(parsed, QDateTime(previewDay, QTime(13, 59), zone)).playlistId, id(111));
+    QCOMPARE(ScheduleV1::evaluate(parsed, QDateTime(previewDay, QTime(14, 0), zone)).playlistId, id(112));
+    const auto migrated = QJsonDocument::fromJson(read(SchedulePublication::projectPath(dir.path()))).object();
+    QVERIFY(migrated.value("channelDocument").isObject());
+    QJsonObject again;
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), input, &again, &advanced, &error));
+    QCOMPARE(again, document);
+}
+
+void SchedulePublicationTests::advancedChangesPreserveProjectEdits()
+{
+    QTemporaryDir dir;
+    auto input = channels(dir.path(), 0, "08:00", "22:00");
+    QJsonObject document; bool advanced; QString error;
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), input, &document, &advanced, &error));
+    const QJsonObject condition{{"select", QJsonObject{{"type", "all"}}}, {"excludeDates", QJsonArray{}}};
+    const QJsonObject window{{"from", "00:00:00"}, {"until", "00:00:00"}, {"untilDayOffset", 1}};
+    const QJsonObject mixing{{"id", id(202)}, {"name", "Подмешивание"}, {"enabled", true}, {"priority", 5},
+        {"when", condition}, {"windows", QJsonArray{window}}, {"pattern", QJsonArray{
+            QJsonObject{{"type", "active_base"}}, QJsonObject{{"type", "playlist"}, {"playlistId", id(111)}}}},
+        {"emptyAdditionalSource", "use_base"}};
+    const QJsonObject event{{"id", id(203)}, {"name", "Вставка"}, {"enabled", true}, {"priority", 7},
+        {"when", condition}, {"times", QJsonArray{"12:34:56"}},
+        {"action", QJsonObject{{"assetId", document["assets"].toArray().first().toObject()["id"]}, {"volumePercent", 75}}},
+        {"delivery", QJsonObject{{"start", "after_track"}, {"maxLateSeconds", 120}, {"expired", "skip"}, {"after", "resume_music"}}}};
+    document["mixRules"] = QJsonArray{mixing}; document["eventRules"] = QJsonArray{event};
+    auto rules = document["baseRules"].toArray(); auto rule = rules[0].toObject(); rule["priority"] = 15; rules[0] = rule;
+    document["baseRules"] = rules;
+    auto templates = document["dayTemplates"].toArray(); auto day = templates[0].toObject();
+    auto daySlots = day["slots"].toArray(); auto slot = daySlots[0].toObject();
+    auto slotWindow = slot["window"].toObject(); slotWindow["from"] = "08:10:00"; slot["window"] = slotWindow;
+    daySlots[0] = slot; day["slots"] = daySlots; templates[0] = day; document["dayTemplates"] = templates;
+    document["requiredCapabilities"] = QJsonArray::fromStringList(ScheduleV1::requiredCapabilities(document));
+    QVERIFY2(SchedulePublication::saveDraft(dir.path(), document, &error), qPrintable(error));
+    QJsonObject unchanged;
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), input, &unchanged, &advanced, &error));
+    QCOMPARE(unchanged, document);
+    auto channel = input["channels"].toArray().first().toObject(); channel["end"] = "20:00"; channel["volume"] = 17; channel["name"] = "Новое имя";
+    input["channels"] = QJsonArray{channel};
+    QVERIFY2(SchedulePublication::draft(dir.path(), dir.path(), input, &document, &advanced, &error), qPrintable(error));
+    QCOMPARE(document["mixRules"].toArray(), QJsonArray{mixing}); QCOMPARE(document["eventRules"].toArray(), QJsonArray{event});
+    QCOMPARE(document["baseRules"].toArray().first().toObject()["priority"], QJsonValue(15));
+    slot = document["dayTemplates"].toArray().first().toObject()["slots"].toArray().first().toObject();
+    QCOMPARE(slot["window"].toObject()["from"], QJsonValue("08:10:00"));
+    QCOMPARE(slot["window"].toObject()["until"], QJsonValue("20:00:00"));
+    QCOMPARE(slot["volumePercent"], QJsonValue(17));
+    QCOMPARE(document["playlists"].toArray().first().toObject()["name"], QJsonValue("Новое имя"));
+    ScheduleV1::Document parsed; const auto reason = ScheduleV1::decode(document, &parsed); QVERIFY2(reason.isEmpty(), qPrintable(reason));
+}
+
+void SchedulePublicationTests::advancedMediaOrderNameAndRemoval_data()
+{
+    QTest::addColumn<QString>("mediaType");
+    QTest::newRow("audio") << QStringLiteral("audio");
+    QTest::newRow("video") << QStringLiteral("video");
+}
+
+void SchedulePublicationTests::advancedEditsPreserveEntryPositionsAndDeletedRules()
+{
+    QTemporaryDir dir;
+    auto input = channels(dir.path());
+    auto channel = input["channels"].toArray().first().toObject();
+    const QString firstPath = dir.filePath("music/channel/first.mp3"), secondPath = dir.filePath("music/channel/second.mp3");
+    const QString thirdPath = dir.filePath("music/channel/third.mp3");
+    channel["paths"] = QJsonArray{firstPath, secondPath}; input["channels"] = QJsonArray{channel};
+    QJsonObject document; bool advanced; QString error;
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), input, &document, &advanced, &error));
+    auto playlist = document["playlists"].toArray().first().toObject(); const auto original = playlist["entries"].toArray();
+    const QJsonObject custom{{"id", id(301)}, {"assetId", original.first().toObject().value("assetId")}};
+    playlist["entries"] = QJsonArray{original[0], custom, original[1]}; document["playlists"] = QJsonArray{playlist};
+    document["baseRules"] = QJsonArray{};
+    QVERIFY(SchedulePublication::saveDraft(dir.path(), document, &error));
+    channel["name"] = "Новое имя"; channel["paths"] = QJsonArray{firstPath, secondPath, thirdPath};
+    input["channels"] = QJsonArray{channel};
+    QVERIFY2(SchedulePublication::draft(dir.path(), dir.path(), input, &document, &advanced, &error), qPrintable(error));
+    QVERIFY(document["baseRules"].toArray().isEmpty());
+    auto entries = document["playlists"].toArray().first().toObject()["entries"].toArray();
+    QCOMPARE(entries.size(), 4); QCOMPARE(entries[0], original[0]); QCOMPARE(entries[1], QJsonValue(custom)); QCOMPARE(entries[2], original[1]);
+    channel["paths"] = QJsonArray{secondPath, firstPath, thirdPath}; input["channels"] = QJsonArray{channel};
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), input, &document, &advanced, &error));
+    entries = document["playlists"].toArray().first().toObject()["entries"].toArray();
+    QCOMPARE(entries[0], original[1]); QCOMPARE(entries[1], QJsonValue(custom)); QCOMPARE(entries[2], original[0]);
+    QVERIFY(document["baseRules"].toArray().isEmpty());
+}
+void SchedulePublicationTests::advancedMediaOrderNameAndRemoval()
+{
+    QFETCH(QString, mediaType);
+    QTemporaryDir dir;
+    auto input = channels(dir.path());
+    auto channel = input["channels"].toArray().first().toObject();
+    const QString folder = mediaType == "video" ? "video/channel/" : "music/channel/";
+    channel["paths"] = QJsonArray{dir.filePath(folder + "first.mp3")}; input["channels"] = QJsonArray{channel};
+    QJsonObject document; bool advanced; QString error;
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), input, &document, &advanced, &error, mediaType));
+    auto playlist = document["playlists"].toArray().first().toObject(); playlist["revision"] = 40;
+    const auto originalEntry = playlist["entries"].toArray().first().toObject();
+    const QJsonObject customEntry{{"id", id(301)}, {"assetId", originalEntry.value("assetId")}};
+    playlist["entries"] = QJsonArray{originalEntry, customEntry}; document["playlists"] = QJsonArray{playlist};
+    QVERIFY(SchedulePublication::saveDraft(dir.path(), document, &error));
+    channel["paths"] = QJsonArray{dir.filePath(folder + "first.mp3"), dir.filePath(folder + "second.mp3")};
+    channel["name"] = "Переименованный"; channel["order"] = "shuffle_cycle"; input["channels"] = QJsonArray{channel};
+    QVERIFY2(SchedulePublication::draft(dir.path(), dir.path(), input, &document, &advanced, &error, mediaType), qPrintable(error));
+    playlist = document["playlists"].toArray().first().toObject();
+    QCOMPARE(playlist["revision"], QJsonValue(41)); QCOMPARE(playlist["entries"].toArray().size(), 3);
+    QVERIFY(playlist["entries"].toArray().contains(customEntry));
+    QCOMPARE(playlist["order"], QJsonValue("shuffle_cycle")); QCOMPARE(playlist["name"], QJsonValue("Переименованный"));
+    QCOMPARE(document["assets"].toArray().size(), 2);
+    for (const auto &asset : document["assets"].toArray()) QCOMPARE(asset.toObject()["mediaType"], QJsonValue(mediaType));
+    channel["paths"] = QJsonArray{dir.filePath(folder + "second.mp3")}; input["channels"] = QJsonArray{channel};
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), input, &document, &advanced, &error, mediaType));
+    playlist = document["playlists"].toArray().first().toObject();
+    QCOMPARE(playlist["entries"].toArray().size(), 2);
+    QVERIFY(playlist["entries"].toArray().contains(customEntry));
+    QVERIFY(!playlist["entries"].toArray().contains(originalEntry));
+    QCOMPARE(document["assets"].toArray().size(), 2); // Custom entry still references the old asset.
+    ScheduleV1::Document parsed; const auto reason = ScheduleV1::decode(document, &parsed); QVERIFY2(reason.isEmpty(), qPrintable(reason));
+    input["channels"] = QJsonArray{};
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), input, &document, &advanced, &error, mediaType));
+    QVERIFY(document["playlists"].toArray().isEmpty()); QVERIFY(document["baseRules"].toArray().isEmpty());
+    QVERIFY(document["dayTemplates"].toArray().isEmpty());
+}
+
+void SchedulePublicationTests::advancedOverlapCannotReplaceActivePublication()
+{
+    QTemporaryDir dir;
+    auto input = channels(dir.path(), 0, "08:00", "22:00");
+    QJsonObject document; bool advanced; QString error;
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), input, &document, &advanced, &error));
+    QVERIFY(SchedulePublication::saveDraft(dir.path(), document, &error));
+    SchedulePublication::Publication publication;
+    QVERIFY(SchedulePublication::publish(dir.path(), dir.path(), document, &publication, &error));
+    const auto pointer = read(publication.activePath);
+    auto second = input["channels"].toArray().first().toObject(); second["id"] = id(112); second["name"] = "Второй";
+    input["channels"] = QJsonArray{input["channels"].toArray().first(), second};
+    QVERIFY2(SchedulePublication::draft(dir.path(), dir.path(), input, &document, &advanced, &error), qPrintable(error));
+    QCOMPARE(document["baseRules"].toArray().size(), 2);
+    ScheduleV1::Document parsed;
+    QVERIFY(ScheduleV1::decode(document, &parsed).contains(QStringLiteral("одинаковом приоритете")));
+    QVERIFY(!SchedulePublication::publish(dir.path(), dir.path(), document, &publication, &error));
+    QCOMPARE(read(publication.activePath), pointer);
+    second["start"] = "22:00"; second["end"] = "23:00";
+    input["channels"] = QJsonArray{input["channels"].toArray().first(), second};
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), input, &document, &advanced, &error));
+    QVERIFY2(SchedulePublication::publish(dir.path(), dir.path(), document, &publication, &error), qPrintable(error));
+}
+
+void SchedulePublicationTests::removedChannelRetainsCustomDependencies()
+{
+    QTemporaryDir dir;
+    auto input = channels(dir.path()); QJsonObject document; bool advanced; QString error;
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), input, &document, &advanced, &error));
+    const auto playlist = document["playlists"].toArray().first();
+    const auto asset = document["assets"].toArray().first();
+    document["fallback"] = QJsonObject{{"source", QJsonObject{{"type", "playlist"}, {"playlistId", id(111)}}}, {"volumePercent", 40}};
+    QVERIFY(SchedulePublication::saveDraft(dir.path(), document, &error));
+    input["channels"] = QJsonArray{};
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), input, &document, &advanced, &error));
+    QVERIFY(document["baseRules"].toArray().isEmpty()); QVERIFY(document["dayTemplates"].toArray().isEmpty());
+    QCOMPARE(document["playlists"].toArray(), QJsonArray{playlist}); QCOMPARE(document["assets"].toArray(), QJsonArray{asset});
+    ScheduleV1::Document parsed; const auto reason = ScheduleV1::decode(document, &parsed); QVERIFY2(reason.isEmpty(), qPrintable(reason));
+    QJsonObject again;
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), input, &again, &advanced, &error)); QCOMPARE(again, document);
+}
+
+void SchedulePublicationTests::invalidAdvancedChannelInputClearsResult()
+{
+    QTemporaryDir dir; QJsonObject document; bool advanced; QString error;
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), channels(dir.path()), &document, &advanced, &error));
+    QVERIFY(SchedulePublication::saveDraft(dir.path(), document, &error));
+    const auto project = read(SchedulePublication::projectPath(dir.path()));
+    QVERIFY(!SchedulePublication::draft(dir.path(), dir.path(), channels(dir.path(), 0), &document, &advanced, &error));
+    QVERIFY(document.isEmpty()); QVERIFY(advanced); QVERIFY(!error.isEmpty());
+    QCOMPARE(read(SchedulePublication::projectPath(dir.path())), project);
 }
 
 void SchedulePublicationTests::rejectedPublicationPreservesPointer()
