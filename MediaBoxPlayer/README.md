@@ -205,14 +205,20 @@ Unix-файл имеет права 0600; установочный Windows-ск�
 ```powershell
 cmake -S .\MediaBoxPlayer -B .\build\MediaBoxPlayer -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="C:\Qt\6.12.0\msvc2022_64"
 cmake --build .\build\MediaBoxPlayer
-ctest --test-dir .\build\MediaBoxPlayer --output-on-failure
 cmake --install .\build\MediaBoxPlayer --prefix .\build\MediaBoxPlayer-install
 ```
 
 На Linux команды аналогичны. Регистрация службы/демона выполняется отдельно по
 платформенным инструкциям выше; `cmake --install` сам службу не запускает.
 Для генератора с несколькими конфигурациями добавьте `--config Release` к сборке
-и установке и `-C Release` к CTest. Android собирается отдельно от Manager.
+и установке. Android собирается отдельно от Manager.
+
+CMake плеера не создаёт тестовых целей, в том числе при `BUILD_TESTING=ON`.
+Для сборки и запуска тестов выполните из корня репозитория:
+
+```powershell
+.\agent_build\build.ps1 -WithTests
+```
 
 Автоматические тесты проверяют очередь с управляемым аудиобэкендом, валидацию,
 повтор и ограничение ошибок, TCP-аутентификацию/обрамление запросов, реальный

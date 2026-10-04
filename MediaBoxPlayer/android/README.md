@@ -15,7 +15,7 @@ MediaBoxManager в этой реализации не изменяется.
 ```sh
 /opt/Qt/6.12.0/android_arm64_v8a/bin/qt-cmake \
   -S MediaBoxPlayer -B build/player-android -G Ninja \
-  -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=OFF \
+  -DCMAKE_BUILD_TYPE=Debug \
   -DQT_HOST_PATH=/opt/Qt/6.12.0/gcc_64 \
   -DANDROID_SDK_ROOT=/opt/android-sdk \
   -DANDROID_NDK_ROOT=/opt/android-sdk/ndk/27.2.12479018

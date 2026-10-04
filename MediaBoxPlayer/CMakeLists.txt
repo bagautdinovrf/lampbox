@@ -8,8 +8,6 @@ if(PROJECT_IS_TOP_LEVEL)
     set(CMAKE_CXX_EXTENSIONS OFF)
     set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
-    option(BUILD_TESTING "Build automated tests" OFF)
-    include(CTest)
     include(GNUInstallDirs)
 endif()
 
@@ -73,38 +71,4 @@ if(NOT ANDROID)
     )
     install(SCRIPT "${MediaBoxPlayer_deploy_script}")
     install(DIRECTORY deploy/ DESTINATION "${CMAKE_INSTALL_DATADIR}/MediaBoxPlayer/deploy")
-endif()
-
-if(BUILD_TESTING AND NOT ANDROID)
-    find_package(Qt6 REQUIRED COMPONENTS Test)
-    qt_add_executable(MediaBoxPlayerEngineTests tests/tst_playerengine.cpp)
-    target_link_libraries(MediaBoxPlayerEngineTests PRIVATE MediaBoxPlayerCore Qt6::Test)
-    add_test(NAME MediaBoxPlayer_engine COMMAND MediaBoxPlayerEngineTests)
-    set_tests_properties(MediaBoxPlayer_engine PROPERTIES TIMEOUT 30)
-
-    qt_add_executable(MediaBoxPlayerControlTests tests/tst_controlserver.cpp)
-    target_link_libraries(MediaBoxPlayerControlTests PRIVATE MediaBoxPlayerCore Qt6::Test)
-    add_test(NAME MediaBoxPlayer_control COMMAND MediaBoxPlayerControlTests)
-    set_tests_properties(MediaBoxPlayer_control PROPERTIES TIMEOUT 30)
-
-    qt_add_executable(MediaBoxPlayerProcessTests tests/tst_process.cpp)
-    target_link_libraries(MediaBoxPlayerProcessTests PRIVATE Qt6::Core Qt6::Network Qt6::Test)
-    target_compile_definitions(MediaBoxPlayerProcessTests PRIVATE
-        PLAYER_EXECUTABLE="$<TARGET_FILE:MediaBoxPlayer>")
-    add_dependencies(MediaBoxPlayerProcessTests MediaBoxPlayer)
-    add_test(NAME MediaBoxPlayer_process COMMAND MediaBoxPlayerProcessTests)
-    set_tests_properties(MediaBoxPlayer_process PROPERTIES TIMEOUT 30)
-
-    add_test(NAME MediaBoxPlayer_version COMMAND MediaBoxPlayer --version)
-    string(REPLACE "." "\\." _player_version_regex "${PROJECT_VERSION}")
-    set_tests_properties(MediaBoxPlayer_version PROPERTIES
-        PASS_REGULAR_EXPRESSION "MediaBoxPlayer ${_player_version_regex}"
-        TIMEOUT 10
-    )
-    if(WIN32)
-        get_target_property(_player_qmake Qt6::qmake IMPORTED_LOCATION)
-        get_filename_component(_player_qt_bin "${_player_qmake}" DIRECTORY)
-        set_property(TEST MediaBoxPlayer_version MediaBoxPlayer_engine MediaBoxPlayer_control MediaBoxPlayer_process APPEND PROPERTY
-            ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${_player_qt_bin}")
-    endif()
 endif()

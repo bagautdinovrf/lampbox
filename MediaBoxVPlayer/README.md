@@ -109,7 +109,13 @@ Multimedia и MultimediaWidgets; для тестов — Qt Test. Обычная
 ```sh
 cmake -S MediaBoxVPlayer -B build-vplayer -DCMAKE_PREFIX_PATH=/path/to/Qt/6.12
 cmake --build build-vplayer
-ctest --test-dir build-vplayer --output-on-failure
+```
+
+CMake плеера не создаёт тестовых целей, в том числе при `BUILD_TESTING=ON`.
+Для сборки и запуска тестов выполните из корня репозитория в PowerShell:
+
+```powershell
+.\agent_build\build.ps1 -WithTests
 ```
 
 `MediaBoxVPlayer_service` проверяет независимость окон, очереди, ошибки

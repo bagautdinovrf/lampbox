@@ -76,8 +76,9 @@ CMake 3.28 или новее и Ninja; инструменты из `C:\Qt\Tools`
 
 Скрипт выбирает последнюю установленную версию Qt с комплектом MSVC x64
 в `C:\Qt`, настраивает окружение компилятора и собирает приложения Release.
-Тесты по умолчанию отключены в CMake и в скрипте. Параметр `-WithTests`
-явно включает их сборку и запуск CTest.
+Корневой CMake и CMake подпроектов собирают только приложения и библиотеки:
+`BUILD_TESTING=ON` не подключает тесты. Для их сборки и запуска CTest
+используйте скрипт с параметром `-WithTests`.
 Результаты находятся в `agent_build\build\bin`: `MediaBoxManager.exe`,
 `MediaBoxPlayer.exe`, `MediaBoxVPlayer.exe`; журналы — в `agent_build\logs`.
 
@@ -85,10 +86,10 @@ CMake 3.28 или новее и Ninja; инструменты из `C:\Qt\Tools`
 # Сборка Debug и тесты
 .\agent_build\build.ps1 -Configuration Debug -WithTests
 
-# Сборка, тесты и готовая папка с Qt DLL и плагинами
+# Сборка и готовая папка с Qt DLL и плагинами
 .\agent_build\build.ps1 -Deploy
 
-# Сборка, тесты и установщик Inno Setup 6
+# Сборка и установщик Inno Setup 6
 .\agent_build\build.ps1 -Installer
 
 # Явный выбор комплекта Qt
@@ -109,7 +110,7 @@ CMake включает `/std:c++latest`.
 с CMake и Ninja в `PATH`:
 
 ```powershell
-cmake -S . -B agent_build/build -G Ninja -DCMAKE_PREFIX_PATH=C:/Qt/6.12.0/msvc2022_64 -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+cmake -S . -B agent_build/build -G Ninja -DCMAKE_PREFIX_PATH=C:/Qt/6.12.0/msvc2022_64 -DCMAKE_BUILD_TYPE=Release
 cmake --build agent_build/build --parallel
 cmake --install agent_build/build --prefix agent_build/deploy/Release
 ```
@@ -128,8 +129,8 @@ CTest настраивает путь к DLL Qt автоматически. Дл
 
 Qt-компоненты MediaBoxManager: Core, Gui, Widgets, Network; MediaBoxPlayer
 использует Core, Network, Multimedia. Для MediaBoxVPlayer нужны Core, Gui,
-Widgets, Network, Multimedia и MultimediaWidgets. При `BUILD_TESTING=ON`
-также нужен Test.
+Widgets, Network, Multimedia и MultimediaWidgets. Для
+`agent_build/build.ps1 -WithTests` также нужен Test.
 Исходный код приложения и тесты используют C++23 без расширений компилятора.
 
 TagLib **2.3.2** собирается статически через CMake FetchContent из

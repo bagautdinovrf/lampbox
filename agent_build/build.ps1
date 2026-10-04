@@ -344,7 +344,9 @@ try {
     }
     # Preserve generated files during ordinary incremental builds. Refresh the
     # cache only when it would pin a different Qt installation, compiler or generator.
-    $testingMode = if ($WithTests) { 'ON' } else { 'OFF' }
+    $testInclude = if ($WithTests) {
+        (Assert-File (Join-Path $agentDirectory 'cmake\enable-tests.cmake') 'Agent test CMake module').Replace('\', '/')
+    } else { '' }
     $configureArguments = @(
         '-S', $sourceDirectory, '-B', $buildDirectory, '-G', 'Ninja',
         "-DCMAKE_BUILD_TYPE=$Configuration",
@@ -354,17 +356,30 @@ try {
         "-DCMAKE_PREFIX_PATH=$($qt.Path)",
         "-DQt6_ROOT=$($qt.Path)",
         "-DQt6_DIR=$(Join-Path $qt.Path 'lib\cmake\Qt6')"
-    ) + $CMakeArguments + @("-DBUILD_TESTING:BOOL=$testingMode")
-    # Managed option goes last, so an old cache or CMakeArguments cannot silently
-    # disagree with -WithTests. Ordinary builds never build or run test targets.
+    ) + $CMakeArguments + @(
+        '-DBUILD_TESTING:BOOL=OFF',
+        "-DCMAKE_PROJECT_TOP_LEVEL_INCLUDES:STRING=$testInclude"
+    )
+    # Managed options go last so an old cache or CMakeArguments cannot silently
+    # enable tests. Only -WithTests injects their external CMake definitions.
     if (Test-ConfigureRefreshRequired (Join-Path $buildDirectory 'CMakeCache.txt') $qt.Path $msvc.Compiler) {
         $configureArguments = @('--fresh') + $configureArguments
         Write-Host 'Qt, MSVC or the CMake generator changed; refreshing the CMake cache.'
     }
     Invoke-LoggedCommand 'configure' $cmake $configureArguments
+    if (-not $WithTests) {
+        # CMake retains this generated file when enable_testing() is removed.
+        # Do not let CTest discover suites from a previous -WithTests run.
+        $testFile = Join-Path $buildDirectory 'CTestTestfile.cmake'
+        if (Test-Path -LiteralPath $testFile -PathType Leaf) {
+            Remove-Item -LiteralPath $testFile -Force
+        }
+    }
     if (-not $ConfigureOnly) {
         Invoke-LoggedCommand 'build' $cmake @('--build', $buildDirectory, '--config', $Configuration, '--parallel', "$Jobs")
         if ($WithTests) {
+            Invoke-LoggedCommand 'build-tests' $cmake @('--build', $buildDirectory, '--config', $Configuration,
+                '--target', 'lampbox_tests', '--parallel', "$Jobs")
             Invoke-LoggedCommand 'test' $ctest @('--test-dir', $buildDirectory, '-C', $Configuration,
                 '--output-on-failure', '--no-tests=error', '--parallel', "$Jobs")
         }

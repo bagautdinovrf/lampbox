@@ -8,6 +8,8 @@ powershell -ExecutionPolicy Bypass -File .\agent_build\build.ps1
 
 Скрипт выбирает последнюю установленную числовую версию Qt 6 в `C:\Qt` и её комплект MSVC x64, настраивает окружение Visual Studio через `vswhere` и `VsDevCmd`, затем запускает CMake и Ninja. По умолчанию собирается `Release` без тестовых целей, параллелизм ограничен восемью процессами. Параметр `-WithTests` явно включает сборку тестов и их запуск через CTest. Проект использует C++23; нужны Qt 6.12 или новее с модулями Multimedia и MultimediaWidgets, Visual Studio 2022 или новее, инструменты MSVC x64 и Windows SDK. CMake 3.28 или новее и Ninja берутся из `C:\Qt\Tools`. Окружение вызывающей PowerShell-сессии восстанавливается после выполнения, включая ошибки.
 
+Корневой CMake и CMake подпроектов создают только приложения и библиотеки. С `-WithTests` скрипт подключает `cmake/enable-tests.cmake` через `CMAKE_PROJECT_TOP_LEVEL_INCLUDES`; определения тестов находятся в модуле `cmake/tests.cmake`. Каждая тестовая цель исключена из обычной сборки (`EXCLUDE_FROM_ALL`): после сборки приложений отдельный этап `build-tests` собирает цель `lampbox_tests`, затем запускается CTest. Отчёты QtTest сохраняются в `build/tests`.
+
 ```powershell
 # Сборка Debug с удалением предыдущих результатов сборки
 .\agent_build\build.ps1 -Configuration Debug -Clean -Jobs 4
@@ -45,7 +47,7 @@ powershell -ExecutionPolicy Bypass -File .\agent_build\build.ps1
 | `build/bin/MediaBoxPlayer.exe` | Фоновый аудиоплеер с управлением по TCP |
 | `build/bin/MediaBoxVPlayer.exe` | Многооконный видеоплеер с отдельными плейлистами и управлением по TCP |
 | `build/` | CMake и объектные файлы; после `-WithTests` также исполняемые тесты и результаты CTest |
-| `logs/<дата-время-id>/` | Отдельные журналы configure/build/test/deploy/installer и сводка `run.json` |
+| `logs/<дата-время-id>/` | Отдельные журналы configure/build/build-tests/test/deploy/installer и сводка `run.json` |
 | `deploy/<конфигурация>/bin/` | Три приложения с библиотеками и плагинами Qt после `-Deploy` |
 
 Параметр `-Installer` включает `-Deploy` и после установки файлов запускает `ISCC.exe` для `Installer/installer.iss`. Нужен установленный Inno Setup 6: скрипт ищет компилятор в `PATH`, `Program Files (x86)` и `Program Files`; путь можно задать параметром `-InnoSetupCompiler`. Версия берётся из `project(MediaBoxManager VERSION ...)` корневого `CMakeLists.txt`. Готовый установщик сохраняется отдельно в `Installer/bin/MediaBoxManager-<версия>-Setup.exe`. `-ConfigureOnly` нельзя сочетать с `-Deploy` или `-Installer`.
@@ -73,7 +75,9 @@ if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
 
 В установщик входит весь готовый каталог deploy: MediaBoxManager, MediaBoxPlayer, MediaBoxVPlayer, библиотеки и плагины Qt, включая MultimediaWidgets и мультимедийный backend. Конфигурации, токены и `windows.json` в пакет не включаются. Для видеоплеера создаются отдельные ярлыки; установщик не регистрирует его как службу или в автозагрузке ОС. При запуске Manager недоступный локальный видеоплеер запускается автоматически. Подробнее об установщике — в [Installer/README.md](../Installer/README.md).
 
-`-Clean` удаляет только проверенный каталог `agent_build/build`. Если в нём есть символьная ссылка или junction, удаление блокируется. Журналы и папка установки сохраняются. Ошибка любого этапа прерывает выполнение с ненулевым кодом; в режиме `-WithTests` отсутствие зарегистрированных тестов также считается ошибкой. Скрипт всегда задаёт `BUILD_TESTING` последним параметром конфигурации: `ON` с `-WithTests`, иначе `OFF`, в том числе при повторном использовании кэша. Переопределение `BUILD_TESTING` через `-CMakeArguments` не меняет выбранный режим. При `-ConfigureOnly -WithTests` тестовые цели включаются, но сборка и CTest не запускаются. `-Deploy` и `-Installer` сами по себе тесты не включают.
+`-Clean` удаляет только проверенный каталог `agent_build/build`. Если в нём есть символьная ссылка или junction, удаление блокируется. Журналы и папка установки сохраняются. Ошибка любого этапа прерывает выполнение с ненулевым кодом; в режиме `-WithTests` отсутствие зарегистрированных тестов также считается ошибкой.
+
+Скрипт задаёт управляемые параметры после `-CMakeArguments`: `BUILD_TESTING` всегда остаётся `OFF`, а `CMAKE_PROJECT_TOP_LEVEL_INCLUDES` подключает тесты только с `-WithTests`. Обычный запуск очищает это подключение, в том числе после сборки с тестами; старый кэш и переопределения этих параметров через `-CMakeArguments` не меняют выбранный режим. Сам по себе `BUILD_TESTING=ON` не включает тесты проекта. При `-ConfigureOnly -WithTests` тестовые цели подключаются, но сборка и CTest не запускаются. `-Deploy` и `-Installer` сами по себе тесты не включают.
 
 Если CMake использует получение сторонних исходников через FetchContent, при первой конфигурации чистого клона понадобится доступ к сети. Для запуска приложений из `build/bin` нужны DLL Qt в `PATH`; переносимый каталог приложений создаётся параметром `-Deploy`.
 

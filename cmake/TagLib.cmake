@@ -3,7 +3,7 @@ include(FetchContent)
 set(LAMPBOX_TAGLIB_SOURCE_DIR "" CACHE PATH
     "Path to an unpacked TagLib 2.3.2 release archive for offline builds")
 
-# Keep dependency options scoped so its BUILD_TESTING does not disable our tests.
+# Keep dependency build options local; dependency tests are always disabled.
 function(lampbox_add_taglib)
     set(BUILD_SHARED_LIBS OFF)
     set(BUILD_TESTING OFF)

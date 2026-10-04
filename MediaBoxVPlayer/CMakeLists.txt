@@ -7,8 +7,6 @@ if(PROJECT_IS_TOP_LEVEL)
     set(CMAKE_CXX_EXTENSIONS OFF)
     set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
-    option(BUILD_TESTING "Build automated tests" OFF)
-    include(CTest)
     include(GNUInstallDirs)
 endif()
 
@@ -48,22 +46,3 @@ qt_generate_deploy_app_script(TARGET MediaBoxVPlayer OUTPUT_SCRIPT MediaBoxVPlay
     NO_UNSUPPORTED_PLATFORM_ERROR)
 install(SCRIPT "${MediaBoxVPlayer_deploy_script}")
 install(FILES README.md TCP_API.md DESTINATION "${CMAKE_INSTALL_DATADIR}/MediaBoxVPlayer")
-
-if(BUILD_TESTING AND NOT ANDROID)
-    find_package(Qt6 REQUIRED COMPONENTS Test)
-    qt_add_executable(MediaBoxVPlayerServiceTests tests/tst_videoservice.cpp)
-    target_link_libraries(MediaBoxVPlayerServiceTests PRIVATE MediaBoxVPlayerCore Qt6::Test)
-    add_test(NAME MediaBoxVPlayer_service COMMAND MediaBoxVPlayerServiceTests)
-    set_tests_properties(MediaBoxVPlayer_service PROPERTIES TIMEOUT 45
-        ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-    add_test(NAME MediaBoxVPlayer_version COMMAND MediaBoxVPlayer --version)
-    set_tests_properties(MediaBoxVPlayer_version PROPERTIES TIMEOUT 10
-        PASS_REGULAR_EXPRESSION "MediaBoxVPlayer 0\\.1\\.0"
-        ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
-    if(WIN32)
-        get_target_property(_vplayer_qmake Qt6::qmake IMPORTED_LOCATION)
-        get_filename_component(_vplayer_qt_bin "${_vplayer_qmake}" DIRECTORY)
-        set_property(TEST MediaBoxVPlayer_service MediaBoxVPlayer_version APPEND PROPERTY
-            ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${_vplayer_qt_bin}")
-    endif()
-endif()
