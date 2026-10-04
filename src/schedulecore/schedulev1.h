@@ -47,6 +47,24 @@ struct EventOccurrence {
     QString start; // after_track or interrupt
 };
 
+struct RuleConflict {
+    QDateTime from, until; // Half-open bounds, clipped to the preview range.
+    QString group; // baseRules or mixRules.
+    QStringList ruleIds;
+    int priority = 0;
+};
+
+// Display-only rule occurrences. Overlapping rules remain separate; this is
+// neither an executable plan nor a successful publication validation.
+struct DiagnosticPreview {
+    QList<PlanInterval> intervals; // Raw base rules, without fallback or winners.
+    QList<PlanInterval> mixIntervals; // Only mixRuleId and pattern identify sources.
+    QList<EventOccurrence> events;
+    QList<RuleConflict> conflicts;
+    QStringList diagnostics;
+    QString error; // Structural/calendar error; all other fields are then empty.
+};
+
 // Empty return value means success. Result is replaced only after full validation.
 // parse additionally rejects invalid UTF-8, a BOM and duplicate JSON object keys.
 QString parse(const QByteArray &bytes, Document *result);
@@ -60,4 +78,6 @@ QList<PlanInterval> intervals(const Document &document, const QDateTime &fromInc
                              const QDateTime &untilExclusive);
 QList<EventOccurrence> events(const Document &document, const QDateTime &fromInclusive,
                              const QDateTime &toInclusive);
+DiagnosticPreview diagnosticPreview(const QJsonObject &object, const QDateTime &fromInclusive,
+                                    const QDateTime &untilExclusive);
 } // namespace ScheduleV1

@@ -156,6 +156,118 @@ private slots:
                                         base(31,20,10,when({{"type","dates"},{"dates",QJsonArray{"2026-10-03"}}}))});
         QVERIFY(!read(o,&d).isEmpty());
     }
+    void diagnosticPreviewKeepsOverlapsWithoutAcceptingDocument()
+    {
+        auto o = fixture();
+        replaceWindow(o,window("08:00:01","14:00:02",0));
+        auto templates = o.value("dayTemplates").toArray();
+        templates.append(QJsonObject{{"id",id(22)},{"name","Второй"},
+            {"slots",QJsonArray{slot(23,window("12:00:03","18:00:04",0),source(12))}}});
+        o.insert("dayTemplates",templates);
+        o.insert("baseRules",QJsonArray{base(),base(31,22)});
+        o.insert("eventRules",QJsonArray{eventRule(60,{"15:00:03","17:00:00"})});
+        o.insert("requiredCapabilities",QJsonArray{"calendar.v1","events.fixed.v1"});
+        Document accepted; QVERIFY(read(fixture(),&accepted).isEmpty());
+        const auto previousObject = accepted.object;
+        QVERIFY(decode(o,&accepted).contains(QStringLiteral("одинаковом приоритете")));
+        QCOMPARE(accepted.object,previousObject);
+
+        const auto preview = diagnosticPreview(o,at("2026-10-04T10:00:00+03:00"),at("2026-10-04T17:00:00+03:00"));
+        QVERIFY2(preview.error.isEmpty(),qPrintable(preview.error));
+        QCOMPARE(preview.intervals.size(),2);
+        QCOMPARE(preview.intervals[0].from,at("2026-10-04T10:00:00+03:00"));
+        QCOMPARE(preview.intervals[0].until,at("2026-10-04T14:00:02+03:00"));
+        QCOMPARE(preview.intervals[0].plan.baseRuleId,id(30));
+        QCOMPARE(preview.intervals[0].plan.playlistId,id(11));
+        QVERIFY(!preview.intervals[0].plan.usingFallback);
+        QCOMPARE(preview.intervals[1].until,at("2026-10-04T17:00:00+03:00"));
+        QCOMPARE(preview.intervals[1].plan.playlistId,id(12));
+        QCOMPARE(preview.conflicts.size(),1);
+        QCOMPARE(preview.conflicts[0].from,at("2026-10-04T12:00:03+03:00"));
+        QCOMPARE(preview.conflicts[0].until,at("2026-10-04T14:00:02+03:00"));
+        QCOMPARE(preview.conflicts[0].ruleIds,QStringList({id(30),id(31)}));
+        QCOMPARE(preview.conflicts[0].group,QStringLiteral("baseRules"));
+        QCOMPARE(preview.events.size(),1); // The exclusive endpoint is excluded.
+        QCOMPARE(preview.events.first().scheduledUtc,at("2026-10-04T12:00:03Z"));
+        QVERIFY(!decode(o,&accepted).isEmpty());
+
+        o.insert("baseRules",QJsonArray{base(),base(31,22,20)});
+        QVERIFY(diagnosticPreview(o,at("2026-10-04T00:00:00+03:00"),at("2026-10-05T00:00:00+03:00")).conflicts.isEmpty());
+        QVERIFY(decode(o,&accepted).isEmpty());
+    }
+    void diagnosticPreviewSeparatesMixConflictsAndTouchingWindows()
+    {
+        auto o = fixture();
+        o.insert("mixRules",QJsonArray{mix(40,{window("09:00:00","12:00:00",0)}),
+                                      mix(41,{window("10:00:00","13:00:00",0)})});
+        o.insert("requiredCapabilities",QJsonArray{"calendar.v1","rotation.strict.v1"});
+        const auto from = at("2026-10-04T00:00:00+03:00"), until = at("2026-10-05T00:00:00+03:00");
+        const auto preview = diagnosticPreview(o,from,until);
+        QVERIFY2(preview.error.isEmpty(),qPrintable(preview.error));
+        QCOMPARE(preview.intervals.size(),1);
+        QVERIFY(preview.intervals.first().plan.mixRuleId.isEmpty());
+        QCOMPARE(preview.mixIntervals.size(),2);
+        QCOMPARE(preview.mixIntervals[0].plan.mixRuleId,id(40));
+        QCOMPARE(preview.mixIntervals[1].plan.mixRuleId,id(41));
+        QCOMPARE(preview.mixIntervals[0].plan.pattern,mix().value("pattern").toArray());
+        QCOMPARE(preview.conflicts.size(),1);
+        QCOMPARE(preview.conflicts.first().group,QStringLiteral("mixRules"));
+        QCOMPARE(preview.conflicts.first().from,at("2026-10-04T10:00:00+03:00"));
+        QCOMPARE(preview.conflicts.first().until,at("2026-10-04T12:00:00+03:00"));
+        Document d; QVERIFY(!decode(o,&d).isEmpty());
+        o.insert("mixRules",QJsonArray{mix(40,{window("09:00:00","12:00:00",0)}),
+                                      mix(41,{window("12:00:00","13:00:00",0)})});
+        QVERIFY(diagnosticPreview(o,from,until).conflicts.isEmpty());
+        QVERIFY(decode(o,&d).isEmpty());
+    }
+    void diagnosticPreviewPreservesOvernightCalendarAndValidation()
+    {
+        auto o = fixture(); replaceWindow(o,window("22:00:00","02:00:00",1));
+        const auto condition = when({{"type","dates"},{"dates",QJsonArray{"2026-10-03"}}});
+        o.insert("baseRules",QJsonArray{base(30,20,10,condition),base(31,20,10,condition)});
+        const auto from = at("2026-10-04T00:00:00+03:00"), until = at("2026-10-05T00:00:00+03:00");
+        auto preview = diagnosticPreview(o,from,until);
+        QVERIFY2(preview.error.isEmpty(),qPrintable(preview.error));
+        QCOMPARE(preview.intervals.size(),2);
+        QCOMPARE(preview.conflicts.size(),1);
+        QCOMPARE(preview.conflicts.first().from,from);
+        QCOMPARE(preview.conflicts.first().until,at("2026-10-04T02:00:00+03:00"));
+        auto excluded = condition; excluded.insert("excludeDates",QJsonArray{"2026-10-03"});
+        o.insert("baseRules",QJsonArray{base(30,20,10,condition),base(31,20,10,excluded)});
+        preview = diagnosticPreview(o,from,until);
+        QCOMPARE(preview.intervals.size(),1);
+        QVERIFY(preview.conflicts.isEmpty());
+
+        o.insert("baseRules",QJsonArray{base(30,20,10,when({{"type","calendar"},{"calendarId",id(50)}}))});
+        o.insert("calendars",QJsonArray{QJsonObject{{"id",id(50)},{"revision",1},{"name","Календарь"},
+            {"coverage",o.value("validity")},{"dates",QJsonArray{"2026-10-05"}}}});
+        preview = diagnosticPreview(o,from.addDays(1),until.addDays(1));
+        QVERIFY(preview.error.contains(QStringLiteral("предыдущую дату")));
+        QVERIFY(preview.intervals.isEmpty());
+        QVERIFY(preview.mixIntervals.isEmpty());
+        QVERIFY(preview.conflicts.isEmpty());
+        o.insert("schemaVersion",2);
+        QVERIFY(!diagnosticPreview(o,from,until).error.isEmpty());
+    }
+    void diagnosticPreviewUsesTheSameDstGapAndFirstOccurrencePolicy()
+    {
+        auto o = fixture(); o.insert("timeZone","Europe/Berlin");
+        o.insert("validity",QJsonObject{{"from","2026-03-29"},{"until","2026-03-30"}});
+        replaceWindow(o,window("02:15:00","02:45:00",0));
+        o.insert("baseRules",QJsonArray{base(),base(31)});
+        auto preview = diagnosticPreview(o,at("2026-03-29T00:00:00+01:00"),at("2026-03-30T00:00:00+02:00"));
+        QVERIFY2(preview.error.isEmpty(),qPrintable(preview.error));
+        QVERIFY(preview.intervals.isEmpty());
+        QVERIFY(preview.conflicts.isEmpty());
+        QCOMPARE(preview.diagnostics.size(),2);
+        o.insert("validity",QJsonObject{{"from","2026-10-25"},{"until","2026-10-26"}});
+        preview = diagnosticPreview(o,at("2026-10-25T00:00:00+02:00"),at("2026-10-26T00:00:00+01:00"));
+        QVERIFY2(preview.error.isEmpty(),qPrintable(preview.error));
+        QCOMPARE(preview.intervals.size(),2);
+        QCOMPARE(preview.conflicts.size(),1);
+        QCOMPARE(preview.conflicts.first().from,at("2026-10-25T02:15:00+02:00"));
+        QCOMPARE(preview.conflicts.first().until,at("2026-10-25T02:45:00+02:00"));
+    }
     void rotationActivationSurvivesMidnightAndRestartsAfterWinnerChanges()
     {
         auto o = fixture(); o.insert("mixRules",QJsonArray{mix()}); Document d; QVERIFY(read(o,&d).isEmpty());

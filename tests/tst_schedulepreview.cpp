@@ -111,6 +111,7 @@ private slots:
     void documentShowsRulesAndEvents();
     void documentGridSelectsAndEditsChannelsById();
     void additionalRulesKeepTheSameGrid();
+    void channelOnlyTableIsHiddenAndTimelineStillEdits();
     void invalidDocumentClearsGrid();
     void overlappingDocumentShowsErrorAndRecovers();
     void externalDocumentErrorClearsPlanAndRecovers();
@@ -346,13 +347,16 @@ void SchedulePreviewTests::additionalRulesKeepTheSameGrid()
 {
     SchedulePreviewWidget widget;
     widget.setPreviewDateTime(at(2026, 10, 4));
-    const auto initial = documentFixture();
+    auto initial = documentFixture();
+    initial.insert(QStringLiteral("eventRules"), QJsonArray{});
+    initial.insert(QStringLiteral("requiredCapabilities"), QJsonArray::fromStringList(ScheduleV1::requiredCapabilities(initial)));
     widget.setDocument(initial);
     auto *grid = widget.findChild<QWidget *>(QStringLiteral("scheduleDocumentGrid"));
     auto *table = widget.findChild<QTableView *>(QStringLiteral("scheduleDocumentTable"));
     auto *date = widget.findChild<QDateEdit *>(QStringLiteral("previewDate"));
     auto *time = widget.findChild<QTimeEdit *>(QStringLiteral("previewTime"));
     QVERIFY(grid && table && date && time);
+    QVERIFY(table->isHidden());
     auto withMix = initial;
     withMix.insert(QStringLiteral("mixRules"), QJsonArray{QJsonObject{
         {"id", id(70)}, {"name", QStringLiteral("Праздничное чередование")}, {"enabled", true}, {"priority", 10},
@@ -367,6 +371,7 @@ void SchedulePreviewTests::additionalRulesKeepTheSameGrid()
     QVERIFY2(!widget.snapshot().hasUnresolvedRules, qPrintable(widget.snapshot().issues.join(QLatin1Char('\n'))));
     QVERIFY(tableText(table).contains(QStringLiteral("Чередование")));
     QVERIFY(tableText(table).contains(QStringLiteral("Праздничное чередование")));
+    QVERIFY(!table->isHidden());
     QVERIFY(!grid->isHidden());
     QVERIFY(!date->isHidden());
     QVERIFY(!time->isHidden());
@@ -375,11 +380,51 @@ void SchedulePreviewTests::additionalRulesKeepTheSameGrid()
     widget.setDocument(initial);
     QVERIFY(!widget.snapshot().hasUnresolvedRules);
     QVERIFY(!tableText(table).contains(QStringLiteral("Чередование")));
+    QVERIFY(table->isHidden());
     QCOMPARE(widget.findChild<QTableView *>(QStringLiteral("scheduleDocumentTable")), table);
     QCOMPARE(widget.findChildren<QTableView *>().size(), 1);
     QVERIFY(!grid->isHidden());
     QVERIFY(!date->isHidden());
     QVERIFY(!time->isHidden());
+}
+
+void SchedulePreviewTests::channelOnlyTableIsHiddenAndTimelineStillEdits()
+{
+    QStandardItemModel model(0, 7);
+    channel(model, QStringLiteral("Первый"));
+    channel(model, QStringLiteral("Второй"));
+    model.setData(model.index(0, 0), id(11), ChannelModel::RuleIdRole);
+    model.setData(model.index(1, 0), id(12), ChannelModel::RuleIdRole);
+    SchedulePreviewWidget widget;
+    widget.setModels(&model);
+    widget.setPreviewDateTime(at(2026, 10, 4));
+    auto document = documentFixture();
+    document.insert(QStringLiteral("eventRules"), QJsonArray{});
+    document.insert(QStringLiteral("requiredCapabilities"), QJsonArray::fromStringList(ScheduleV1::requiredCapabilities(document)));
+    widget.setDocument(document);
+    widget.resize(1177, 349);
+    widget.show();
+    QApplication::processEvents();
+    auto *table = widget.findChild<QTableView *>(QStringLiteral("scheduleDocumentTable"));
+    auto *timeline = widget.findChild<QWidget *>(QStringLiteral("scheduleDocumentTimeline"));
+    QVERIFY(table && timeline);
+    QVERIFY(table->isHidden());
+    QCOMPARE(table->model()->rowCount(), 2);
+    QSignalSpy edits(&widget, &SchedulePreviewWidget::editRequested);
+    QTest::mouseClick(timeline, Qt::LeftButton, Qt::NoModifier, QPoint(timeline->width() * 3 / 4, 68));
+    QCOMPARE(widget.selectedRow(), 1);
+    QVERIFY(timeline->hasFocus());
+    QTest::keyClick(timeline, Qt::Key_Return);
+    QCOMPARE(edits.size(), 1);
+    QCOMPARE(edits.first().first().toInt(), 1);
+    // An event shows the same table; changing to a day without events hides it.
+    widget.setDocument(documentFixture());
+    QVERIFY(!table->isHidden());
+    widget.setPreviewDateTime(at(2026, 10, 5));
+    QVERIFY(table->isHidden());
+    QVERIFY(tableText(table).contains(QStringLiteral("Тишина")));
+    widget.clearDocument();
+    QVERIFY(table->isHidden());
 }
 
 void SchedulePreviewTests::invalidDocumentClearsGrid()
@@ -441,7 +486,13 @@ void SchedulePreviewTests::overlappingDocumentShowsErrorAndRecovers()
     widget.setDocument(overlapping);
     const auto &snapshot = widget.snapshot();
     QVERIFY(snapshot.hasUnresolvedRules);
-    QCOMPARE(table->model()->rowCount(), 0);
+    QCOMPARE(table->model()->rowCount(), 5);
+    auto *timeline = widget.findChild<QWidget *>(QStringLiteral("scheduleDocumentTimeline"));
+    QVERIFY(timeline);
+    QCOMPARE(timeline->property("conflictingIntervalCount").toInt(), 4);
+    QVERIFY(tableText(table).contains(QStringLiteral("Конфликтующий канал")));
+    QVERIFY(table->model()->index(0, 0).data(Qt::ToolTipRole).toString().contains(QStringLiteral("Пересечение 00:00–12:00")));
+    QVERIFY(!table->model()->index(0, 0).data(Qt::BackgroundRole).isValid());
     QCOMPARE(widget.findChildren<QTableView *>().size(), 1);
     QVERIFY(!status->isHidden());
     QVERIFY(status->property("scheduleIssue").toBool());
@@ -463,6 +514,7 @@ void SchedulePreviewTests::overlappingDocumentShowsErrorAndRecovers()
 
     widget.setDocument(valid);
     QVERIFY(!widget.snapshot().hasUnresolvedRules);
+    QCOMPARE(timeline->property("conflictingIntervalCount").toInt(), 0);
     QVERIFY(table->model()->rowCount() > 0);
     QVERIFY(tableText(table).contains(QStringLiteral("Первый проекта")));
     QVERIFY(!status->property("scheduleIssue").toBool());
@@ -551,7 +603,7 @@ void SchedulePreviewTests::documentDateRefreshAndChannelSelection()
     QCOMPARE(widget.selectedRow(), 2);
     QVERIFY(widget.snapshot().channels.isEmpty());
     QCOMPARE(table->model()->rowCount(), 0);
-    QVERIFY(!table->isHidden());
+    QVERIFY(table->isHidden());
     QCOMPARE(widget.findChildren<QTableView *>().size(), 1);
 }
 

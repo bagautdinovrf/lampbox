@@ -294,6 +294,7 @@ private slots:
         window.updateScheduleDocumentPreview();
         auto *initialGrid = page.schedule->findChild<QTableView *>("scheduleDocumentTable");
         QVERIFY(initialGrid && initialGrid->model()->rowCount() > 0);
+        QVERIFY(initialGrid->isHidden());
         QVERIFY(page.schedule->snapshot().currentSummary.contains("Первый"));
         QCOMPARE(page.schedule->snapshot().activeRows, QList<int>{0});
         const auto initialSummary = page.schedule->snapshot().currentSummary;
@@ -339,10 +340,12 @@ private slots:
         QVERIFY(!page.schedule->snapshot().hasUnresolvedRules);
         QCOMPARE(page.schedule->selectedRow(), 1);
         QCOMPARE(page.channels->property("channelFileCounts").toStringList(), QStringList({"1", "1"}));
+        QVERIFY(grid->isHidden());
         QCOMPARE(activeBytes(), publishedPointer);
+        QVERIFY(capture(window, "channel-only-schedule"));
 
-        // A failed draft must clear the old successful plan, including the side
-        // panel's current/next labels; it must not display yesterday's grid.
+        // A conflicting draft displays the current source intervals while the
+        // side panel stops claiming a resolved current/next playback plan.
         QVERIFY2(manager->setRule(0, {"Первый", QTime(8, 0), QTime(18, 0),
             "*", "*", "*", 17}), qPrintable(manager->lastError()));
         window.mScheduleUpdateTimer->stop();
@@ -353,8 +356,13 @@ private slots:
         QVERIFY(invalid.currentSummary.startsWith(QStringLiteral("Расчёт недоступен:")));
         QCOMPARE(page.planNow->text(), invalid.currentSummary);
         QVERIFY(!invalid.nextChannelTime.isValid());
-        QCOMPARE(grid->model()->rowCount(), 0);
+        QCOMPARE(slotTime("Первый"), QStringLiteral("08:00–18:00"));
+        QCOMPARE(slotTime("Второй"), QStringLiteral("14:00–22:00"));
+        QVERIFY(grid->isHidden());
+        QVERIFY(!window.publishMusicSchedule(false, &error));
+        QVERIFY(error.contains(QStringLiteral("пересекаются")));
         QCOMPARE(activeBytes(), publishedPointer);
+        QVERIFY(capture(window, "overlapping-schedule"));
 
         // Restoring the last valid channel values must also restore the grid,
         // even when its JSON matches the document cached before the error.

@@ -447,30 +447,41 @@ QList<Segment> winners(const QList<Segment> &segments, const QString &group, con
     return result;
 }
 
-QSharedPointer<Compiled> compile(const QJsonObject &o, const Validator &v)
+QSharedPointer<Compiled> collectOccurrences(const QJsonObject &o, const Validator &v,
+                                          const QDate &requestedFrom = {}, const QDate &requestedUntil = {})
 {
     auto c = QSharedPointer<Compiled>::create(); c->zone = v.zone; c->fromDate = v.validity.first; c->untilDate = v.validity.second;
     c->eventRules = o.value("eventRules").toArray(); c->calendars = v.calendars;
     const auto from = c->fromDate.startOfDay(c->zone), until = c->untilDate.startOfDay(c->zone);
     if (!from.isValid() || !until.isValid()) fail("validity",QStringLiteral("Граница диапазона отсутствует в часовом поясе станции"));
-    c->from = from.toMSecsSinceEpoch(); c->until = until.toMSecsSinceEpoch(); QList<Segment> base, mix;
+    c->from = from.toMSecsSinceEpoch(); c->until = until.toMSecsSinceEpoch();
+    // Previous-date coverage is part of the document contract even if a
+    // diagnostic preview asks for a later day in the validity range.
+    const QDate previousDate = c->fromDate.addDays(-1);
+    for (const auto &value : o.value("baseRules").toArray()) {
+        const auto r = value.toObject(); QJsonArray windows;
+        for (const auto &slot : v.templates.value(r.value("templateId").toString()).value("slots").toArray())
+            windows.append(slot.toObject().value("window"));
+        checkPreviousCalendar(r,windows,previousDate,v);
+    }
+    for (const auto &value : o.value("mixRules").toArray()) {
+        const auto r = value.toObject(); checkPreviousCalendar(r,r.value("windows").toArray(),previousDate,v);
+    }
+    const QDate firstDate = requestedFrom.isValid() ? std::max(previousDate,requestedFrom.addDays(-1)) : previousDate;
+    const QDate endDate = requestedUntil.isValid() ? std::min(c->untilDate,requestedUntil) : c->untilDate;
     // Enumerate dates, never minutes. The sweep below only visits boundaries.
-    for (QDate d = c->fromDate.addDays(-1); d < c->untilDate; d = d.addDays(1)) {
+    for (QDate d = firstDate; d < endDate; d = d.addDays(1)) {
         for (const auto &value : o.value("baseRules").toArray()) {
             const auto r = value.toObject();
             const auto templateSlots = v.templates.value(r.value("templateId").toString()).value("slots").toArray();
-            if (d < c->fromDate) {
-                QJsonArray windows; for (const auto &slot : templateSlots) windows.append(slot.toObject().value("window"));
-                checkPreviousCalendar(r,windows,d,v);
-            }
             if (!r.value("enabled").toBool() || !matches(r.value("when").toObject(),d,v)) continue;
             for (const auto &slot : templateSlots)
-                appendWindow(base,*c,d,r,slot.toObject(),slot.toObject().value("window").toObject());
+                appendWindow(c->base,*c,d,r,slot.toObject(),slot.toObject().value("window").toObject());
         }
         for (const auto &value : o.value("mixRules").toArray()) {
-            const auto r = value.toObject(); checkPreviousCalendar(r,r.value("windows").toArray(),d,v);
+            const auto r = value.toObject();
             if (!r.value("enabled").toBool() || !matches(r.value("when").toObject(),d,v)) continue;
-            for (const auto &w : r.value("windows").toArray()) appendWindow(mix,*c,d,r,{},w.toObject());
+            for (const auto &w : r.value("windows").toArray()) appendWindow(c->mix,*c,d,r,{},w.toObject());
         }
         if (d < c->fromDate) continue;
         for (const auto &value : o.value("eventRules").toArray()) {
@@ -491,8 +502,49 @@ QSharedPointer<Compiled> compile(const QJsonObject &o, const Validator &v)
             }
         }
     }
-    c->base = winners(base,"baseRules",c->zone); c->mix = winners(mix,"mixRules",c->zone);
     return c;
+}
+
+QSharedPointer<Compiled> compile(const QJsonObject &o, const Validator &v)
+{
+    auto c = collectOccurrences(o,v);
+    c->base = winners(c->base,"baseRules",c->zone); c->mix = winners(c->mix,"mixRules",c->zone);
+    return c;
+}
+
+QList<RuleConflict> conflicts(const QList<Segment> &segments, const QString &group, const QTimeZone &zone)
+{
+    struct Edge { qint64 at; int index; bool start; };
+    QList<Edge> edges;
+    for (qsizetype i = 0; i < segments.size(); ++i) {
+        edges.append({segments[i].from,int(i),true}); edges.append({segments[i].until,int(i),false});
+    }
+    std::sort(edges.begin(),edges.end(),[](const Edge &a,const Edge &b) { return a.at < b.at; });
+    std::map<int,std::set<int>> active;
+    QList<RuleConflict> result;
+    for (qsizetype i = 0; i < edges.size();) {
+        const qint64 at = edges[i].at; qsizetype end = i;
+        while (end < edges.size() && edges[end].at == at) ++end;
+        for (qsizetype j = i; j < end; ++j) if (!edges[j].start) {
+            auto it = active.find(segments[edges[j].index].priority);
+            if (it != active.end()) { it->second.erase(edges[j].index); if (it->second.empty()) active.erase(it); }
+        }
+        for (qsizetype j = i; j < end; ++j) if (edges[j].start)
+            active[segments[edges[j].index].priority].insert(edges[j].index);
+        if (end < edges.size()) for (const auto &[priority,indexes] : active) {
+            if (indexes.size() < 2) continue;
+            QStringList ids;
+            for (const int index : indexes) ids.append(segments[index].rule.value("id").toString());
+            ids.removeDuplicates(); ids.sort();
+            const auto from = QDateTime::fromMSecsSinceEpoch(at,zone);
+            const auto until = QDateTime::fromMSecsSinceEpoch(edges[end].at,zone);
+            if (!result.isEmpty() && result.last().until == from && result.last().priority == priority
+                    && result.last().ruleIds == ids) result.last().until = until;
+            else result.append({from,until,group,ids,priority});
+        }
+        i = end;
+    }
+    return result;
 }
 
 const Segment *atSegment(const QList<Segment> &segments, qint64 at)
@@ -652,5 +704,59 @@ QList<EventOccurrence> events(const Document &document, const QDateTime &fromInc
         return a.ruleId < b.ruleId;
     });
     return result;
+}
+
+DiagnosticPreview diagnosticPreview(const QJsonObject &object, const QDateTime &fromInclusive,
+                                    const QDateTime &untilExclusive)
+{
+    try {
+        if (!fromInclusive.isValid() || !untilExclusive.isValid() || fromInclusive >= untilExclusive)
+            fail("preview",QStringLiteral("Некорректный диапазон предпросмотра"));
+        Validator validator; validator.validate(object);
+        auto occurrences = collectOccurrences(object,validator,fromInclusive.toTimeZone(validator.zone).date(),
+                untilExclusive.addMSecs(-1).toTimeZone(validator.zone).date().addDays(1));
+        const qint64 from = fromInclusive.toMSecsSinceEpoch(), until = untilExclusive.toMSecsSinceEpoch();
+        const auto clip = [&](QList<Segment> &segments) {
+            QList<Segment> visible;
+            for (auto segment : segments) {
+                segment.from = std::max(from,segment.from); segment.until = std::min(until,segment.until);
+                if (segment.from < segment.until) visible.append(std::move(segment));
+            }
+            std::stable_sort(visible.begin(),visible.end(),[](const Segment &a,const Segment &b) { return a.from < b.from; });
+            segments = std::move(visible);
+        };
+        clip(occurrences->base); clip(occurrences->mix);
+        DiagnosticPreview result;
+        const auto append = [&](const QList<Segment> &segments, QList<PlanInterval> &destination, bool mix) {
+            for (const auto &segment : segments) {
+                Evaluation plan; plan.withinValidity = true; plan.usingFallback = false;
+                if (mix) {
+                    plan.mixRuleId = segment.rule.value("id").toString();
+                    plan.pattern = segment.rule.value("pattern").toArray();
+                } else {
+                    const auto source = segment.slot.value("source").toObject();
+                    plan.baseRuleId = segment.rule.value("id").toString();
+                    plan.baseSlotId = segment.slot.value("id").toString();
+                    plan.playlistId = source.value("playlistId").toString();
+                    plan.silence = source.value("type") == QJsonValue("silence");
+                    plan.volumePercent = segment.slot.value("volumePercent").toInt();
+                }
+                destination.append({QDateTime::fromMSecsSinceEpoch(segment.from,validator.zone),
+                    QDateTime::fromMSecsSinceEpoch(segment.until,validator.zone),plan});
+            }
+        };
+        append(occurrences->base,result.intervals,false);
+        append(occurrences->mix,result.mixIntervals,true);
+        result.conflicts = conflicts(occurrences->base,QStringLiteral("baseRules"),validator.zone)
+                + conflicts(occurrences->mix,QStringLiteral("mixRules"),validator.zone);
+        for (const auto &diagnostic : occurrences->diagnostics) result.diagnostics.append(diagnostic.text);
+        // Only the event enumerator sees this local container. The raw rule
+        // occurrences never escape as a Document that evaluate() could execute.
+        Document eventContext; eventContext.object = object; eventContext.compiled = occurrences;
+        result.events = events(eventContext,fromInclusive,untilExclusive.addMSecs(-1));
+        return result;
+    } catch (const Invalid &error) {
+        DiagnosticPreview result; result.error = error.text; return result;
+    }
 }
 } // namespace ScheduleV1

@@ -278,6 +278,9 @@ void SchedulePreviewWidget::setDocument(const QJsonObject &document)
     if (!d->compiledDocument.compiled || !d->documentError.isEmpty() || d->document != document) {
         d->compiledDocument = {};
         d->documentError = ScheduleV1::decode(document, &d->compiledDocument);
+        // Keep the current draft available for diagnostic drawing. A rejected
+        // draft has no compiled plan and must never reuse the previous plan.
+        if (!d->documentError.isEmpty()) d->compiledDocument.object = document;
     }
     d->document = document;
     if (d->followingCurrentTime) showCurrentTime();
@@ -286,6 +289,7 @@ void SchedulePreviewWidget::setDocument(const QJsonObject &document)
 
 void SchedulePreviewWidget::setDocumentError(const QString &error)
 {
+    d->document = {};
     d->compiledDocument = {};
     d->documentError = error.trimmed().isEmpty() ? tr("Не удалось обновить расписание.") : error;
     refresh();
