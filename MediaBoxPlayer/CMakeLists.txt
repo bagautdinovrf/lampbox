@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
 
-project(MediaBoxPlayer VERSION 0.3.1 LANGUAGES CXX)
+project(MediaBoxPlayer VERSION 0.3.2 LANGUAGES CXX)
 
 if(PROJECT_IS_TOP_LEVEL)
     set(CMAKE_CXX_STANDARD 23)
@@ -23,7 +23,8 @@ endif()
 if(NOT TARGET MediaBoxScheduleCore)
     add_library(MediaBoxScheduleCore STATIC
         ../src/schedulecore/schedulecore.cpp ../src/schedulecore/schedulecore.h
-        ../src/schedulecore/schedulev1.cpp ../src/schedulecore/schedulev1.h)
+        ../src/schedulecore/schedulev1.cpp ../src/schedulecore/schedulev1.h
+        ../src/schedulecore/schedulecompiler.cpp ../src/schedulecore/schedulecompiler.h)
     target_include_directories(MediaBoxScheduleCore PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../src")
     target_link_libraries(MediaBoxScheduleCore PUBLIC Qt6::Core)
     target_compile_features(MediaBoxScheduleCore PUBLIC cxx_std_23)
@@ -35,7 +36,7 @@ endif()
 add_library(MediaBoxPlayerCore STATIC
     src/audiobackend.cpp src/audiobackend.h
     src/playerengine.cpp src/playerengine.h
-    src/playbackschedule.cpp src/playbackschedule.h
+    src/playbackfilevalidation.cpp src/playbackfilevalidation.h
     src/controlserver.cpp src/controlserver.h
     src/desktopservice.cpp src/desktopservice.h
     src/schedulev1runtime.cpp src/schedulev1runtime.h

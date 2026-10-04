@@ -52,12 +52,12 @@ private slots:
     void intervalBoundsAndAmbiguity();
     void unsupportedIntervals();
     void explicitFullDayAndNightUseModelRole();
-    void advancedDocumentHidesLegacyPlan();
+    void advancedDocumentReplacesChannelPlan();
     void boundedLookaheadAndSimultaneousChanges();
     void advertsRespectCalendarAndMinutes();
     void advertFrequencyUsesCompiledMinutesAndNeverIsEmpty();
     void invalidFrequencyHasDiagnostics();
-    void publishedLegacyMinutesAreUsed();
+    void preparedMinutesAreUsed();
     void localTimeTransitionsDoNotInventExactEvents();
     void widgetIsReadOnlyAndRefreshes();
     void clockFollowsCurrentTimeAndPreservesManualPreview();
@@ -150,10 +150,10 @@ void SchedulePreviewTests::explicitFullDayAndNightUseModelRole()
     QCOMPARE(tail.channels.first().dayIntervals, (QList<QPair<int, int>>{{0, 360}}));
 }
 
-void SchedulePreviewTests::advancedDocumentHidesLegacyPlan()
+void SchedulePreviewTests::advancedDocumentReplacesChannelPlan()
 {
     QStandardItemModel model(0, 7);
-    channel(model, QStringLiteral("Старый"));
+    channel(model, QStringLiteral("Канал"));
     SchedulePreviewWidget widget;
     widget.setModels(&model);
     widget.setDocument(QJsonObject{});
@@ -244,15 +244,15 @@ void SchedulePreviewTests::invalidFrequencyHasDiagnostics()
     }
 }
 
-void SchedulePreviewTests::publishedLegacyMinutesAreUsed()
+void SchedulePreviewTests::preparedMinutesAreUsed()
 {
     QStandardItemModel model(0, 7);
-    advert(model, QStringLiteral("Старая фаза"), QStringLiteral("*"), QStringLiteral("3"),
+    advert(model, QStringLiteral("Подготовленная фаза"), QStringLiteral("*"), QStringLiteral("3"),
            QDate(2026, 1, 1), QDate(2026, 12, 31));
     model.setData(model.index(0, 0), QVariantList{2, 22, 42}, AdvertModel::CompiledMinutesRole);
     const auto moment = at(2026, 10, 4, 10, 2);
     auto preview = SchedulePreview::evaluate(nullptr, &model, moment);
-    QCOMPARE(preview.exactAdvertsNow, QStringList{QStringLiteral("Старая фаза")});
+    QCOMPARE(preview.exactAdvertsNow, QStringList{QStringLiteral("Подготовленная фаза")});
     QCOMPARE(preview.nextAdvertTime, moment.addSecs(20 * 60));
     model.setData(model.index(0, 6), 10);
     QCOMPARE(SchedulePreview::evaluate(nullptr, &model, moment).nextAdvertTime, preview.nextAdvertTime);

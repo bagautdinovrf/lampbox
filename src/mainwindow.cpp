@@ -558,7 +558,7 @@ QWidget *MainWindow::buildMediaPage(int page) {
     if (!ads) {
         p.schedulePlayback = button("По расписанию", "calendar", "primary");
         p.schedulePlayback->setObjectName(page == PAGE_MUSIC ? "audioScheduleButton" : "videoScheduleButton");
-        p.schedulePlayback->setToolTip("Передать актуальные правила плееру и включить автоматическое воспроизведение");
+        p.schedulePlayback->setToolTip("Опубликовать расписание и включить его воспроизведение плеером");
         h->addWidget(p.schedulePlayback);
         connect(p.schedulePlayback, &QPushButton::clicked, this, [this, page] { startScheduledPlayback(page); });
     }
@@ -569,12 +569,12 @@ QWidget *MainWindow::buildMediaPage(int page) {
         h->addWidget(screens);
         connect(screens, &QPushButton::clicked, this, &MainWindow::showVideoControls);
     }
-    if (page == PAGE_MUSIC) {
+    if (!ads) {
         auto *project = button("Проект", "calendar");
-        project->setObjectName("scheduleProjectButton");
+        project->setObjectName(page == PAGE_MUSIC ? "scheduleProjectButton" : "videoScheduleProjectButton");
         project->setToolTip("Календарь, полные сутки, ночные интервалы и чередование плейлистов");
         h->addWidget(project);
-        connect(project, &QPushButton::clicked, this, &MainWindow::editScheduleProject);
+        connect(project, &QPushButton::clicked, this, [this, page] { editScheduleProject(page); });
     }
     auto *all = button("Все параметры", "calendar");
     all->setObjectName("allSchedulesButton" + suffix);
@@ -1511,8 +1511,8 @@ QJsonObject MainWindow::playbackSchedule(int page, QString *error) const {
             {"volume", channel.volume()}, {"order", channel.playbackOrder()},
             {"untilDayOffset", channel.untilDayOffset()},
             {"paths", QJsonArray::fromStringList(channelFiles(channel.mediaManager()))}};
-        // Compiler metadata only; the video protocol uses absolute paths.
-        if (page == PAGE_MUSIC) item.insert("directory", channel.storageDirectory());
+        // Compiler metadata only; TCP sends the publication's file paths.
+        item.insert("directory", channel.storageDirectory());
         channels.append(item);
     }
     const QDir advertDirectory = mMediaAdvertManager->getDirMediaFiles();
@@ -1590,86 +1590,101 @@ void MainWindow::startScheduledPlayback(int page) {
     if (!publishMusicSchedule(true, &error)) showError(error);
 }
 
-void MainWindow::editScheduleProject() {
+void MainWindow::editScheduleProject(int page) {
     QString error;
-    const auto legacy = playbackSchedule(PAGE_MUSIC, &error);
+    const auto source = playbackSchedule(page, &error);
     if (!error.isEmpty()) { showError(error); return; }
+    const QString directory = page == PAGE_VIDEO ? QDir(STATIONPATH).filePath("video-schedule") : STATIONPATH;
+    const QString mediaType = page == PAGE_VIDEO ? QStringLiteral("video") : QStringLiteral("audio");
     QJsonObject document;
     bool advanced = false;
-    if (!SchedulePublication::draft(STATIONPATH, STATIONMEDIA, legacy, &document, &advanced, &error)) {
+    if (!SchedulePublication::draft(directory, STATIONMEDIA, source, &document, &advanced, &error, mediaType)) {
         showError(error); return;
     }
-    ScheduledDocumentDialog dialog(document, this);
+    ScheduledDocumentDialog dialog(document, this, mediaType);
     if (dialog.exec() != QDialog::Accepted) return;
-    if (!SchedulePublication::saveDraft(STATIONPATH, dialog.document(), &error)) { showError(error); return; }
+    if (!SchedulePublication::saveDraft(directory, dialog.document(), &error)) { showError(error); return; }
     updateScheduleDocumentPreview();
     mScheduleUpdateTimer->start();
 }
 
 void MainWindow::updateScheduleDocumentPreview() {
     if (!qApp->property("restylePreviewStation").toString().isEmpty()) return;
-    QString error;
-    const auto legacy = playbackSchedule(PAGE_MUSIC, &error);
-    if (!error.isEmpty()) return;
-    QJsonObject document;
-    bool advanced = false;
-    if (!SchedulePublication::draft(STATIONPATH, STATIONMEDIA, legacy, &document, &advanced, &error)) return;
-    if (advanced) {
-        if (mScheduleDocument != document && mPages[PAGE_MUSIC].schedule)
-            mPages[PAGE_MUSIC].schedule->setDocument(document);
-        mScheduleDocument = document;
-        mPages[PAGE_MUSIC].subtitle->setText("Каналы · медиатека. Календарь и правила — в проекте расписания");
-    } else if (!mScheduleDocument.isEmpty()) {
-        if (mPages[PAGE_MUSIC].schedule) mPages[PAGE_MUSIC].schedule->clearDocument();
-        mScheduleDocument = {};
+    for (int page : {PAGE_MUSIC, PAGE_VIDEO}) {
+        QString error;
+        const auto source = playbackSchedule(page, &error);
+        if (!error.isEmpty()) continue;
+        QJsonObject document;
+        bool advanced = false;
+        const QString directory = page == PAGE_VIDEO ? QDir(STATIONPATH).filePath("video-schedule") : STATIONPATH;
+        const QString mediaType = page == PAGE_VIDEO ? QStringLiteral("video") : QStringLiteral("audio");
+        if (!SchedulePublication::draft(directory, STATIONMEDIA, source, &document, &advanced, &error, mediaType)) continue;
+        auto &previous = mScheduleDocuments[page];
+        if (advanced) {
+            if (previous != document && mPages[page].schedule) mPages[page].schedule->setDocument(document);
+            previous = document;
+            mPages[page].subtitle->setText("Каналы · медиатека. Календарь и правила — в проекте расписания");
+        } else if (!previous.isEmpty()) {
+            if (mPages[page].schedule) mPages[page].schedule->clearDocument();
+            previous = {};
+        }
     }
 }
 
 bool MainWindow::publishMusicSchedule(bool autoplay, QString *error) {
-    const auto legacy = playbackSchedule(PAGE_MUSIC, error);
+    const auto source = playbackSchedule(PAGE_MUSIC, error);
     if (!error->isEmpty()) return false;
     QJsonObject document;
     bool advanced = false;
-    if (!SchedulePublication::draft(STATIONPATH, STATIONMEDIA, legacy, &document, &advanced, error)) return false;
+    if (!SchedulePublication::draft(STATIONPATH, STATIONMEDIA, source, &document, &advanced, error)) return false;
     SchedulePublication::Publication publication;
     if (!SchedulePublication::publish(STATIONPATH, STATIONMEDIA, document, &publication, error)) return false;
-    if (mMediaController->setPublication(publication.bytes, publication.active, publication.contentRoot, autoplay).isEmpty())
+    if ((playerAvailable() && mMediaController->loadPublication(publication.activePath, publication.contentRoot, autoplay).isEmpty())
+        || (autoplay && !playerAvailable()))
     {
-        *error = QStringLiteral("Плеер не принял команду передачи выпуска. Проверьте подключение и размер расписания.");
+        *error = QStringLiteral("Плеер не принял команду загрузки выпуска. Проверьте подключение и обновите плеер до текущей версии.");
         return false;
     }
     updateScheduleDocumentPreview();
     return true;
 }
 
-void MainWindow::updateVideoPlaybackContext() {
+bool MainWindow::updateVideoPlaybackContext(QString *error) {
+    QString reason;
+    const auto schedule = playbackSchedule(PAGE_VIDEO, &reason);
+    QJsonObject document;
+    bool advanced = false;
+    SchedulePublication::Publication publication;
+    const QString directory = QDir(STATIONPATH).filePath("video-schedule");
+    const bool prepared = reason.isEmpty()
+        && SchedulePublication::draft(directory, STATIONMEDIA, schedule, &document, &advanced, &reason, "video")
+        && SchedulePublication::publish(directory, STATIONMEDIA, document, &publication, &reason);
+    mVideoScheduleActivePath = prepared ? publication.activePath : QString();
+    mVideoScheduleContentRoot = prepared ? publication.contentRoot : QString();
+    if (error) *error = reason;
     auto *controls = findChild<VideoControlWidget *>();
-    if (!controls) return;
-    QString error;
-    const auto schedule = playbackSchedule(PAGE_VIDEO, &error);
-    controls->setScheduleSnapshot(error.isEmpty() ? schedule : QJsonObject{});
+    if (!controls) return prepared;
+    controls->setSchedulePublication(mVideoScheduleActivePath, mVideoScheduleContentRoot);
     if (auto *media = mediaManager(PAGE_VIDEO)) {
         auto &channel = mChannelManagers[PAGE_VIDEO]->currentChannel();
         controls->setSelectedChannel(channel.channelName(), channelFiles(*media), channel.volume(), channel.playbackOrder());
     } else {
         controls->setSelectedChannel({}, {}, 100);
     }
+    return prepared;
 }
 
 void MainWindow::refreshPlaybackSchedules() {
-    updateVideoPlaybackContext();
+    QString videoError;
+    const bool videoPrepared = updateVideoPlaybackContext(&videoError);
     updateScheduleDocumentPreview();
     QString error;
-    if (playerAvailable() && mMediaController->status().playbackMode == "schedule") {
-        if (!publishMusicSchedule(false, &error)) Informer::Instance().infoEvent(error, Informer::ERROR);
-    }
+    if (!publishMusicSchedule(false, &error)) Informer::Instance().infoEvent(error, Informer::ERROR);
     if (mVideoController && mVideoController->isReady()) {
-        const auto schedule = playbackSchedule(PAGE_VIDEO, &error);
-        if (error.isEmpty()) {
+        if (videoPrepared) {
             for (const auto &window : mVideoController->videoStatus().windows)
-                if (window.playback.playbackMode == "schedule")
-                    mVideoController->setSchedule(window.id, schedule);
-        } else Informer::Instance().infoEvent(error, Informer::ERROR);
+                mVideoController->loadPublication(window.id, mVideoScheduleActivePath, mVideoScheduleContentRoot, false);
+        } else Informer::Instance().infoEvent(videoError, Informer::ERROR);
     }
 }
 

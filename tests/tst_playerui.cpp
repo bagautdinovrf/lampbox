@@ -40,7 +40,11 @@ QJsonObject snapshot(const QString &state = QStringLiteral("stopped"))
             {"queue", QJsonArray{"/srv/music/Первая песня.wav", "C:/Media/Вторая песня.wav"}},
             {"currentIndex", 0}, {"currentTrack", "/srv/music/Первая песня.wav"},
             {"positionMs", 12345}, {"durationMs", 180000}, {"volumePercent", 70},
-            {"muted", false}, {"repeat", "off"}, {"error", ""}};
+            {"muted", false}, {"repeat", "off"}, {"error", ""},
+            {"playbackMode", "manual"}, {"channelName", ""},
+            {"scheduleAvailable", false}, {"scheduleError", ""},
+            {"publicationId", ""}, {"scheduleId", ""}, {"revision", 0},
+            {"supportedCapabilities", QJsonArray{"schedule.current.v1"}}};
 }
 
 // Keep replies under test control to observe the UI before and after the

@@ -14,6 +14,7 @@
 #include "channelmanager.h"
 #include "channelmodel.h"
 #include "projectrepository.h"
+#include "projectfixture.h"
 #include "schedulepublication.h"
 #include "schedulev1runtime.h"
 #include "stationmanager.h"
@@ -60,9 +61,6 @@ class SchedulePersistenceTests : public QObject
 {
     Q_OBJECT
     QTemporaryDir station;
-    QString timetable() const { return station.filePath("timetable/timetable"); }
-    QString adverts() const { return station.filePath("timetable/advertView"); }
-    QString derived() const { return station.filePath("timetable/adverttable"); }
     QString projectFile() const { return station.filePath("project.json"); }
     ProjectRepository::Paths paths() const
     {
@@ -88,130 +86,62 @@ private slots:
     void init()
     {
         QFile::remove(projectFile()); QFile::remove(projectFile() + ".pending");
-        put(timetable(), "One 08:00 18:00 * * * 70\n");
-        put(station.filePath("timetable/vtimetable"), "Screen 00:00 00:00 * * * 100\n");
-        put(adverts(), "ad.mp3;10;3;*;04.10.2026;04.10.2026;70\n");
-        put(derived(), "ad.mp3;10;2m,22m,42m;*;04.10.2026;04.10.2026;70;0\n");
+        ProjectRepository::Project project;
+        project.music.append(ProjectFixture::channel("One", QTime(8, 0), QTime(18, 0), 70));
+        project.video.append(ProjectFixture::channel("Screen", QTime(8, 0), QTime(18, 0), 100));
+        project.advert.append(ProjectFixture::advert("ad.mp3", "10", "3",
+            QDate(2026, 10, 4), QDate(2026, 10, 4), 70, {2, 22, 42}));
+        put(projectFile(), ProjectRepository::encode(project));
         QDir().mkpath(station.filePath("media/music/One"));
         QDir().mkpath(station.filePath("media/video/Screen"));
     }
-    void malformedImport_data()
+
+    void missingProjectIgnoresUnrelatedFiles()
     {
-        QTest::addColumn<QByteArray>("input");
-        QTest::newRow("blank") << QByteArray("\n");
-        QTest::newRow("truncated") << QByteArray("One 08:00\n");
-        QTest::newRow("extra-field") << QByteArray("One 08:00 18:00 * * * 70 extra\n");
-        QTest::newRow("bad-time") << QByteArray("One 24:00 18:00 * * * 70\n");
-        QTest::newRow("path") << QByteArray("../other 08:00 18:00 * * * 70\n");
-        QTest::newRow("duplicate") << QByteArray("One 08:00 18:00 * * * 70\none 08:00 18:00 * * * 70\n");
-        QTest::newRow("utf8") << QByteArray("\xff\xfe\n");
-    }
-    void malformedImport()
-    {
-        QFETCH(QByteArray, input);
-        put(timetable(), input);
-        ProjectRepository::Project project;
-        QString error;
-        QVERIFY(!ProjectRepository::load(paths(), &project, &error));
-        QVERIFY(!error.isEmpty()); QVERIFY(!QFileInfo::exists(projectFile()));
-        QCOMPARE(get(timetable()), input);
-        ChannelManager manager(MediaBoxManager::MUSIC);
-        QVERIFY(!manager.collectChannels());
-        QVERIFY(!manager.createChannel(channelFields("Two")));
-        QVERIFY(!QFileInfo::exists(projectFile()));
-        QCOMPARE(get(timetable()), input);
-    }
-    void importsAllSectionsOnceAndRetainsOriginals()
-    {
-        const QByteArray music = get(timetable()), source = get(adverts()), generated = get(derived());
+        QFile::remove(projectFile());
+        const QString oldMusic = station.filePath("timetable/timetable");
+        const QString oldAdvert = station.filePath("timetable/advertView");
+        put(oldMusic, "One 08:00 18:00 * * * 70\n");
+        put(oldAdvert, "broken obsolete data\n");
         const auto project = readProject();
-        QCOMPARE(project.music.size(), 1); QCOMPARE(project.video.size(), 1); QCOMPARE(project.advert.size(), 1);
-        QVERIFY(!project.music[0].stableId.isEmpty());
-        QVERIFY(project.music[0].stableId != project.video[0].stableId);
-        QCOMPARE(project.advert[0].compiledMinutes, QList<int>({2, 22, 42}));
-        const auto object = QJsonDocument::fromJson(get(projectFile())).object();
-        QCOMPARE(object.value("format").toString(), QStringLiteral("mediabox.manager-project"));
-        QVERIFY(object.value("music").toArray()[0].toObject().value("weekdays").isArray());
-        const QByteArray imported = get(projectFile());
-        QCOMPARE(get(timetable()), music); QCOMPARE(get(adverts()), source); QCOMPARE(get(derived()), generated);
-        put(timetable(), "broken after successful import\n");
-        const auto again = readProject();
-        QCOMPARE(again.music[0].stableId, project.music[0].stableId);
-        QCOMPARE(get(projectFile()), imported);
+        QVERIFY(project.music.isEmpty()); QVERIFY(project.video.isEmpty()); QVERIFY(project.advert.isEmpty());
+        QCOMPARE(QJsonDocument::fromJson(get(projectFile())).object().value("schemaVersion"), QJsonValue(3));
+        QCOMPARE(get(oldMusic), QByteArray("One 08:00 18:00 * * * 70\n"));
+        QCOMPARE(get(oldAdvert), QByteArray("broken obsolete data\n"));
+        ChannelManager manager(MediaBoxManager::MUSIC);
+        QVERIFY(manager.collectChannels());
+        QCOMPARE(manager.channelCount(), 0);
+        QVERIFY(manager.createChannel(channelFields("Two")));
+        QCOMPARE(manager.channelCount(), 1);
+        QCOMPARE(readProject().music.first().name, QStringLiteral("Two"));
     }
-    void versionOneWithoutOffsetRetainsOriginalMeaning()
+
+    void unsupportedProjectVersionsFailWithoutMutation()
     {
-        const auto original = readProject();
-        auto json = QJsonDocument::fromJson(ProjectRepository::encode(original)).object();
-        QCOMPARE(json.value("schemaVersion"), QJsonValue(3));
-        json.insert("schemaVersion", 1);
-        for (const auto &section : {QStringLiteral("music"), QStringLiteral("video")}) {
-            auto rows = json.value(section).toArray();
-            for (qsizetype i = 0; i < rows.size(); ++i) {
-                auto row = rows.at(i).toObject();
-                row.remove("untilDayOffset");
-                row.remove("directory");
-                rows.replace(i, row);
-            }
-            json.insert(section, rows);
-        }
-        ProjectRepository::Project migrated;
-        QString error;
-        QVERIFY2(ProjectRepository::decode(QJsonDocument(json).toJson(), &migrated, &error), qPrintable(error));
-        QCOMPARE(migrated.music.first().untilDayOffset, 0);
-        QCOMPARE(migrated.music.first().start, original.music.first().start);
-        QCOMPARE(migrated.music.first().end, original.music.first().end);
-        QCOMPARE(migrated.music.first().storageDirectory, original.music.first().name);
-    }
-    void oldProjectDirectoryDefaultsToName()
-    {
-        const auto original = readProject();
-        for (int version : {1, 2}) {
-            auto object = QJsonDocument::fromJson(ProjectRepository::encode(original)).object();
+        const auto original = QJsonDocument::fromJson(get(projectFile())).object();
+        for (int version : {1, 2, 4}) {
+            auto object = original;
             object["schemaVersion"] = version;
-            for (const QString &section : {QStringLiteral("music"), QStringLiteral("video")}) {
-                auto rows = object[section].toArray();
-                for (qsizetype index = 0; index < rows.size(); ++index) {
-                    auto row = rows[index].toObject();
-                    row.remove("directory");
-                    rows[index] = row;
-                }
-                object[section] = rows;
-            }
-            put(projectFile(), QJsonDocument(object).toJson());
+            const QByteArray bytes = QJsonDocument(object).toJson();
+            put(projectFile(), bytes);
+            ProjectRepository::Project output;
+            QString error;
+            QVERIFY(!ProjectRepository::decode(bytes, &output, &error));
+            QVERIFY(!error.isEmpty());
+            QVERIFY(!ProjectRepository::load(paths(), &output, &error));
             ChannelManager manager(MediaBoxManager::MUSIC);
-            QVERIFY2(manager.collectChannels(), qPrintable(manager.lastError()));
-            QCOMPARE(manager.channel(0).storageDirectory(), QStringLiteral("One"));
-            QVERIFY2(manager.setRule(0, channelFields("Migrated")), qPrintable(manager.lastError()));
-            const auto saved = readProject();
-            QCOMPARE(saved.music[0].name, QStringLiteral("Migrated"));
-            QCOMPARE(saved.music[0].storageDirectory, QStringLiteral("One"));
-            QCOMPARE(QJsonDocument::fromJson(get(projectFile())).object()["schemaVersion"], QJsonValue(3));
+            QVERIFY(!manager.collectChannels());
+            QVERIFY(!manager.createChannel(channelFields("New")));
+            QCOMPARE(get(projectFile()), bytes);
+            QVERIFY(QDir(station.path()).entryList({"project.json.v*.bak*"}, QDir::Files).isEmpty());
         }
     }
-    void failedWholeImportCanRetryWithoutPartialProject()
-    {
-        const QByteArray broken("ad.mp3;10;3\n");
-        put(adverts(), broken);
-        AdvertManager manager;
-        QVERIFY(!manager.lastError().isEmpty()); QVERIFY(!manager.addAdvert(advertFields()));
-        QVERIFY(!QFileInfo::exists(projectFile())); QCOMPARE(get(adverts()), broken);
-        put(adverts(), "ad.mp3;10;3;*;04.10.2026;04.10.2026;70\n");
-        QVERIFY(manager.collectAdvert()); QVERIFY(QFileInfo::exists(projectFile()));
-        QCOMPARE(manager.count(), 1);
-    }
-    void channelOrderDefaultsAndSurvivesEditsAndReload()
+
+    void channelOrderSurvivesEditsAndReload()
     {
         auto original = readProject();
         QCOMPARE(original.music[0].order, QStringLiteral("shuffle_cycle"));
         QCOMPARE(original.video[0].order, QStringLiteral("shuffle_cycle"));
-        auto legacy = QJsonDocument::fromJson(get(projectFile())).object();
-        for (const QString &section : {QStringLiteral("music"), QStringLiteral("video")}) {
-            auto rows = legacy.value(section).toArray();
-            auto row = rows[0].toObject(); row.remove("order"); rows[0] = row;
-            legacy[section] = rows;
-        }
-        put(projectFile(), QJsonDocument(legacy).toJson());
         ChannelManager music(MediaBoxManager::MUSIC), video(MediaBoxManager::VIDEO);
         QVERIFY(music.collectChannels()); QVERIFY(video.collectChannels());
         QCOMPARE(music.channel(0).playbackOrder(), QStringLiteral("shuffle_cycle"));
@@ -245,6 +175,11 @@ private slots:
         auto changed = original; changed["schemaVersion"] = 4; invalid.append(changed);
         changed = original; changed["schemaVersion"] = "1"; invalid.append(changed);
         changed = original; changed["unexpected"] = true; invalid.append(changed);
+        for (const QString &field : {QStringLiteral("order"), QStringLiteral("untilDayOffset"), QStringLiteral("directory")}) {
+            auto rows = original["music"].toArray();
+            auto missing = rows[0].toObject(); missing.remove(field); rows[0] = missing;
+            changed = original; changed["music"] = rows; invalid.append(changed);
+        }
         auto music = original.value("music").toArray();
         auto row = music[0].toObject(); row["volume"] = "70"; music[0] = row;
         changed = original; changed["music"] = music; invalid.append(changed);
@@ -290,19 +225,24 @@ private slots:
         put(projectFile(), good); QVERIFY(manager.collectChannels());
         QVERIFY(manager.setRule(0, channelFields("One", 71)));
     }
-    void importingMultipleChannelsPreservesMedia()
+    void loadingMultipleChannelsPreservesMedia()
     {
-        const QByteArray input("One 08:00 12:00 * * * 70\nTwo 12:00 16:00 * * * 80\nThree 16:00 20:00 * * * 90\n");
-        put(timetable(), input);
+        auto project = readProject();
+        project.music = {ProjectFixture::channel("One", QTime(8, 0), QTime(12, 0), 70),
+            ProjectFixture::channel("Two", QTime(12, 0), QTime(16, 0), 80),
+            ProjectFixture::channel("Three", QTime(16, 0), QTime(20, 0), 90)};
+        put(projectFile(), ProjectRepository::encode(project));
+        const QByteArray before = get(projectFile());
         for (const QString &name : {QStringLiteral("One"), QStringLiteral("Two"), QStringLiteral("Three")})
             put(station.filePath("media/music/" + name + "/track.mp3"), "untouched");
         ChannelManager manager(MediaBoxManager::MUSIC); QVERIFY(manager.collectChannels());
-        QCOMPARE(manager.channelCount(), 3); QCOMPARE(get(timetable()), input);
+        QCOMPARE(manager.channelCount(), 3); QCOMPARE(get(projectFile()), before);
         for (const QString &name : {QStringLiteral("One"), QStringLiteral("Two"), QStringLiteral("Three")}) {
             QCOMPARE(get(station.filePath("media/music/" + name + "/track.mp3")), QByteArray("untouched"));
             QVERIFY(!QFileInfo::exists(station.filePath("media/music/" + name + "/track.mp3.tag")));
         }
     }
+
     void wholeRuleAndSingleCellPreserveOtherSections()
     {
         ChannelManager music(MediaBoxManager::MUSIC), video(MediaBoxManager::VIDEO);
@@ -324,9 +264,8 @@ private slots:
         const QByteArray good = get(projectFile()); fields[6] = 101;
         QVERIFY(!model.setRule(0, fields)); QCOMPARE(get(projectFile()), good);
     }
-    void legacyPhaseStaysInProjectAndPreviewRole()
+    void preparedPhaseStaysInProjectAndPreviewRole()
     {
-        const QByteArray source = get(adverts()), generated = get(derived());
         AdvertManager manager; AdvertModel model(&manager);
         QCOMPARE(manager.compiledMinutes(0), QList<int>({2, 22, 42}));
         QVERIFY(model.setRule(0, advertFields(15)));
@@ -334,20 +273,21 @@ private slots:
         QCOMPARE(model.data(model.index(0, 0), AdvertModel::CompiledMinutesRole).toList(), QVariantList({2, 22, 42}));
         const QByteArray saved = get(projectFile()); QVERIFY(model.setRule(0, advertFields(15)));
         QCOMPARE(get(projectFile()), saved);
-        QCOMPARE(get(adverts()), source); QCOMPARE(get(derived()), generated);
         QVERIFY(manager.delAdvert(0)); QVERIFY(readProject().advert.isEmpty());
-        QCOMPARE(get(adverts()), source); QCOMPARE(get(derived()), generated);
     }
     void duplicateRowsRetainIdentityAndPhase()
     {
-        put(adverts(), "ad.mp3;10;3;*;04.10.2026;04.10.2026;70\nad.mp3;10;3;*;04.10.2026;04.10.2026;40\n");
-        put(derived(), "ad.mp3;10;2m,22m,42m;*;04.10.2026;04.10.2026;70;0\nad.mp3;10;7m,27m,47m;*;04.10.2026;04.10.2026;40;0\n");
+        auto project = readProject();
+        project.advert.append(ProjectFixture::advert("ad.mp3", "10", "3",
+            QDate(2026, 10, 4), QDate(2026, 10, 4), 40, {7, 27, 47}));
+        put(projectFile(), ProjectRepository::encode(project));
         AdvertManager manager; const QString survivor = readProject().advert[1].stableId;
         QVERIFY(manager.delAdvert(0));
         QCOMPARE(manager.compiledMinutes(0), QList<int>({7, 27, 47}));
         QCOMPARE(readProject().advert[0].stableId, survivor);
     }
-    void newProjectCreatesNoLegacyFiles()
+
+    void newProjectCreatesOnlyCurrentStorage()
     {
         QTemporaryDir fresh;
         ProjectRepository::Paths p{fresh.path(), fresh.filePath("music"), fresh.filePath("video")};
@@ -357,32 +297,19 @@ private slots:
         QVERIFY(QFileInfo::exists(fresh.filePath("project.json")));
         QVERIFY(!QFileInfo::exists(fresh.filePath("timetable")));
     }
-    void mixedExactAndFrequencyImportKeepSeparatePhases()
+    void mixedExactAndFrequencyRulesKeepSeparatePhases()
     {
-        put(adverts(), "ad.mp3;10;0m,20m,40m;*;04.10.2026;04.10.2026;70\nad.mp3;10;3;*;04.10.2026;04.10.2026;70\n");
-        put(derived(), "ad.mp3;10;0m,20m,40m;*;04.10.2026;04.10.2026;70;0\nad.mp3;10;7m,27m,47m;*;04.10.2026;04.10.2026;70;0\n");
-        const auto project = readProject();
-        QVERIFY(project.advert[0].compiledMinutes.isEmpty());
-        QCOMPARE(project.advert[1].compiledMinutes, QList<int>({7, 27, 47}));
+        auto project = readProject();
+        project.advert = {ProjectFixture::advert("ad.mp3", "10", "0m,20m,40m",
+            QDate(2026, 10, 4), QDate(2026, 10, 4), 70),
+            ProjectFixture::advert("ad.mp3", "10", "3",
+            QDate(2026, 10, 4), QDate(2026, 10, 4), 70, {7, 27, 47})};
+        put(projectFile(), ProjectRepository::encode(project));
+        const auto reopened = readProject();
+        QVERIFY(reopened.advert[0].compiledMinutes.isEmpty());
+        QCOMPARE(reopened.advert[1].compiledMinutes, QList<int>({7, 27, 47}));
     }
-    void oldNetworkViewAcceptsGeneratedColumnsAndDisabledRows()
-    {
-        const QByteArray oldView("ad.mp3;10;2m,22m,42m;*;04.10.2026;04.10.2026;70;0\ndisabled.mp3;10;*;*;04.10.2026;04.10.2026;70;0\n");
-        put(adverts(), oldView); put(derived(), oldView);
-        const auto project = readProject();
-        QCOMPARE(project.advert.size(), 2);
-        QCOMPARE(project.advert[0].timing, QStringLiteral("2m,22m,42m"));
-        QCOMPARE(project.advert[1].timing, QStringLiteral("*"));
-        QCOMPARE(get(adverts()), oldView);
-    }
-    void unsupportedLegacyOrderBlocksLossyImport()
-    {
-        put(derived(), "ad.mp3;10;2m,22m,42m;*;04.10.2026;04.10.2026;70;3\n");
-        ProjectRepository::Project project; QString error;
-        QVERIFY(!ProjectRepository::load(paths(), &project, &error));
-        QVERIFY(!QFileInfo::exists(projectFile()));
-        QVERIFY(!error.isEmpty());
-    }
+
     void renamePreservesAdvancedPublicationAndOwnsItsOriginalDirectory()
     {
         const QString track = station.filePath("media/music/One/rename-regression.mp3");
@@ -486,7 +413,7 @@ private slots:
         ChannelManager channels(MediaBoxManager::MUSIC); QVERIFY(channels.collectChannels());
         ChannelModel channelModel(&channels);
         AdvertManager ads; AdvertModel advertModel(&ads);
-        const QByteArray before = get(projectFile()), oldLegacy = get(timetable());
+        const QByteArray before = get(projectFile());
         {
             DenyReplacement held(projectFile()); QVERIFY(held.valid());
             QVERIFY(!channelModel.setRule(0, channelFields("One", 10)));
@@ -502,7 +429,6 @@ private slots:
             QVERIFY(QFileInfo::exists(station.filePath("media/music/One")));
         }
         QVERIFY(advertModel.setRule(0, advertFields(10)));
-        QCOMPARE(get(timetable()), oldLegacy);
 #else
         QSKIP("Windows replacement-denial regression uses native file sharing");
 #endif

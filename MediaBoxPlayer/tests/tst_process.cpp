@@ -108,19 +108,17 @@ private slots:
 #ifdef Q_OS_WIN
     void storageDirectory_data()
     {
-        QTest::addColumn<bool>("hasLegacyToken");
         QTest::addColumn<bool>("hasCurrentToken");
         QTest::addColumn<bool>("explicitDirectory");
         QTest::addColumn<bool>("explicitDefaultDirectory");
-        QTest::newRow("default-migrates-token") << true << false << false << false;
-        QTest::newRow("default-preserves-current-token") << true << true << false << false;
-        QTest::newRow("explicit-directory-does-not-migrate") << true << false << true << false;
-        QTest::newRow("explicit-default-directory-does-not-migrate") << true << false << true << true;
+        QTest::newRow("default-creates-token") << false << false << false;
+        QTest::newRow("default-preserves-token") << true << false << false;
+        QTest::newRow("explicit-directory") << false << true << false;
+        QTest::newRow("explicit-default-directory") << false << true << true;
     }
 
     void storageDirectory()
     {
-        QFETCH(bool, hasLegacyToken);
         QFETCH(bool, hasCurrentToken);
         QFETCH(bool, explicitDirectory);
         QFETCH(bool, explicitDefaultDirectory);
@@ -130,9 +128,7 @@ private slots:
         const QString defaultDirectory = QDir(programData).filePath("MediaBox/MediaBoxPlayer");
         const QString selectedDirectory = explicitDirectory && !explicitDefaultDirectory
             ? directory.filePath("custom") : defaultDirectory;
-        const QString legacyTokenPath = QDir(programData).filePath("MediaBox/Player/control.token");
         const QString currentTokenPath = QDir(selectedDirectory).filePath("control.token");
-        const QByteArray legacyToken = QByteArray(64, 'a') + '\n';
         const QByteArray currentToken = QByteArray(64, 'b') + '\n';
         const auto writeToken = [](const QString &path, const QByteArray &token) {
             if (!QDir().mkpath(QFileInfo(path).absolutePath()))
@@ -142,8 +138,6 @@ private slots:
                 && file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner)
                 && file.write(token) == token.size();
         };
-        if (hasLegacyToken)
-            QVERIFY(writeToken(legacyTokenPath, legacyToken));
         if (hasCurrentToken)
             QVERIFY(writeToken(currentTokenPath, currentToken));
 
@@ -175,15 +169,6 @@ private slots:
         QCOMPARE(actualToken.trimmed().size(), 64);
         if (hasCurrentToken)
             QCOMPARE(actualToken, currentToken);
-        else if (hasLegacyToken && !explicitDirectory)
-            QCOMPARE(actualToken, legacyToken);
-        else
-            QVERIFY(actualToken != legacyToken);
-        if (hasLegacyToken) {
-            QFile legacyFile(legacyTokenPath);
-            QVERIFY(legacyFile.open(QIODevice::ReadOnly));
-            QCOMPARE(legacyFile.readAll(), legacyToken);
-        }
         if (explicitDirectory && !explicitDefaultDirectory)
             QVERIFY(!QFile::exists(QDir(defaultDirectory).filePath("control.token")));
         QVERIFY(QFile::exists(QDir(selectedDirectory).filePath("player.lock")));

@@ -1,7 +1,7 @@
 ﻿; MediaBoxManager installer. Compile with Inno Setup 6.
 #define AppName "MediaBoxManager"
 #ifndef AppVersion
-  #define AppVersion "1.2.2"
+  #define AppVersion "1.2.3"
 #endif
 #ifndef PackageDir
   #define PackageDir "..\agent_build\deploy\Release"
@@ -73,13 +73,8 @@ Source: "{#PackageDir}\bin\msvcp140.dll"; DestDir: "{app}\bin"; Flags: ignorever
 ; Preserve the Qt deploy layout (bin, plugins, translations and bin/qt.conf).
 Source: "{#PackageDir}\bin\qt.conf"; DestDir: "{app}\bin"; Flags: ignoreversion skipifsourcedoesntexist
 ; Runtime settings and logs never belong in an installer or its uninstall log.
-Source: "{#PackageDir}\*"; DestDir: "{app}"; Excludes: "*.exe,*.conf,bin\vcruntime140.dll,bin\vcruntime140_1.dll,bin\msvcp140.dll,*.pdb,*.log,control.token,windows.json,project.json,project.json.pending,project.json.lock,schedule-project.json,schedule-project.json.lock,active.json,runtime.sqlite,runtime.sqlite-wal,runtime.sqlite-shm,snapshots\*,publications\*"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#PackageDir}\*"; DestDir: "{app}"; Excludes: "*.exe,*.conf,bin\vcruntime140.dll,bin\vcruntime140_1.dll,bin\msvcp140.dll,*.pdb,*.log,control.token,windows.json,project.json,project.json.pending,project.json.lock,schedule-project.json,schedule-project.json.lock,active.json,*.sqlite,*.sqlite-wal,*.sqlite-shm,runtimes\*,snapshots\*,publications\*"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "assets\setup.ico"; DestDir: "{app}"; Flags: ignoreversion
-
-[InstallDelete]
-; Replace the unversioned shortcuts created by earlier installer builds.
-Type: files; Name: "{group}\{#AppName}.lnk"
-Type: files; Name: "{autodesktop}\{#AppName}.lnk"
 
 [Icons]
 Name: "{group}\{#AppName} {#AppVersion}"; Filename: "{app}\bin\MediaBoxManager.exe"; WorkingDir: "{app}\bin"
@@ -96,7 +91,7 @@ var
   ResultCode: Integer;
   Arguments: String;
 begin
-  { Replace the inheritable Users Modify rule from earlier installers only.
+  { Set explicit shared-root permissions for the Users group.
     These rights allow reading and creating files/directories on the root, but
     do not include Delete/DeleteChild and do not propagate to either player. Keep other
     principals' ACL entries and the service's protected directory untouched. }

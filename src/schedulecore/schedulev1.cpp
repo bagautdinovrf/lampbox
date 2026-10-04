@@ -253,7 +253,10 @@ public:
         source(fallback.value("source"),p + ".fallback.source"); integer(fallback.value("volumePercent"),p,0,100);
         for (const auto &value : array(o.value("assets"),"assets")) {
             const auto a = object(value,"assets"); fields(a,"assets",{"id","path","mediaType"}); id(a,"assets");
-            constant(a.value("mediaType"),"assets.mediaType","audio"); const auto path = string(a.value("path"),"assets.path");
+            const auto mediaType = string(a.value("mediaType"),"assets.mediaType");
+            if (mediaType != "audio" && mediaType != "video")
+                fail("assets.mediaType",QStringLiteral("Ожидается audio или video"));
+            const auto path = string(a.value("path"),"assets.path");
             if (path.startsWith('/') || path.endsWith('/') || path.contains('\\') || path.contains(':')) fail("assets.path",QStringLiteral("Ожидается относительный путь с разделителем /"));
             for (const auto &part : path.split('/'))
                 if (part.isEmpty() || part == "." || part == "..") fail("assets.path",QStringLiteral("Пустые сегменты, . и .. запрещены"));
@@ -507,6 +510,12 @@ QStringList requiredCapabilities(const QJsonObject &o)
     QStringList result{QStringLiteral("calendar.v1")};
     if (!o.value("mixRules").toArray().isEmpty()) result.append(QStringLiteral("rotation.strict.v1"));
     if (!o.value("eventRules").toArray().isEmpty()) result.append(QStringLiteral("events.fixed.v1"));
+    for (const auto &asset : o.value("assets").toArray()) {
+        if (asset.toObject().value("mediaType") == QJsonValue("video")) {
+            result.append(QStringLiteral("media.video.v1"));
+            break;
+        }
+    }
     return result;
 }
 

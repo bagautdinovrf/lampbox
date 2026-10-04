@@ -1,4 +1,7 @@
 #include <QFile>
+#include <QCryptographicHash>
+#include <QDir>
+#include <QUuid>
 #include <QDataStream>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -11,6 +14,39 @@
 #include <QtTest>
 
 namespace {
+QJsonObject writePublication(const QString &root, int revision)
+{
+    const QString publicationId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    const QJsonObject document{{"format", "mediabox.schedule"}, {"schemaVersion", 1},
+        {"scheduleId", "00000000-0000-4000-8000-000000000001"},
+        {"stationId", "00000000-0000-4000-8000-000000000002"}, {"publicationId", publicationId},
+        {"revision", revision}, {"publishedAt", QDateTime::currentDateTimeUtc().toString(Qt::ISODate)}, {"timeZone", "UTC"},
+        {"validity", QJsonObject{{"from", QDate::currentDate().addDays(-1).toString(Qt::ISODate)},
+                                 {"until", QDate::currentDate().addDays(30).toString(Qt::ISODate)}}},
+        {"musicTransition", "finish_track"}, {"timeResolution", QJsonObject{{"gap", "skip"}, {"overlap", "first"}}},
+        {"requiredCapabilities", QJsonArray{"calendar.v1", "media.video.v1"}},
+        {"fallback", QJsonObject{{"source", QJsonObject{{"type", "silence"}}}, {"volumePercent", 0}}},
+        {"assets", QJsonArray{QJsonObject{{"id", "00000000-0000-4000-8000-000000000003"},
+                                        {"path", "Левый.wav"}, {"mediaType", "video"}}}},
+        {"playlists", QJsonArray{}}, {"calendars", QJsonArray{}}, {"dayTemplates", QJsonArray{}},
+        {"baseRules", QJsonArray{}}, {"mixRules", QJsonArray{}}, {"eventRules", QJsonArray{}}};
+    const QByteArray bytes = QJsonDocument(document).toJson();
+    const QString relative = "snapshots/" + publicationId + ".json";
+    const QJsonObject active{{"format", "mediabox.active"}, {"schemaVersion", 1},
+        {"scheduleId", document.value("scheduleId")}, {"stationId", document.value("stationId")},
+        {"publicationId", publicationId}, {"revision", revision}, {"snapshotPath", relative},
+        {"sha256", QString::fromLatin1(QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex())}};
+    if (!QDir().mkpath(QDir(root).filePath("snapshots"))) return {};
+    QFile snapshot(QDir(root).filePath(relative));
+    if (!snapshot.open(QIODevice::WriteOnly) || snapshot.write(bytes) != bytes.size()) return {};
+    snapshot.close();
+    QFile pointer(QDir(root).filePath("active.json"));
+    const QByteArray pointerBytes = QJsonDocument(active).toJson();
+    if (!pointer.open(QIODevice::WriteOnly) || pointer.write(pointerBytes) != pointerBytes.size()) return {};
+    return {{"command", "loadPublication"}, {"windowId", "left"},
+            {"activePath", pointer.fileName()}, {"contentRoot", root}, {"autoplay", false}};
+}
+
 class VideoProcess {
 public:
     ~VideoProcess() { stop(); }
@@ -269,6 +305,14 @@ private slots:
         }
         QCOMPARE(window(reply, "left").value("playback").toObject().value("queue").toArray(), QJsonArray{leftPath});
         QCOMPARE(window(reply, "right").value("playback").toObject().value("queue").toArray(), QJsonArray{rightPath});
+        for (int revision = 1; revision <= 2; ++revision) {
+            const auto publication = writePublication(directory.path(), revision);
+            QVERIFY(!publication.isEmpty());
+            QVERIFY(QJsonDocument(publication).toJson().size() < 2048);
+            reply = player.send(publication, token);
+            QVERIFY2(reply.value("ok").toBool(), QJsonDocument(reply).toJson().constData());
+            QCOMPARE(window(reply, "left").value("playback").toObject().value("revision").toInt(), revision);
+        }
         reply = player.send({{"command", "fullscreen"}, {"windowId", "left"}, {"value", true}}, token);
         QVERIFY(reply.value("ok").toBool());
         QVERIFY(window(reply, "left").value("fullscreen").toBool());
@@ -283,6 +327,8 @@ private slots:
         reply = player.send({{"command", "clear"}, {"windowId", "unknown-window"}}, token);
         QVERIFY(!reply.value("ok").toBool());
         QCOMPARE(window(reply, "right").value("playback").toObject().value("queue").toArray(), QJsonArray{rightPath});
+        QCOMPARE(window(reply, "left").value("playback").toObject().value("revision").toInt(), 2);
+        QVERIFY(window(reply, "left").value("playback").toObject().value("scheduleAvailable").toBool());
 
         QProcess duplicate;
         duplicate.start(QStringLiteral(VPLAYER_EXECUTABLE),
@@ -307,6 +353,8 @@ private slots:
         QCOMPARE(reply.value("status").toObject().value("windows").toArray().size(), 2);
         QCOMPARE(window(reply, "left").value("playback").toObject().value("queue").toArray(), QJsonArray{leftPath});
         QCOMPARE(window(reply, "right").value("playback").toObject().value("queue").toArray(), QJsonArray{rightPath});
+        QCOMPARE(window(reply, "left").value("playback").toObject().value("revision").toInt(), 2);
+        QVERIFY(window(reply, "left").value("playback").toObject().value("scheduleAvailable").toBool());
         if (managed && existingTokenFile) {
             QVERIFY(tokenFile.open(QIODevice::ReadOnly));
             QCOMPARE(tokenFile.readAll(), standaloneToken + '\n');

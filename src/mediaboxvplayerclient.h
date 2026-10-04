@@ -56,8 +56,9 @@ public:
     QString load(const QString &windowId, const QStringList &paths,
                  int startIndex = 0, bool autoplay = false);
     QString enqueue(const QString &windowId, const QStringList &paths);
-    QString setSchedule(const QString &windowId, const QJsonObject &schedule);
-    QString startSchedule(const QString &windowId, const QJsonObject &schedule = {});
+    QString loadPublication(const QString &windowId, const QString &activePath,
+                            const QString &contentRoot, bool autoplay);
+    QString startSchedule(const QString &windowId);
     QString playChannel(const QString &windowId, const QString &name,
                         const QStringList &paths, int volume,
                         const QString &order = QStringLiteral("shuffle_cycle"));

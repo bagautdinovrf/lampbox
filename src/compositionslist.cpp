@@ -68,9 +68,7 @@ bool CompositionsList::Init(QString fileName)
         if (line.trimmed().isEmpty())
             continue;
         const QStringList fields = line.split(QLatin1Char(';'));
-        // Historical reports may append extra columns; only the first two
-        // belong to the manager's composition/frequency contract.
-        if (fields.size() < 2 || fields.at(0).trimmed().isEmpty())
+        if (fields.size() != 2 || fields.at(0).trimmed().isEmpty())
             return false;
         bool valid = false;
         const int frequency = fields.at(1).toInt(&valid);

@@ -34,7 +34,11 @@ QJsonObject snapshot(const QString &state = QStringLiteral("stopped"), bool wind
         {"queue", QJsonArray{"/remote/первое.mp4", "/remote/второе.mp4"}},
         {"currentIndex", 0}, {"currentTrack", "/remote/первое.mp4"},
         {"positionMs", 0}, {"durationMs", 90000}, {"volumePercent", 100},
-        {"muted", false}, {"repeat", "off"}, {"error", ""}};
+        {"muted", false}, {"repeat", "off"}, {"error", ""},
+        {"playbackMode", "manual"}, {"channelName", ""},
+            {"scheduleAvailable", false}, {"scheduleError", ""},
+            {"publicationId", ""}, {"scheduleId", ""}, {"revision", 0},
+            {"supportedCapabilities", QJsonArray{"schedule.current.v1"}}};
     QJsonArray windows;
     if (windowExists)
         windows.append(QJsonObject{{"id", "lobby"}, {"name", "Холл"}, {"screen", "remote-two"},
@@ -254,8 +258,7 @@ private slots:
         VideoControlWidget widget(nullptr, &client);
         widget.resize(1100, 760);
         widget.show();
-        const QJsonObject schedule{{"channels", QJsonArray{}}, {"adverts", QJsonArray{}}};
-        widget.setScheduleSnapshot(schedule);
+        widget.setSchedulePublication("/remote/video-schedule/active.json", "/remote/media");
         widget.setSelectedChannel("Выбранный канал", {"/remote/channel-one.mp4", "/remote/channel-two.mp4"}, 42, "sequential");
         auto *scheduled = widget.findChild<QPushButton *>("videoSchedule");
         auto *channel = widget.findChild<QPushButton *>("videoPlayChannel");
@@ -273,9 +276,12 @@ private slots:
         QVERIFY(channel->isEnabled());
         QVERIFY(widget.startSelectedSchedule());
         QTRY_COMPARE(peer.requests.size(), 2);
-        QCOMPARE(peer.command(1), QStringLiteral("schedule"));
+        QCOMPARE(peer.command(1), QStringLiteral("loadPublication"));
         QCOMPARE(peer.requests.at(1).object.value("windowId").toString(), QStringLiteral("lobby"));
-        QCOMPARE(peer.requests.at(1).object.value("schedule").toObject(), schedule);
+        QCOMPARE(peer.requests.at(1).object.value("activePath").toString(), QStringLiteral("/remote/video-schedule/active.json"));
+        QCOMPARE(peer.requests.at(1).object.value("contentRoot").toString(), QStringLiteral("/remote/media"));
+        QVERIFY(peer.requests.at(1).object.value("autoplay").toBool());
+        QVERIFY(!peer.requests.at(1).object.contains("schedule"));
         QVERIFY(!channel->isEnabled());
         auto scheduledStatus = snapshot("playing");
         auto windows = scheduledStatus.value("windows").toArray();
@@ -285,11 +291,14 @@ private slots:
         playback.insert("channelName", "Дневной");
         playback.insert("scheduleAvailable", true);
         playback.insert("scheduleError", "");
+        playback.insert("publicationId", "accepted-video-publication");
+        playback.insert("revision", 7);
         window.insert("playback", playback);
         windows[0] = window;
         scheduledStatus.insert("windows", windows);
         peer.answer(1, scheduledStatus);
         QTRY_VERIFY(status->text().contains("по расписанию"));
+        QVERIFY(status->text().contains("выпуск 7 принят"));
         QTRY_VERIFY(channel->isEnabled());
         QCOMPARE(peer.requests.size(), 2); // Activating the snapshot is one atomic command.
         QVERIFY(widget.playSelectedChannel());

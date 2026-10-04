@@ -1,6 +1,7 @@
 #include "advertmanager.h"
 #include "audiobackend.h"
 #include "channelmanager.h"
+#include "channelmodel.h"
 #include "controlserver.h"
 #include "mainwindow.h"
 #include "mediacontroller.h"
@@ -8,6 +9,9 @@
 #include "mediamodel.h"
 #include "playerengine.h"
 #include "restyletheme.h"
+#include "schedulepublication.h"
+#include "projectfixture.h"
+#include "mediafixture.h"
 #include "settings.h"
 #include "stationmanager.h"
 #include "videocontroller.h"
@@ -54,12 +58,10 @@ void put(const QString &path, const QByteArray &contents = {})
 
 void mediaFile(const QString &path)
 {
-    put(path, QByteArray(1024, '\0'));
-    QSettings tags(path + ".tag", QSettings::IniFormat);
-    tags.setValue("title", QFileInfo(path).completeBaseName());
-    tags.setValue("artist", "Тестовая студия");
-    tags.setValue("length", 120);
-    tags.sync();
+    const QString title = QFileInfo(path).completeBaseName();
+    put(path, QFileInfo(path).suffix() == QStringLiteral("mp4")
+        ? MediaFixture::mp4(title, "Тестовая студия", "", "", 2026, 120)
+        : MediaFixture::mp3(title, "Тестовая студия", "", "", 2026, 120));
 }
 
 QStringList filesFor(const QString &kind, const QString &channel)
@@ -198,15 +200,14 @@ private slots:
         QFile::remove(fixtureRoot + "/project.json.pending");
         QFile::remove(fixtureRoot + "/schedule-project.json");
         QFile::remove(fixtureRoot + "/active.json");
+        QDir(fixtureRoot + "/video-schedule").removeRecursively();
         QDir(fixtureRoot + "/media/music").removeRecursively();
         QDir(fixtureRoot + "/media/video").removeRecursively();
-        put(fixtureRoot + "/timetable/timetable");
-        put(fixtureRoot + "/timetable/vtimetable");
-        put(fixtureRoot + "/timetable/advertView", QStringLiteral(
-            "Объявление.mp3;10;00m,30m;*;01.10.2026;31.10.2026;75\n"
-            "Кофе.mp3;10;3;*;01.10.2026;31.10.2026;70\n").toUtf8());
-        put(fixtureRoot + "/timetable/adverttable", QStringLiteral(
-            "Кофе.mp3;10;2m,22m,42m;*;01.10.2026;31.10.2026;70;0\n").toUtf8());
+        ProjectRepository::Project project;
+        project.advert = {
+            ProjectFixture::advert("Объявление.mp3", "10", "00m,30m", QDate(2026, 10, 1), QDate(2026, 10, 31), 75),
+            ProjectFixture::advert("Кофе.mp3", "10", "3", QDate(2026, 10, 1), QDate(2026, 10, 31), 70, {2, 22, 42})};
+        put(fixtureRoot + "/project.json", ProjectRepository::encode(project));
         mediaFile(fixtureRoot + "/media/ads/Объявление.mp3");
         mediaFile(fixtureRoot + "/media/ads/Кофе.mp3");
         QVERIFY(Settings().setMainWindowGeometry({}));
@@ -227,6 +228,38 @@ private slots:
         QTest::addColumn<QString>("order");
         QTest::newRow("shuffle") << QString("shuffle_cycle");
         QTest::newRow("sequential") << QString("sequential");
+    }
+
+    void offlineChangesPublishFilesBeforePlayerConnects()
+    {
+        MainWindow window;
+        seed(window);
+        QVERIFY(!QTest::currentTestFailed());
+        QVERIFY(!window.playerAvailable());
+        window.refreshPlaybackSchedules();
+        const QString activePath = fixtureRoot + "/active.json";
+        QFile activeFile(activePath);
+        QVERIFY(activeFile.open(QIODevice::ReadOnly));
+        const auto before = QJsonDocument::fromJson(activeFile.readAll()).object();
+        activeFile.close();
+        QVERIFY(!before.value("publicationId").toString().isEmpty());
+        QVERIFY(window.mChannelModels[MainWindow::PAGE_MUSIC]->setData(
+            window.mChannelModels[MainWindow::PAGE_MUSIC]->index(0, 6), 33, Qt::EditRole));
+        window.mScheduleUpdateTimer->stop();
+        window.refreshPlaybackSchedules();
+        QVERIFY(activeFile.open(QIODevice::ReadOnly));
+        const auto after = QJsonDocument::fromJson(activeFile.readAll()).object();
+        activeFile.close();
+        QVERIFY(after.value("publicationId") != before.value("publicationId"));
+        QCOMPARE(after.value("revision").toInt(), before.value("revision").toInt() + 1);
+        Backend backend;
+        const QDateTime now(QDate(2026, 10, 4), QTime(10, 24));
+        MediaBox::PlayerEngine engine(&backend, nullptr, [now] { return now; }, ":memory:");
+        const auto result = engine.execute({{"command", "loadPublication"}, {"activePath", activePath},
+            {"contentRoot", fixtureRoot + "/media"}, {"autoplay", true}});
+        QVERIFY(result.value("ok").toBool());
+        QCOMPARE(engine.status().value("publicationId"), after.value("publicationId"));
+        QCOMPARE(engine.status().value("volumePercent").toInt(), 33);
     }
 
     void creatingFullDayChannelPreservesOffset()
@@ -307,10 +340,22 @@ private slots:
         QTRY_COMPARE(window.mMediaController->status().playbackMode, QStringLiteral("schedule"));
         QCOMPARE(requests.size(), beforeSchedule + 1);
         const QJsonObject request = requests.last();
-        QCOMPARE(request.value("command").toString(), QStringLiteral("setPublication"));
-        const auto snapshot = QJsonDocument::fromJson(QByteArray::fromBase64(request.value("snapshotBase64").toString().toLatin1())).object();
+        QCOMPARE(request.value("command").toString(), QStringLiteral("loadPublication"));
+        QVERIFY(QJsonDocument(request).toJson(QJsonDocument::Compact).size() < 2048);
+        QVERIFY(!request.contains("snapshotBase64"));
+        QVERIFY(!request.contains("schedule"));
+        QVERIFY(!request.contains("active"));
+        QCOMPARE(request.value("contentRoot").toString(), fixtureRoot + "/media");
+        QFile activeFile(request.value("activePath").toString());
+        QVERIFY(activeFile.open(QIODevice::ReadOnly));
+        const auto active = QJsonDocument::fromJson(activeFile.readAll()).object();
+        activeFile.close();
+        QFile snapshotFile(QFileInfo(activeFile).dir().filePath(active.value("snapshotPath").toString()));
+        QVERIFY(snapshotFile.open(QIODevice::ReadOnly));
+        const auto snapshot = QJsonDocument::fromJson(snapshotFile.readAll()).object();
+        snapshotFile.close();
         QCOMPARE(snapshot.value("format").toString(), QStringLiteral("mediabox.schedule"));
-        QCOMPARE(request.value("active").toObject().value("publicationId"), snapshot.value("publicationId"));
+        QCOMPARE(active.value("publicationId"), snapshot.value("publicationId"));
         const auto channels = snapshot.value("playlists").toArray();
         QCOMPARE(channels.size(), 2);
         QCOMPARE(channels.at(0).toObject().value("name").toString(), QStringLiteral("Дневной_канал"));
@@ -325,10 +370,59 @@ private slots:
         QCOMPARE(window.mMediaController->status().channelName, QStringLiteral("Дневной_канал"));
         QVERIFY(filesFor("music", "Дневной_канал").contains(window.mMediaController->status().currentTrack));
         QCOMPARE(window.mMediaController->status().volumePercent, 21);
+
+        // The same small notification reloads a changed on-disk publication.
+        auto changedDocument = snapshot;
+        auto templates = changedDocument.value("dayTemplates").toArray();
+        auto day = templates[0].toObject();
+        auto daySlots = day.value("slots").toArray();
+        auto slot = daySlots[0].toObject();
+        slot.insert("volumePercent", 31);
+        daySlots[0] = slot; day.insert("slots", daySlots); templates[0] = day;
+        changedDocument.insert("dayTemplates", templates);
+        QVERIFY2(SchedulePublication::saveDraft(fixtureRoot, changedDocument, &error), qPrintable(error));
+        const int revision = window.mMediaController->status().revision;
+        QVERIFY2(window.publishMusicSchedule(false, &error), qPrintable(error));
+        QTRY_COMPARE(window.mMediaController->status().revision, revision + 1);
+        QCOMPARE(window.mMediaController->status().volumePercent, 21); // finish_track preserves the running track.
+        QCOMPARE(requests.last().value("activePath"), request.value("activePath"));
+        QVERIFY(!requests.last().value("autoplay").toBool());
+        backend.finish();
+        QVERIFY(!window.mMediaController->requestStatus().isEmpty());
+        QTRY_COMPARE(window.mMediaController->status().volumePercent, 31);
+
+        const QString accepted = window.mMediaController->status().publicationId;
+        const QString playing = window.mMediaController->status().currentTrack;
+        QVERIFY(activeFile.open(QIODevice::ReadOnly));
+        const QByteArray acceptedPointer = activeFile.readAll();
+        activeFile.close();
+        put(activeFile.fileName(), "broken active pointer");
+        QSignalSpy rejected(window.mMediaController, &MediaBoxPlayerClient::commandFailed);
+        QVERIFY(!window.mMediaController->loadPublication(activeFile.fileName(), fixtureRoot + "/media", true).isEmpty());
+        QTRY_COMPARE(rejected.size(), 1);
+        QCOMPARE(window.mMediaController->status().publicationId, accepted);
+        QCOMPARE(window.mMediaController->status().currentTrack, playing);
+        QCOMPARE(window.mMediaController->status().playbackMode, QStringLiteral("schedule"));
+        put(activeFile.fileName(), acceptedPointer);
         play->click();
         QTRY_COMPARE(window.mMediaController->status().playbackMode, QStringLiteral("manual"));
         QCOMPARE(window.mMediaController->status().channelName, QStringLiteral("Ручной_канал"));
         QCOMPARE(window.mMediaController->status().queue.size(), 3);
+
+        // Stopped players still accept the latest files without resuming playback.
+        QVERIFY(!window.mMediaController->stop().isEmpty());
+        QTRY_COMPARE(window.mMediaController->status().state, QStringLiteral("stopped"));
+        const int stoppedRevision = window.mMediaController->status().revision;
+        slot.insert("volumePercent", 41);
+        daySlots[0] = slot; day.insert("slots", daySlots); templates[0] = day;
+        changedDocument.insert("dayTemplates", templates);
+        QVERIFY2(SchedulePublication::saveDraft(fixtureRoot, changedDocument, &error), qPrintable(error));
+        window.refreshPlaybackSchedules();
+        QTRY_COMPARE(window.mMediaController->status().revision, stoppedRevision + 1);
+        QCOMPARE(window.mMediaController->status().state, QStringLiteral("stopped"));
+        QCOMPARE(window.mMediaController->status().playbackMode, QStringLiteral("manual"));
+        QCOMPARE(requests.last().value("command").toString(), QStringLiteral("loadPublication"));
+        QVERIFY(!requests.last().value("autoplay").toBool());
     }
 
     void selectedVideoChannelTargetsWindow_data()
@@ -340,7 +434,8 @@ private slots:
     {
         QFETCH(QString, order);
         Backend backend;
-        MediaBox::PlayerEngine engine(&backend);
+        const QDateTime now(QDate(2026, 10, 4), QTime(10, 24));
+        MediaBox::PlayerEngine engine(&backend, nullptr, [now] { return now; }, ":memory:", "video");
         QList<QJsonObject> requests;
         MediaBox::ControlServer server([&](const QJsonObject &request) {
             requests.append(request);
@@ -389,6 +484,52 @@ private slots:
                      QStringList{QFileInfo(window.mVideoController->videoStatus().windows.at(0).playback.currentTrack).fileName()});
         if (auto *dialog = window.findChild<QDialog *>("videoControlDialog")) dialog->hide();
         QVERIFY(capture(window, "video-channel"));
+        QVERIFY(window.findChild<QPushButton *>("videoScheduleProjectButton"));
+        const int beforeSchedule = requests.size();
+        window.startScheduledPlayback(MainWindow::PAGE_VIDEO);
+        QTRY_COMPARE(requests.size(), beforeSchedule + 1);
+        const auto publicationRequest = requests.last();
+        QCOMPARE(publicationRequest.value("command").toString(), QStringLiteral("loadPublication"));
+        QCOMPARE(publicationRequest.value("windowId").toString(), QStringLiteral("screen-a"));
+        QCOMPARE(publicationRequest.value("activePath").toString(), fixtureRoot + "/video-schedule/active.json");
+        QCOMPARE(publicationRequest.value("contentRoot").toString(), fixtureRoot + "/media");
+        QVERIFY(QJsonDocument(publicationRequest).toJson(QJsonDocument::Compact).size() < 2048);
+        QVERIFY(!publicationRequest.contains("schedule"));
+        QVERIFY(!publicationRequest.contains("snapshotBase64"));
+        QFile activeFile(publicationRequest.value("activePath").toString());
+        QVERIFY(activeFile.open(QIODevice::ReadOnly));
+        const auto active = QJsonDocument::fromJson(activeFile.readAll()).object();
+        QFile snapshotFile(QFileInfo(activeFile).dir().filePath(active.value("snapshotPath").toString()));
+        QVERIFY(snapshotFile.open(QIODevice::ReadOnly));
+        const auto document = QJsonDocument::fromJson(snapshotFile.readAll()).object();
+        QCOMPARE(document.value("format").toString(), QStringLiteral("mediabox.schedule"));
+        QVERIFY(document.value("requiredCapabilities").toArray().contains("media.video.v1"));
+        bool videoAsset = false;
+        for (const auto &value : document.value("assets").toArray())
+            videoAsset |= value.toObject().value("mediaType") == QJsonValue("video");
+        QVERIFY(videoAsset);
+        QTRY_COMPARE(window.mVideoController->videoStatus().windows.at(0).playback.playbackMode, QStringLiteral("schedule"));
+        QCOMPARE(window.mVideoController->videoStatus().windows.at(0).playback.publicationId,
+                 active.value("publicationId").toString());
+        QCOMPARE(window.mVideoController->videoStatus().windows.at(0).playback.channelName, QStringLiteral("Природа"));
+        activeFile.close(); snapshotFile.close();
+        QVERIFY(!window.mVideoController->stop("screen-a").isEmpty());
+        QTRY_COMPARE(window.mVideoController->videoStatus().windows.at(0).playback.state, QStringLiteral("stopped"));
+        const int stoppedRevision = window.mVideoController->videoStatus().windows.at(0).playback.revision;
+        auto changedDocument = document;
+        auto templates = changedDocument.value("dayTemplates").toArray();
+        auto day = templates[0].toObject();
+        auto daySlots = day.value("slots").toArray();
+        auto firstSlot = daySlots[0].toObject(); firstSlot.insert("volumePercent", 41);
+        daySlots[0] = firstSlot; day.insert("slots", daySlots); templates[0] = day;
+        changedDocument.insert("dayTemplates", templates);
+        QVERIFY2(SchedulePublication::saveDraft(fixtureRoot + "/video-schedule", changedDocument, &error), qPrintable(error));
+        window.refreshPlaybackSchedules();
+        QTRY_COMPARE(window.mVideoController->videoStatus().windows.at(0).playback.revision, stoppedRevision + 1);
+        QCOMPARE(window.mVideoController->videoStatus().windows.at(0).playback.state, QStringLiteral("stopped"));
+        QCOMPARE(window.mVideoController->videoStatus().windows.at(0).playback.playbackMode, QStringLiteral("manual"));
+        QCOMPARE(requests.last().value("command").toString(), QStringLiteral("loadPublication"));
+        QVERIFY(!requests.last().value("autoplay").toBool());
     }
 
     void playingTrackFollowsAudioAndPreservesSelection()

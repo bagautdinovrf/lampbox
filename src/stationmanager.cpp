@@ -1,127 +1,10 @@
 #include <QSettings>
 #include <QCoreApplication>
 #include <QFileInfo>
-#include <QSaveFile>
 #include <QStandardPaths>
 #include "stationmanager.h"
 #include "storagepaths.h"
 #include <utility>
-
-namespace {
-const QStringList stationEntries = {QStringLiteral("timetable"), QStringLiteral("media"),
-        QStringLiteral("cron"), QStringLiteral("nncronlt"), QStringLiteral("mediabox.conf"),
-        QStringLiteral("project.json"), QStringLiteral("project.json.pending")};
-const QString initializedMarker = QStringLiteral(".station-storage-initialized");
-const QString migrationMarker = QStringLiteral(".station-storage-migration");
-
-bool containsFiles(const QFileInfo &entry)
-{
-    // A link is data too, but migration will report it instead of following it.
-    if (entry.isSymLink())
-        return true;
-    if (!entry.exists())
-        return false;
-    if (!entry.isDir())
-        return true;
-    if (!entry.isReadable())
-        return true;
-    const QFileInfoList children = QDir(entry.absoluteFilePath()).entryInfoList(
-            QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden | QDir::System);
-    for (const QFileInfo &child : children) {
-        if (containsFiles(child))
-            return true;
-    }
-    return false;
-}
-
-bool containsStationData(const QDir &directory)
-{
-    for (const QString &entry : stationEntries) {
-        if (containsFiles(QFileInfo(directory.absoluteFilePath(entry))))
-            return true;
-    }
-    return false;
-}
-
-bool writeMarker(const QString &path, const QByteArray &contents, QString *error)
-{
-    QSaveFile file(path);
-    if (!file.open(QIODevice::WriteOnly) || file.write(contents) != contents.size()
-            || !file.commit()) {
-        *error = QObject::tr("Не удалось сохранить состояние переноса данных %1: %2")
-                .arg(path, file.errorString());
-        return false;
-    }
-    return true;
-}
-
-bool copyStationEntry(const QString &source, const QString &destination, QString *error)
-{
-    const QFileInfo sourceInfo(source);
-    const QFileInfo destinationInfo(destination);
-    if (sourceInfo.isSymLink() || destinationInfo.isSymLink()) {
-        *error = QObject::tr("Не удалось перенести символическую ссылку: %1").arg(source);
-        return false;
-    }
-    if (!sourceInfo.exists())
-        return true;
-    if (sourceInfo.isDir()) {
-        if (!sourceInfo.isReadable() || (destinationInfo.exists() && !destinationInfo.isDir())
-                || !QDir().mkpath(destination)) {
-            *error = QObject::tr("Не удалось перенести каталог данных: %1").arg(source);
-            return false;
-        }
-        const QFileInfoList children = QDir(source).entryInfoList(
-                QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden | QDir::System);
-        for (const QFileInfo &child : children) {
-            if (!copyStationEntry(child.absoluteFilePath(),
-                                  QDir(destination).absoluteFilePath(child.fileName()), error))
-                return false;
-        }
-        return true;
-    }
-    if (!sourceInfo.isFile() || (destinationInfo.exists() && !destinationInfo.isFile())) {
-        *error = QObject::tr("Не удалось перенести файл данных: %1").arg(source);
-        return false;
-    }
-    return MediaBox::StoragePaths::migrateFile(destination, {source}, error);
-}
-
-bool adjustMigratedConfiguration(const QDir &source, const QDir &destination, QString *error)
-{
-    const QString sourcePath = source.absoluteFilePath("mediabox.conf");
-    if (!QFileInfo::exists(sourcePath))
-        return true;
-    QSettings original(sourcePath, QSettings::IniFormat);
-    QSettings migrated(destination.absoluteFilePath("mediabox.conf"), QSettings::IniFormat);
-    const QStringList keys = {QStringLiteral("mediastation/media"),
-                              QStringLiteral("mediastation/crondir")};
-    for (const QString &key : keys) {
-        const QString configuredPath = original.value(key).toString();
-        if (configuredPath.trimmed().isEmpty())
-            continue;
-        const QString absolutePath = QDir::cleanPath(source.absoluteFilePath(configuredPath));
-        const QString relativePath = source.relativeFilePath(absolutePath);
-        bool copied = false;
-        for (const QString &entry : stationEntries) {
-            if (entry != QStringLiteral("mediabox.conf")
-                    && (relativePath == entry || relativePath.startsWith(entry + '/'))) {
-                copied = true;
-                break;
-            }
-        }
-        // Explicit external content stays where it was. Paths into copied data
-        // follow the new station, including absolute paths in old configurations.
-        migrated.setValue(key, copied ? relativePath : absolutePath);
-    }
-    migrated.sync();
-    if (original.status() != QSettings::NoError || migrated.status() != QSettings::NoError) {
-        *error = QObject::tr("Не удалось перенести конфигурацию станции: %1").arg(sourcePath);
-        return false;
-    }
-    return true;
-}
-}
 
 bool StationManager::update()
 {
@@ -148,11 +31,6 @@ bool StationManager::update()
                 && loadConfiguration(configuredPath, configuredType, configuredTrial))
             return true;
 
-        if (loadConfiguration(QStringLiteral("C:/myplayer"), STATION_LOCAL, false))
-            return true;
-#elif defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
-        if (loadConfiguration(QStringLiteral("/home/mediabox"), STATION_LOCAL, false))
-            return true;
 #endif
     }
     return initializeStandaloneConfiguration();
@@ -192,19 +70,10 @@ bool StationManager::loadConfiguration(const QString &stationPath, TypeStation s
 
 bool StationManager::initializeStandaloneConfiguration()
 {
-    const QString oldDataPath = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-    QStringList legacyPaths;
-    if (!oldDataPath.isEmpty()) {
-        legacyPaths.append(oldDataPath);
-    }
-    if (!QStandardPaths::isTestModeEnabled()) {
-        legacyPaths.append(QDir::home().absoluteFilePath(".mediaboxmanager"));
-    }
-    return initializeStandaloneConfiguration(MediaBox::StoragePaths::commonDataDirectory(), legacyPaths);
+    return initializeStandaloneConfiguration(MediaBox::StoragePaths::commonDataDirectory());
 }
 
-bool StationManager::initializeStandaloneConfiguration(const QString &dataPath,
-                                                       const QStringList &legacyPaths)
+bool StationManager::initializeStandaloneConfiguration(const QString &dataPath)
 {
     lastErrorStr.clear();
     if (dataPath.isEmpty() || !QDir::isAbsolutePath(dataPath) || !QDir().mkpath(dataPath)) {
@@ -212,46 +81,6 @@ bool StationManager::initializeStandaloneConfiguration(const QString &dataPath,
         return false;
     }
     const QDir destination(QDir::cleanPath(dataPath));
-    const QString initializedPath = destination.absoluteFilePath(initializedMarker);
-    const QString pendingPath = destination.absoluteFilePath(migrationMarker);
-    if (!QFileInfo::exists(initializedPath)) {
-        QString sourcePath;
-        if (QFileInfo::exists(pendingPath)) {
-            QFile pending(pendingPath);
-            if (!pending.open(QIODevice::ReadOnly)) {
-                lastErrorStr = tr("Не удалось прочитать состояние переноса данных: %1").arg(pendingPath);
-                return false;
-            }
-            sourcePath = QString::fromUtf8(pending.readAll());
-            if (!QDir::isAbsolutePath(sourcePath) || !QFileInfo(sourcePath).isDir()) {
-                lastErrorStr = tr("Недоступен исходный каталог переноса данных: %1").arg(sourcePath);
-                return false;
-            }
-        } else if (!containsStationData(destination)) {
-            for (const QString &candidate : legacyPaths) {
-                if (!QDir::isAbsolutePath(candidate)
-                        || QDir::cleanPath(candidate) == destination.absolutePath())
-                    continue;
-                if (containsStationData(QDir(candidate))) {
-                    sourcePath = QDir::cleanPath(candidate);
-                    break;
-                }
-            }
-            if (!sourcePath.isEmpty() && !writeMarker(pendingPath, sourcePath.toUtf8(), &lastErrorStr))
-                return false;
-        }
-        if (!sourcePath.isEmpty()) {
-            const QDir source(sourcePath);
-            for (const QString &entry : stationEntries) {
-                if (!copyStationEntry(source.absoluteFilePath(entry),
-                                      destination.absoluteFilePath(entry), &lastErrorStr))
-                    return false;
-            }
-            if (!adjustMigratedConfiguration(source, destination, &lastErrorStr))
-                return false;
-        }
-    }
-
     pathToStation = destination;
     pathToMedia.setPath(pathToStation.absoluteFilePath("media"));
     mConfigFile = pathToStation.absoluteFilePath("mediabox.conf");
@@ -272,13 +101,6 @@ bool StationManager::initializeStandaloneConfiguration(const QString &dataPath,
                     .arg(pathToStation.absoluteFilePath(directory));
             return false;
         }
-    }
-    if (!QFileInfo::exists(initializedPath)
-            && !writeMarker(initializedPath, QByteArrayLiteral("1\n"), &lastErrorStr))
-        return false;
-    if (QFileInfo::exists(pendingPath) && !QFile::remove(pendingPath)) {
-        lastErrorStr = tr("Не удалось завершить перенос данных: %1").arg(pendingPath);
-        return false;
     }
     return true;
 }

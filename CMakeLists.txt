@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
 
-project(MediaBoxManager VERSION 1.2.2 LANGUAGES C CXX)
+project(MediaBoxManager VERSION 1.2.3 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -32,14 +32,14 @@ add_library(MediaBoxScheduleCore STATIC
     src/schedulecore/schedulecore.h
     src/schedulecore/schedulev1.cpp
     src/schedulecore/schedulev1.h
+    src/schedulecore/schedulecompiler.cpp
+    src/schedulecore/schedulecompiler.h
 )
 mediabox_manager_library(MediaBoxScheduleCore)
 
 add_library(MediaBoxScheduleStorage STATIC
     src/projectrepository.cpp
-    src/scheduleimport.cpp
     src/projectrepository.h
-    src/scheduleimport.h
     src/schedulepublication.cpp
     src/schedulepublication.h
 )

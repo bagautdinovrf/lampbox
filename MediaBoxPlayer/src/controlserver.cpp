@@ -249,20 +249,11 @@ QByteArray ControlServer::dispatch(const QByteArray &line)
     return serialize(response);
 }
 
-bool loadControlToken(const QString &dataDirectory, QByteArray *token, QString *error,
-                      const QStringList &legacyTokenPaths)
+bool loadControlToken(const QString &dataDirectory, QByteArray *token, QString *error)
 {
     const QString path = QDir(dataDirectory).filePath(QStringLiteral("control.token"));
     if (QFileInfo::exists(path))
         return readControlTokenFile(path, token, error);
-    for (const QString &source : legacyTokenPaths) {
-        if (!QFileInfo(source).isFile())
-            continue;
-        if (!readControlTokenFile(source, token, error))
-            return false;
-        return writeControlTokenFile(path, *token, error);
-    }
-
     QByteArray random;
     random.reserve(32);
     for (int i = 0; i < 8; ++i) {

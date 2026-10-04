@@ -161,7 +161,7 @@ QVariant MediaModel::data(const QModelIndex &index, int role) const
         return {};
 
     switch (index.column()) {
-    // Keep this raw identity: legacy actions use the file name to address disk files.
+    // Keep this raw identity: file actions use the file name to address disk files.
     // The delegate obtains the human-readable title from TitleRole instead.
     case FileNameColumn: return media.fileName();
     case TitleColumn: return availableText(media.title());

@@ -87,9 +87,7 @@ public:
 private:
     friend class SettingsTest;
 
-    static QString configurationFilePath(const QString &applicationDirectory);
-    static QString configurationFilePath(const QString &applicationDirectory,
-                                         const QString &previousUserConfigurationDirectory);
+    static QString configurationFilePath();
     Settings(const QString &configurationFile, QObject *parent);
 
     /**

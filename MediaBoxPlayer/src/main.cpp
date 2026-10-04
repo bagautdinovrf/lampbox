@@ -4,7 +4,6 @@
 #include <QDir>
 #include <QHostAddress>
 #include <QLockFile>
-#include <QStandardPaths>
 
 #include "controlserver.h"
 #include "desktopservice.h"
@@ -35,18 +34,6 @@ bool hasStartupFlag(int argc, char *argv[], const QByteArray &flag)
     return false;
 }
 #endif
-
-QStringList legacyControlTokens()
-{
-    QStringList paths;
-#ifdef Q_OS_WIN
-    paths.append(QDir(MediaBox::StoragePaths::commonConfigurationDirectory())
-                     .filePath(QStringLiteral("Player/control.token")));
-#endif
-    paths.append(QDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation))
-                     .filePath(QStringLiteral("control.token")));
-    return paths;
-}
 
 int runPlayer(int argc, char *argv[])
 {
@@ -128,11 +115,9 @@ int runPlayer(int argc, char *argv[])
     }
 
     QString error;
-    const QStringList legacyTokens = parser.isSet(QStringLiteral("data-dir"))
-        ? QStringList() : legacyControlTokens();
     // A managed token belongs to the launching Manager. Do not replace or create
     // the standalone/service token, which can have a different lifetime.
-    if (token.isEmpty() && !MediaBox::loadControlToken(dataDirectory, &token, &error, legacyTokens)) {
+    if (token.isEmpty() && !MediaBox::loadControlToken(dataDirectory, &token, &error)) {
         qCritical().noquote() << error;
         return 1;
     }

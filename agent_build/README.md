@@ -56,7 +56,7 @@ powershell -ExecutionPolicy Bypass -File .\agent_build\build.ps1
 
 Настройки Manager всегда хранятся в `%ProgramData%\MediaBox\MediaBoxManager\MediaBoxManager.conf`, журналы — в том же каталоге. Путь не зависит от установки в Program Files или запуска EXE из другой папки. Установщик предоставляет обычным пользователям изменение каталога Manager и общего каталога `media`. В корне `%ProgramData%\MediaBox` разрешены чтение и создание файлов/каталогов без наследования этих прав на плееры. Каталоги плееров установщик не создаёт: [скрипт службы](../MediaBoxPlayer/deploy/windows/README.md) создаёт `%ProgramData%\MediaBox\MediaBoxPlayer` с закрытым ACL; MediaBoxVPlayer создаёт `%ProgramData%\MediaBox\MediaBoxVPlayer` при первом запуске в пользовательской графической сессии и закрывает доступ к своему `control.token`. `--data-dir` позволяет выбрать другой каталог данных видеоплеера.
 
-Прежние настройки копируются при первом запуске только при отсутствии нового конфига: сначала `%ProgramData%\MediaBox\MediaBoxManager.conf`, затем файл из прежнего `QStandardPaths::AppConfigLocation`, после него `MediaBoxManager.conf` рядом с приложением. Исходный файл сохраняется. Хранение настроек рядом с EXE больше не выбирается автоматически.
+При первом запуске Manager создаёт настройки по умолчанию в своём каталоге.
 
 Эмблема `Installer/assets/emblem.png` общая для установщика и приложения. Команда `python Installer/prepare-artwork.py` (нужен Pillow) экспортирует изображения мастера и `src/icons/app.ico`, используемый Windows EXE и Qt. После изменения значка для включения его в приложение требуется пересборка EXE; отдельная компиляция установщика использует существующий deploy.
 

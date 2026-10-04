@@ -47,8 +47,7 @@ struct AdvertRule {
     QList<int> compiledMinutes;
 };
 
-// Empty means valid. Legacy windows without an explicit day offset remain
-// loadable; evaluate() explains ambiguous equal-time/overnight semantics.
+// Empty means valid. Overnight and full-day windows require an explicit day offset.
 QString validateChannel(const ChannelRule &rule);
 QString validateAdvert(const AdvertRule &rule);
 

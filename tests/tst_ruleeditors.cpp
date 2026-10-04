@@ -1,3 +1,4 @@
+#include "projectfixture.h"
 #include "ruleeditors.h"
 #include "restyletheme.h"
 #include "channelmodel.h"
@@ -108,10 +109,11 @@ private slots:
                       "[mediastation]\nmediabox_id=-1\nmediabox_name=Test\nmedia=media\ncrondir=cron\n"));
         QVERIFY(QDir().mkpath(directory.filePath("media/music/А")));
         QVERIFY(QDir().mkpath(directory.filePath("media/music/Б")));
-        QVERIFY(QDir().mkpath(directory.filePath("timetable")));
-        QVERIFY(write(directory.filePath("timetable/timetable"),
-                      QStringLiteral("А 08:00 12:00 * * * 65\nБ 12:00 18:00 * * * 70\n").toUtf8()));
+        ProjectRepository::Project project;
+        project.music = {ProjectFixture::channel("А", QTime(8, 0), QTime(12, 0), 65),
+                         ProjectFixture::channel("Б", QTime(12, 0), QTime(18, 0), 70)};
         const QString path = directory.filePath("project.json");
+        QVERIFY(write(path, ProjectRepository::encode(project)));
         ChannelManager manager(MUSIC);
         QVERIFY2(manager.collectChannels(), qPrintable(manager.lastError()));
         ChannelModel model(&manager);

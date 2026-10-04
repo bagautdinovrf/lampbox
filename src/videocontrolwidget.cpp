@@ -440,9 +440,10 @@ void VideoControlWidget::addPlaylistPaths(const QStringList &paths)
     addPaths(paths);
 }
 
-void VideoControlWidget::setScheduleSnapshot(const QJsonObject &schedule)
+void VideoControlWidget::setSchedulePublication(const QString &activePath, const QString &contentRoot)
 {
-    mScheduleSnapshot = schedule;
+    mScheduleActivePath = activePath;
+    mScheduleContentRoot = contentRoot;
     updateActions();
 }
 
@@ -492,13 +493,12 @@ bool VideoControlWidget::startSelectedSchedule()
         message(tr("Выберите видеоэкран, назначьте доступный монитор и нажмите «Применить окно»."));
         return false;
     }
-    if (!mScheduleSnapshot.value(QStringLiteral("channels")).isArray()
-        || !mScheduleSnapshot.value(QStringLiteral("adverts")).isArray()) {
+    if (mScheduleActivePath.isEmpty() || mScheduleContentRoot.isEmpty()) {
         message(tr("Расписание видеоканалов ещё не подготовлено."));
         return false;
     }
     const QString windowId = confirmedWindow()->id;
-    const QString id = mClient->startSchedule(windowId, mScheduleSnapshot);
+    const QString id = mClient->loadPublication(windowId, mScheduleActivePath, mScheduleContentRoot, true);
     submit(id, tr("Запуск по расписанию"));
     return !id.isEmpty();
 }
@@ -542,10 +542,10 @@ void VideoControlWidget::restoreProfiles()
         profile.fullscreen = object.value("fullscreen").toBool(true);
         profile.selectedPlaylist = object.value("selectedPlaylist").toString();
         for (const auto &entry : object.value("playlists").toArray()) {
-            const auto data = entry.toObject();
-            Playlist playlist{data.value("id").toString(), data.value("name").toString(), {}};
+            const auto playlistData = entry.toObject();
+            Playlist playlist{playlistData.value("id").toString(), playlistData.value("name").toString(), {}};
             if (playlist.id.isEmpty() || playlist.name.isEmpty()) continue;
-            for (const auto &path : data.value("paths").toArray()) {
+            for (const auto &path : playlistData.value("paths").toArray()) {
                 if (absoluteMediaPath(path.toString())) playlist.paths.append(path.toString());
                 if (playlist.paths.size() >= 1000) break;
             }
@@ -693,6 +693,7 @@ void VideoControlWidget::refreshStatus()
                 + tr("\nРежим: %1%2").arg(playback.playbackMode == QStringLiteral("schedule")
                     ? tr("по расписанию") : tr("ручной"),
                     playback.channelName.isEmpty() ? QString() : tr(" · канал «%1»").arg(playback.channelName))
+                + (playback.publicationId.isEmpty() ? QString() : tr(" · выпуск %1 принят").arg(playback.revision))
                 + (playback.error.isEmpty() ? QString() : tr("\nОшибка: %1").arg(playback.error))
                 + (playback.scheduleError.isEmpty() ? QString() : tr("\nРасписание: %1").arg(playback.scheduleError))
                 + (confirmed->restoreError.isEmpty() ? QString() : tr("\nВосстановление: %1").arg(confirmed->restoreError)));
@@ -799,8 +800,7 @@ void VideoControlWidget::updateActions()
                           && window->playback.queue.size() + selectedPlaylist()->paths.size() <= 1000);
     const bool playbackAvailable = playbackTargetAvailable();
     mSchedule->setEnabled(playbackAvailable
-        && mScheduleSnapshot.value(QStringLiteral("channels")).isArray()
-        && mScheduleSnapshot.value(QStringLiteral("adverts")).isArray());
+        && !mScheduleActivePath.isEmpty() && !mScheduleContentRoot.isEmpty());
     mPlayChannel->setEnabled(playbackAvailable && !mSelectedChannelName.isEmpty()
                             && !mSelectedChannelPaths.isEmpty());
     for (auto *action : mTransportButtons) action->setEnabled(confirmed && idle);

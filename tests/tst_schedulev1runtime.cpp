@@ -6,6 +6,7 @@
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QSaveFile>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QTemporaryDir>
@@ -19,6 +20,7 @@ QJsonObject allDays() { return {{"select", QJsonObject{{"type", "all"}}}, {"excl
 QJsonObject source(int n) { return {{"type", "playlist"}, {"playlistId", id(n)}}; }
 QByteArray bytes(const QJsonObject &value) { return QJsonDocument(value).toJson(QJsonDocument::Compact); }
 QDateTime at(const char *value) { return QDateTime::fromString(QString::fromLatin1(value), Qt::ISODate); }
+QDateTime testClock() { return at("2026-12-16T11:00:00Z"); }
 QJsonObject schedule()
 {
     QJsonArray assets;
@@ -76,7 +78,33 @@ QJsonObject active(const QJsonObject &document, const QByteArray &data)
         {"sha256", QString::fromLatin1(QCryptographicHash::hash(data, QCryptographicHash::Sha256).toHex())}};
 }
 
-QString executeSql(const QString &path, const QString &statement)
+QString publishFiles(const QString &root, const QJsonObject &document, bool corruptHash = false)
+{
+    const QByteArray data = bytes(document);
+    const QJsonObject pointer = active(document, data);
+    QDir().mkpath(QDir(root).filePath(QStringLiteral("snapshots")));
+    const auto write = [](const QString &path, const QByteArray &contents) {
+        QSaveFile file(path);
+        return file.open(QIODevice::WriteOnly) && file.write(contents) == contents.size() && file.commit();
+    };
+    if (!write(QDir(root).filePath(pointer.value("snapshotPath").toString()), data))
+        return {};
+    QJsonObject savedPointer = pointer;
+    if (corruptHash)
+        savedPointer.insert("sha256", QString(64, u'0'));
+    const QString path = QDir(root).filePath(QStringLiteral("active.json"));
+    return write(path, bytes(savedPointer)) ? path : QString();
+}
+
+QJsonObject publication(PlayerEngine &engine, const QJsonObject &document,
+                        const QTemporaryDir &directory, bool autoplay = true)
+{
+    const QString path = publishFiles(directory.path(), document);
+    return engine.execute({{"command", "loadPublication"}, {"activePath", path},
+        {"contentRoot", directory.path()}, {"autoplay", autoplay}});
+}
+
+QString executeSql(const QString &path, const QString &statement, const QVariantList &values = {})
 {
     QString error;
     {
@@ -86,7 +114,10 @@ QString executeSql(const QString &path, const QString &statement)
             error = db.lastError().text();
         } else {
             QSqlQuery query(db);
-            if (!query.exec(statement))
+            query.prepare(statement);
+            for (const auto &value : values)
+                query.addBindValue(value);
+            if (!query.exec())
                 error = query.lastError().text();
         }
         db.close();
@@ -109,6 +140,43 @@ QVariant storedValue(const QString &path, const QString &statement)
         db.close();
     }
     QSqlDatabase::removeDatabase("engine-storage-inspection-test");
+    return result;
+}
+
+QString addRetentionRows(const QString &path, const QString &label, const QDateTime &timestamp)
+{
+    const QString key = QStringLiteral("retention-") + label;
+    const QString stamp = timestamp.toUTC().toString(Qt::ISODateWithMs);
+    const QList<QPair<QString, QVariantList>> inserts{
+        {QStringLiteral("INSERT INTO starts(playback_id,schedule_id,publication_id,entry_id,at) VALUES(?,?,?,?,?)"),
+            {key, key, key, QStringLiteral("entry"), stamp}},
+        {QStringLiteral("INSERT INTO diagnostics(at,publication_id,playback_id,message) VALUES(?,?,?,?)"),
+            {stamp, key, key, QStringLiteral("retention test")}},
+        {QStringLiteral("INSERT INTO events(event_key,schedule_id,rule_id,scheduled_utc,state) VALUES(?,?,?,?,?)"),
+            {key, key, QStringLiteral("rule"), stamp, QStringLiteral("completed")}},
+        {QStringLiteral("INSERT INTO publications(publication_id,schedule_id,station_id,revision,sha256,last_used_at) VALUES(?,?,?,?,?,?)"),
+            {key, key, id(2), 1, QStringLiteral("digest"), stamp}},
+        {QStringLiteral("INSERT INTO runtime_state(schedule_id,state,updated_at) VALUES(?,?,?)"),
+            {key, QByteArray("{}"), stamp}}
+    };
+    for (const auto &insert : inserts) {
+        const QString error = executeSql(path, insert.first, insert.second);
+        if (!error.isEmpty())
+            return error;
+    }
+    return {};
+}
+
+QList<int> retentionRowCounts(const QString &path, const QString &label)
+{
+    const QList<QPair<QString, QString>> keys{{"starts", "playback_id"}, {"diagnostics", "playback_id"},
+        {"events", "event_key"}, {"publications", "publication_id"}, {"runtime_state", "schedule_id"}};
+    QList<int> result;
+    for (const auto &key : keys) {
+        const auto count = storedValue(path, QStringLiteral("SELECT COUNT(*) FROM %1 WHERE %2='retention-%3'")
+            .arg(key.first, key.second, label));
+        result.append(count.isValid() ? count.toInt() : -1);
+    }
     return result;
 }
 
@@ -135,11 +203,245 @@ class ScheduleV1RuntimeTest : public QObject
 {
     Q_OBJECT
 private slots:
+    void historyRetentionHonorsThirtyDayBoundary_data()
+    {
+        QTest::addColumn<bool>("restart");
+        QTest::newRow("explicit-maintenance") << false;
+        QTest::newRow("startup-maintenance") << true;
+    }
+
+    void historyRetentionHonorsThirtyDayBoundary()
+    {
+        QFETCH(bool, restart);
+        QTemporaryDir directory;
+        files(directory);
+        const QString database = directory.filePath("runtime.sqlite");
+        auto now = at("2027-01-15T12:00:00Z");
+        const auto cutoff = now.addDays(-30);
+        const QList<int> present{1, 1, 1, 1, 1}, absent{0, 0, 0, 0, 0};
+        {
+            ScheduleV1Runtime runtime(database, [&] { return now; });
+            QCOMPARE(runtime.accept(bytes(schedule()), directory.path(), {}, now), QString());
+            QCOMPARE(addRetentionRows(database, "old", cutoff.addMSecs(-1)), QString());
+            QCOMPARE(addRetentionRows(database, "boundary", cutoff), QString());
+            QCOMPARE(addRetentionRows(database, "recent", now.addDays(-29)), QString());
+            QCOMPARE(addRetentionRows(database, "future", now.addDays(1)), QString());
+            if (!restart) {
+                QCOMPARE(runtime.pruneHistory(), QString());
+                QCOMPARE(retentionRowCounts(database, "old"), absent);
+                QCOMPARE(retentionRowCounts(database, "boundary"), present);
+                QCOMPARE(retentionRowCounts(database, "recent"), present);
+                QCOMPARE(retentionRowCounts(database, "future"), present);
+            }
+        }
+        ScheduleV1Runtime restored(database, [&] { return now; });
+        QCOMPARE(restored.restore(), QString());
+        QCOMPARE(retentionRowCounts(database, "old"), absent);
+        QCOMPARE(retentionRowCounts(database, "boundary"), present);
+        QCOMPARE(retentionRowCounts(database, "recent"), present);
+        QCOMPARE(retentionRowCounts(database, "future"), present);
+        QCOMPARE(restored.document().publicationId(), id(3));
+        now = now.addMSecs(1);
+        QCOMPARE(restored.pruneHistory(), QString());
+        QCOMPARE(retentionRowCounts(database, "boundary"), absent);
+        QCOMPARE(retentionRowCounts(database, "recent"), present);
+        QCOMPARE(retentionRowCounts(database, "future"), present);
+    }
+
+    void historyRetentionPreservesActivePlayback_data()
+    {
+        QTest::addColumn<bool>("shuffle");
+        QTest::newRow("sequential-cursor") << false;
+        QTest::newRow("shuffle-remaining-cycle") << true;
+    }
+
+    void historyRetentionPreservesActivePlayback()
+    {
+        QFETCH(bool, shuffle);
+        QTemporaryDir directory;
+        files(directory);
+        const QString database = directory.filePath("runtime.sqlite");
+        auto now = at("2026-12-16T11:00:00Z");
+        auto document = schedule();
+        document.insert("validity", QJsonObject{{"from", "2026-12-15"}, {"until", "2027-03-16"}});
+        if (shuffle) {
+            auto playlists = document.value("playlists").toArray();
+            auto base = playlists.first().toObject();
+            base.insert("order", "shuffle_cycle");
+            playlists.replace(0, base);
+            document.insert("playlists", playlists);
+        }
+        QByteArray savedState, savedSnapshot;
+        QString nextEntry;
+        {
+            ScheduleV1Runtime runtime(database, [&] { return now; });
+            QCOMPARE(runtime.accept(bytes(document), directory.path(), {}, now), QString());
+            QCOMPARE(runtime.setScheduledPlayback(true), QString());
+            const auto first = runtime.selectMusic(now);
+            QVERIFY(first.isValid());
+            QCOMPARE(runtime.confirmStarted(first), QString());
+            const auto additional = runtime.selectMusic(now);
+            QVERIFY(additional.path.endsWith("3.mp3"));
+            QCOMPARE(runtime.confirmStarted(additional), QString());
+            nextEntry = runtime.selectMusic(now).entryId;
+            QVERIFY(nextEntry != first.entryId);
+            savedState = storedValue(database, "SELECT state FROM runtime_state").toByteArray();
+            savedSnapshot = storedValue(database, "SELECT bytes FROM accepted").toByteArray();
+            now = now.addDays(31);
+            QCOMPARE(runtime.pruneHistory(), QString());
+            QCOMPARE(storedValue(database, "SELECT COUNT(*) FROM starts").toInt(), 0);
+            QCOMPARE(storedValue(database, "SELECT COUNT(*) FROM publications").toInt(), 1);
+            QCOMPARE(storedValue(database, "SELECT state FROM runtime_state").toByteArray(), savedState);
+            QCOMPARE(storedValue(database, "SELECT bytes FROM accepted").toByteArray(), savedSnapshot);
+            QVERIFY(runtime.scheduledPlaybackEnabled());
+            QCOMPARE(runtime.selectMusic(now).entryId, nextEntry);
+        }
+        ScheduleV1Runtime restored(database, [&] { return now; });
+        QCOMPARE(restored.restore(), QString());
+        QVERIFY(restored.scheduledPlaybackEnabled());
+        QCOMPARE(restored.contentRoot(), QDir::cleanPath(directory.path()));
+        QCOMPARE(restored.document().publicationId(), id(3));
+        QCOMPARE(restored.selectMusic(now).entryId, nextEntry);
+        QCOMPARE(storedValue(database, "SELECT state FROM runtime_state").toByteArray(), savedState);
+    }
+
+    void inactiveScheduleRetentionStartsWhenReplaced()
+    {
+        QTemporaryDir directory;
+        files(directory);
+        const QString database = directory.filePath("runtime.sqlite");
+        auto now = at("2026-12-16T11:00:00Z");
+        ScheduleV1Runtime runtime(database, [&] { return now; });
+        QCOMPARE(runtime.accept(bytes(schedule()), directory.path(), {}, now), QString());
+        QCOMPARE(runtime.confirmStarted(runtime.selectMusic(now)), QString());
+        now = now.addDays(90);
+        auto replacement = schedule();
+        replacement.insert("scheduleId", id(901));
+        replacement.insert("publicationId", id(903));
+        QCOMPARE(runtime.accept(bytes(replacement), directory.path(), {}, now), QString());
+        const QString retiredAt = now.toUTC().toString(Qt::ISODateWithMs);
+        QCOMPARE(storedValue(database, QStringLiteral("SELECT last_used_at FROM publications WHERE publication_id='%1'").arg(id(3))).toString(), retiredAt);
+        QCOMPARE(storedValue(database, QStringLiteral("SELECT updated_at FROM runtime_state WHERE schedule_id='%1'").arg(id(1))).toString(), retiredAt);
+        now = now.addDays(30);
+        QCOMPARE(runtime.pruneHistory(), QString());
+        QCOMPARE(storedValue(database, "SELECT COUNT(*) FROM publications").toInt(), 2);
+        QCOMPARE(storedValue(database, "SELECT COUNT(*) FROM runtime_state").toInt(), 2);
+        now = now.addMSecs(1);
+        QCOMPARE(runtime.pruneHistory(), QString());
+        QCOMPARE(storedValue(database, "SELECT publication_id FROM publications").toString(), id(903));
+        QCOMPARE(storedValue(database, "SELECT schedule_id FROM runtime_state").toString(), id(901));
+    }
+
+    void historyRetentionRollsBackAllTablesOnFailure()
+    {
+        QTemporaryDir directory;
+        files(directory);
+        const QString database = directory.filePath("runtime.sqlite");
+        auto now = at("2027-01-15T12:00:00Z");
+        ScheduleV1Runtime runtime(database, [&] { return now; });
+        QCOMPARE(runtime.accept(bytes(schedule()), directory.path(), {}, now), QString());
+        QCOMPARE(runtime.setScheduledPlayback(true), QString());
+        QCOMPARE(addRetentionRows(database, "old", now.addDays(-31)), QString());
+        const auto previousFloor = storedValue(database, "SELECT value FROM preferences WHERE name='retentionCutoffMs'");
+        QVERIFY(previousFloor.isValid());
+        QCOMPARE(executeSql(database, "CREATE TRIGGER fail_retention BEFORE DELETE ON publications "
+            "BEGIN SELECT RAISE(ABORT,'injected retention failure'); END"), QString());
+        now = now.addDays(1);
+        QVERIFY(runtime.pruneHistory().contains("injected retention failure"));
+        QVERIFY(runtime.diagnostic().contains("injected retention failure"));
+        const QList<int> present{1, 1, 1, 1, 1}, absent{0, 0, 0, 0, 0};
+        QCOMPARE(retentionRowCounts(database, "old"), present);
+        QCOMPARE(storedValue(database, "SELECT value FROM preferences WHERE name='retentionCutoffMs'"), previousFloor);
+        QVERIFY(runtime.scheduledPlaybackEnabled());
+        QCOMPARE(runtime.document().publicationId(), id(3));
+        QCOMPARE(executeSql(database, "DROP TRIGGER fail_retention"), QString());
+        QCOMPARE(runtime.pruneHistory(), QString());
+        QCOMPARE(retentionRowCounts(database, "old"), absent);
+        QCOMPARE(storedValue(database, "SELECT value FROM preferences WHERE name='retentionCutoffMs'").toLongLong(), now.addDays(-30).toMSecsSinceEpoch());
+        QVERIFY(!runtime.diagnostic().contains("injected retention failure"));
+    }
+
+    void removedEventCannotReplayAfterClockRollbackOrRestart()
+    {
+        QTemporaryDir directory;
+        files(directory);
+        const QString database = directory.filePath("runtime.sqlite");
+        auto now = at("2026-12-16T12:00:00Z");
+        const auto eventTime = now;
+        qint64 retainedFloor = 0;
+        ScheduleV1::EventOccurrence occurrence;
+        {
+            auto document = schedule();
+            addEvent(document, "interrupt");
+            ScheduleV1Runtime runtime(database, [&] { return now; });
+            QCOMPARE(runtime.accept(bytes(document), directory.path(), {}, now), QString());
+            const auto events = runtime.dueEvents(now);
+            QCOMPARE(events.size(), 1);
+            occurrence = events.first();
+            const auto track = runtime.startEvent(occurrence, now);
+            QVERIFY(track.isValid());
+            QCOMPARE(runtime.confirmStarted(track), QString());
+            QCOMPARE(runtime.finishEvent(track, "completed"), QString());
+            now = now.addDays(31);
+            QCOMPARE(runtime.pruneHistory(), QString());
+            QCOMPARE(storedValue(database, "SELECT COUNT(*) FROM events").toInt(), 0);
+            QCOMPARE(storedValue(database, "SELECT COUNT(*) FROM starts").toInt(), 0);
+            retainedFloor = storedValue(database, "SELECT value FROM preferences WHERE name='retentionCutoffMs'").toLongLong();
+            now = eventTime;
+            QCOMPARE(runtime.pruneHistory(), QString());
+            QCOMPARE(storedValue(database, "SELECT value FROM preferences WHERE name='retentionCutoffMs'").toLongLong(), retainedFloor);
+            QVERIFY(runtime.dueEvents(now).isEmpty());
+            QVERIFY(!runtime.startEvent(occurrence, now).isValid());
+            QCOMPARE(storedValue(database, "SELECT COUNT(*) FROM events").toInt(), 0);
+        }
+        ScheduleV1Runtime restarted(database, [&] { return now; });
+        QCOMPARE(restarted.restore(), QString());
+        QCOMPARE(storedValue(database, "SELECT value FROM preferences WHERE name='retentionCutoffMs'").toLongLong(), retainedFloor);
+        QVERIFY(restarted.dueEvents(now).isEmpty());
+        QVERIFY(!restarted.startEvent(occurrence, now).isValid());
+        QCOMPARE(storedValue(database, "SELECT COUNT(*) FROM events").toInt(), 0);
+    }
+
+    void removedStartDoesNotRepeatOnPlayingOrSuspendedResume()
+    {
+        QTemporaryDir directory;
+        files(directory);
+        const QString database = directory.filePath("runtime.sqlite");
+        auto now = at("2026-12-16T11:59:59Z");
+        auto document = schedule();
+        addEvent(document, "interrupt");
+        Backend backend;
+        PlayerEngine engine(&backend, nullptr, [&] { return now; }, database);
+        QVERIFY(publication(engine, document, directory).value("ok").toBool());
+        backend.playing();
+        QVERIFY(backend.path.endsWith("1.mp3"));
+        const auto savedState = storedValue(database, "SELECT state FROM runtime_state").toByteArray();
+        QCOMPARE(executeSql(database, "DELETE FROM starts"), QString());
+        backend.playing();
+        QCOMPARE(storedValue(database, "SELECT COUNT(*) FROM starts").toInt(), 0);
+        QCOMPARE(storedValue(database, "SELECT state FROM runtime_state").toByteArray(), savedState);
+        emit backend.positionChanged(4321);
+        now = now.addSecs(1);
+        engine.evaluateSchedule(now);
+        QVERIFY(backend.path.endsWith("5.mp3"));
+        backend.playing();
+        QCOMPARE(storedValue(database, "SELECT COUNT(*) FROM starts").toInt(), 1);
+        backend.finish();
+        QTRY_VERIFY(backend.path.endsWith("1.mp3"));
+        backend.playing();
+        backend.playing();
+        QCOMPARE(backend.seekPosition, 4321);
+        QCOMPARE(storedValue(database, "SELECT COUNT(*) FROM starts").toInt(), 1);
+        QCOMPARE(storedValue(database, "SELECT state FROM runtime_state").toByteArray(), savedState);
+        backend.finish();
+        QTRY_VERIFY(backend.path.endsWith("3.mp3"));
+    }
+
     void consumeOnlyConfirmedStart()
     {
         QTemporaryDir directory;
         files(directory);
-        ScheduleV1Runtime runtime(directory.filePath("runtime.sqlite"));
+        ScheduleV1Runtime runtime(directory.filePath("runtime.sqlite"), testClock);
         QCOMPARE(runtime.accept(bytes(schedule()), directory.path()), QString());
         const auto now = at("2026-12-16T11:00:00Z");
         auto first = runtime.selectMusic(now);
@@ -157,7 +459,7 @@ private slots:
     {
         QTemporaryDir directory;
         files(directory);
-        ScheduleV1Runtime runtime(directory.filePath("runtime.sqlite"));
+        ScheduleV1Runtime runtime(directory.filePath("runtime.sqlite"), testClock);
         QCOMPARE(runtime.accept(bytes(schedule()), directory.path()), QString());
         const auto now = at("2026-12-16T11:00:00Z");
         auto first = runtime.selectMusic(now);
@@ -179,12 +481,12 @@ private slots:
         files(directory);
         const QString database = directory.filePath("runtime.sqlite");
         {
-            ScheduleV1Runtime runtime(database);
+            ScheduleV1Runtime runtime(database, testClock);
             QCOMPARE(runtime.accept(bytes(schedule()), directory.path()), QString());
             const auto first = runtime.selectMusic(at("2026-12-16T23:59:59Z"));
             QCOMPARE(runtime.confirmStarted(first), QString());
         }
-        ScheduleV1Runtime runtime(database);
+        ScheduleV1Runtime runtime(database, testClock);
         QCOMPARE(runtime.restore(), QString());
         auto document = schedule();
         document.insert("publicationId", id(4));
@@ -201,7 +503,7 @@ private slots:
         QTemporaryDir directory;
         files(directory);
         const auto now = at("2026-12-17T12:30:00Z");
-        ScheduleV1Runtime runtime(directory.filePath("runtime.sqlite"));
+        ScheduleV1Runtime runtime(directory.filePath("runtime.sqlite"), testClock);
         auto document = schedule();
         QCOMPARE(runtime.accept(bytes(document), directory.path(), {}, now), QString());
         QCOMPARE(runtime.confirmStarted(runtime.selectMusic(now)), QString());
@@ -221,7 +523,7 @@ private slots:
         {
             Backend backend;
             PlayerEngine engine(&backend, nullptr, [&] { return now; }, database);
-            QVERIFY(engine.execute({{"command", "schedule"}, {"schedule", schedule()}, {"contentRoot", directory.path()}}).value("ok").toBool());
+            QVERIFY(publication(engine, schedule(), directory).value("ok").toBool());
             backend.playing();
             engine.setPlaybackAvailable(false); // orderly process shutdown
         }
@@ -249,8 +551,7 @@ private slots:
         {
             Backend backend;
             PlayerEngine engine(&backend, nullptr, [&] { return now; }, database);
-            QVERIFY(engine.execute({{"command", "schedule"}, {"schedule", schedule()},
-                {"contentRoot", directory.path()}}).value("ok").toBool());
+            QVERIFY(publication(engine, schedule(), directory).value("ok").toBool());
             backend.playing();
             QCOMPARE(executeSql(database, "CREATE TRIGGER fail_disable BEFORE INSERT ON preferences "
                 "WHEN NEW.name='scheduledPlayback' AND NEW.value=0 "
@@ -291,8 +592,7 @@ private slots:
         const QString database = directory.filePath("runtime.sqlite");
         Backend backend;
         PlayerEngine engine(&backend, nullptr, [&] { return now; }, database);
-        QVERIFY(engine.execute({{"command", "schedule"}, {"schedule", schedule()},
-            {"contentRoot", directory.path()}}).value("ok").toBool());
+        QVERIFY(publication(engine, schedule(), directory).value("ok").toBool());
         backend.playing();
         QCOMPARE(executeSql(database, "CREATE TRIGGER fail_disable BEFORE INSERT ON preferences "
             "WHEN NEW.value=0 BEGIN SELECT RAISE(FAIL,'injected disable failure'); END"), QString());
@@ -333,8 +633,7 @@ private slots:
         addEvent(document, "interrupt");
         Backend backend;
         PlayerEngine engine(&backend, nullptr, [&] { return now; }, database);
-        QVERIFY(engine.execute({{"command", "schedule"}, {"schedule", document},
-            {"contentRoot", directory.path()}}).value("ok").toBool());
+        QVERIFY(publication(engine, document, directory).value("ok").toBool());
         if (interruptMusic) {
             backend.playing();
             backend.seek(4000);
@@ -390,14 +689,14 @@ private slots:
         QString first;
         const auto now = at("2026-12-16T11:00:00Z");
         {
-            ScheduleV1Runtime runtime(directory.filePath("runtime.sqlite"));
+            ScheduleV1Runtime runtime(directory.filePath("runtime.sqlite"), testClock);
             QCOMPARE(runtime.accept(bytes(document), directory.path()), QString());
             const auto track = runtime.selectMusic(now);
             first = track.entryId;
             QCOMPARE(runtime.selectMusic(now).entryId, first);
             QCOMPARE(runtime.confirmStarted(track), QString());
         }
-        ScheduleV1Runtime restored(directory.filePath("runtime.sqlite"));
+        ScheduleV1Runtime restored(directory.filePath("runtime.sqlite"), testClock);
         QCOMPARE(restored.restore(), QString());
         auto next = restored.selectMusic(now);
         QVERIFY(next.entryId != first);
@@ -407,10 +706,10 @@ private slots:
     {
         QTemporaryDir directory;
         files(directory);
-        ScheduleV1Runtime runtime(directory.filePath("runtime.sqlite"));
+        ScheduleV1Runtime runtime(directory.filePath("runtime.sqlite"), testClock);
         auto document = schedule();
         const auto data = bytes(document);
-        auto pointer = active(document, data);
+        const auto pointer = active(document, data);
         QCOMPARE(runtime.accept(data, directory.path(), pointer), QString());
         QCOMPARE(runtime.accept(data, directory.path(), pointer), QString());
         auto invalidPointer = pointer;
@@ -435,7 +734,7 @@ private slots:
         Backend backend;
         PlayerEngine engine(&backend, nullptr, [&] { return now; }, directory.filePath("runtime.sqlite"));
         auto document = schedule();
-        QVERIFY(engine.execute({{"command", "schedule"}, {"schedule", document}, {"contentRoot", directory.path()}}).value("ok").toBool());
+        QVERIFY(publication(engine, document, directory).value("ok").toBool());
         QVERIFY(backend.path.endsWith("1.mp3"));
         backend.playing();
         backend.playing();
@@ -445,7 +744,7 @@ private slots:
         QCOMPARE(backend.loads, calls);
         document.insert("revision", 2);
         document.insert("publicationId", id(4));
-        QVERIFY(engine.execute({{"command", "setSchedule"}, {"schedule", document}, {"contentRoot", directory.path()}}).value("ok").toBool());
+        QVERIFY(publication(engine, document, directory, false).value("ok").toBool());
         QCOMPARE(backend.loads, calls);
         backend.finish();
         QTRY_VERIFY(backend.path.endsWith("3.mp3"));
@@ -462,7 +761,7 @@ private slots:
         auto now = at("2026-12-16T11:00:00Z");
         Backend backend;
         PlayerEngine engine(&backend, nullptr, [&] { return now; }, directory.filePath("runtime.sqlite"));
-        QVERIFY(engine.execute({{"command", "schedule"}, {"schedule", schedule()}, {"contentRoot", directory.path()}}).value("ok").toBool());
+        QVERIFY(publication(engine, schedule(), directory).value("ok").toBool());
         backend.fail();
         QTRY_VERIFY(backend.path.endsWith("2.mp3"));
         backend.playing();
@@ -479,7 +778,7 @@ private slots:
         addEvent(document, "interrupt");
         Backend backend;
         PlayerEngine engine(&backend, nullptr, [&] { return now; }, directory.filePath("runtime.sqlite"));
-        QVERIFY(engine.execute({{"command", "schedule"}, {"schedule", document}, {"contentRoot", directory.path()}}).value("ok").toBool());
+        QVERIFY(publication(engine, document, directory).value("ok").toBool());
         backend.playing();
         emit backend.positionChanged(4321);
         now = now.addSecs(1);
@@ -505,7 +804,7 @@ private slots:
         addEvent(document, "after_track", 10);
         Backend backend;
         PlayerEngine engine(&backend, nullptr, [&] { return now; }, directory.filePath("runtime.sqlite"));
-        QVERIFY(engine.execute({{"command", "schedule"}, {"schedule", document}, {"contentRoot", directory.path()}}).value("ok").toBool());
+        QVERIFY(publication(engine, document, directory).value("ok").toBool());
         backend.playing();
         now = now.addSecs(1);
         engine.evaluateSchedule(now);
@@ -529,7 +828,7 @@ private slots:
         addEvent(document, "interrupt", 60, 702, 2);
         const auto now = at("2026-12-16T12:00:00Z");
         {
-            ScheduleV1Runtime runtime(directory.filePath("runtime.sqlite"));
+            ScheduleV1Runtime runtime(directory.filePath("runtime.sqlite"), testClock);
             QCOMPARE(runtime.accept(bytes(document), directory.path()), QString());
             const auto events = runtime.dueEvents(now);
             QCOMPARE(events.size(), 2);
@@ -540,7 +839,7 @@ private slots:
             QCOMPARE(runtime.confirmStarted(second), QString());
             QCOMPARE(runtime.finishEvent(second, "completed"), QString());
         }
-        ScheduleV1Runtime restored(directory.filePath("runtime.sqlite"));
+        ScheduleV1Runtime restored(directory.filePath("runtime.sqlite"), testClock);
         QCOMPARE(restored.restore(), QString());
         QVERIFY(restored.diagnostic().contains(QStringLiteral("перезапуска")));
         QVERIFY(restored.dueEvents(now).isEmpty());
@@ -556,7 +855,7 @@ private slots:
         files(directory);
         auto document = schedule();
         addEvent(document, "interrupt", 0);
-        ScheduleV1Runtime runtime(directory.filePath("runtime.sqlite"));
+        ScheduleV1Runtime runtime(directory.filePath("runtime.sqlite"), testClock);
         QCOMPARE(runtime.accept(bytes(document), directory.path()), QString());
         const auto now = at("2026-12-16T12:00:00Z").addMSecs(500);
         const auto events = runtime.dueEvents(now);
@@ -573,7 +872,7 @@ private slots:
         auto document = schedule();
         addEvent(document, "interrupt");
         const QString path = directory.filePath("runtime.sqlite");
-        ScheduleV1Runtime runtime(path);
+        ScheduleV1Runtime runtime(path, testClock);
         QCOMPARE(runtime.accept(bytes(document), directory.path()), QString());
         const auto now = at("2026-12-16T12:00:00Z");
         const auto events = runtime.dueEvents(now);
@@ -597,18 +896,114 @@ private slots:
         QVERIFY(runtime.diagnostic().contains("injected write failure"));
     }
 
+    void filePublicationSupportsLargeDocumentsAndRejectsBrokenReplacements()
+    {
+        QTemporaryDir directory;
+        files(directory);
+        auto document = schedule();
+        auto lists = document.value("playlists").toArray();
+        auto list = lists.first().toObject();
+        list.insert("name", QString(1100000, u'x'));
+        lists.replace(0, list);
+        document.insert("playlists", lists);
+        QVERIFY(bytes(document).size() > 1024 * 1024);
+        const QString path = publishFiles(directory.path(), document);
+        QVERIFY(!path.isEmpty());
+        Backend backend;
+        const auto now = at("2026-12-16T11:00:00Z");
+        PlayerEngine engine(&backend, nullptr, [&] { return now; }, directory.filePath("runtime.sqlite"));
+        const QJsonObject request{{"command", "loadPublication"}, {"activePath", path},
+            {"contentRoot", directory.path()}, {"autoplay", true}};
+        QVERIFY(bytes(request).size() < 4096);
+        QVERIFY(engine.execute(request).value("ok").toBool());
+        backend.playing();
+        const auto before = engine.status();
+        auto replacement = document;
+        replacement.insert("publicationId", id(4));
+        replacement.insert("revision", 2);
+        QVERIFY(!publishFiles(directory.path(), replacement, true).isEmpty());
+        QVERIFY(!engine.execute(request).value("ok").toBool());
+        QCOMPARE(engine.status(), before);
+        replacement.insert("schemaVersion", 2);
+        QVERIFY(!publishFiles(directory.path(), replacement).isEmpty());
+        QVERIFY(!engine.execute(request).value("ok").toBool());
+        QCOMPARE(engine.status(), before);
+        const auto unsupported = engine.execute({{"command", "unrecognizedCommand"}});
+        QCOMPARE(unsupported.value("error").toObject().value("code").toString(), QStringLiteral("unknown_command"));
+        QCOMPARE(engine.status(), before);
+        const auto invalidFields = engine.execute({{"command", "schedule"}, {"payload", document}});
+        QCOMPARE(invalidFields.value("error").toObject().value("code").toString(), QStringLiteral("invalid_arguments"));
+        QCOMPARE(engine.status(), before);
+    }
+
+    void restartReadsLatestFileAndRetainsAcceptedOnFileFailure()
+    {
+        QTemporaryDir directory;
+        files(directory);
+        auto now = at("2026-12-16T11:00:00Z");
+        const QString database = directory.filePath("runtime.sqlite");
+        auto document = schedule();
+        {
+            Backend backend;
+            PlayerEngine engine(&backend, nullptr, [&] { return now; }, database);
+            QVERIFY(publication(engine, document, directory).value("ok").toBool());
+        }
+        document.insert("publicationId", id(4));
+        document.insert("revision", 2);
+        QVERIFY(!publishFiles(directory.path(), document).isEmpty());
+        {
+            Backend backend;
+            PlayerEngine restarted(&backend, nullptr, [&] { return now; }, database);
+            QCOMPARE(restarted.restoreScheduledPlayback(false), QString());
+            QCOMPARE(restarted.status().value("revision").toInt(), 2);
+            QCOMPARE(backend.plays, 0);
+            QCOMPARE(restarted.status().value("playbackMode").toString(), QStringLiteral("manual"));
+        }
+        QVERIFY(QFile::remove(directory.filePath("active.json")));
+        Backend backend;
+        PlayerEngine restarted(&backend, nullptr, [&] { return now; }, database);
+        QCOMPARE(restarted.restoreScheduledPlayback(), QString());
+        QCOMPARE(restarted.status().value("revision").toInt(), 2);
+        QVERIFY(!restarted.status().value("scheduleError").toString().isEmpty());
+        QCOMPARE(backend.plays, 1);
+    }
+
+    void playerMediaCapabilitiesValidateBeforeReplacingAcceptedPublication()
+    {
+        QTemporaryDir directory;
+        files(directory);
+        auto document = schedule();
+        Backend audioBackend, videoBackend;
+        const auto now = at("2026-12-16T11:00:00Z");
+        PlayerEngine audio(&audioBackend, nullptr, [&] { return now; }, ":memory:");
+        PlayerEngine video(&videoBackend, nullptr, [&] { return now; }, ":memory:", "video");
+        QVERIFY(publication(audio, document, directory).value("ok").toBool());
+        const auto before = audio.status();
+        auto assets = document.value("assets").toArray();
+        auto asset = assets.first().toObject();
+        asset.insert("mediaType", "video");
+        assets.replace(0, asset);
+        document.insert("assets", assets);
+        document.insert("requiredCapabilities", QJsonArray::fromStringList(ScheduleV1::requiredCapabilities(document)));
+        document.insert("publicationId", id(4));
+        document.insert("revision", 2);
+        QVERIFY(!publication(audio, document, directory).value("ok").toBool());
+        QCOMPARE(audio.status(), before);
+        QVERIFY(publication(video, document, directory).value("ok").toBool());
+        QVERIFY(audio.status().value("supportedCapabilities").toArray().contains("schedule.current.v1"));
+        QVERIFY(!audio.status().value("supportedCapabilities").toArray().contains("media.video.v1"));
+        QVERIFY(video.status().value("supportedCapabilities").toArray().contains("media.video.v1"));
+    }
+
     void publicationTransportAndPathValidation()
     {
         QTemporaryDir directory;
         files(directory);
         auto now = at("2026-12-16T11:00:00Z");
         auto document = schedule();
-        auto data = bytes(document);
-        auto pointer = active(document, data);
         Backend backend;
         PlayerEngine engine(&backend, nullptr, [&] { return now; }, directory.filePath("runtime.sqlite"));
-        QVERIFY(engine.execute({{"command", "setPublication"}, {"snapshotBase64", QString::fromLatin1(data.toBase64())},
-            {"active", pointer}, {"contentRoot", directory.path()}, {"autoplay", true}}).value("ok").toBool());
+        QVERIFY(publication(engine, document, directory).value("ok").toBool());
         QVERIFY(backend.path.endsWith("1.mp3"));
         auto assets = document.value("assets").toArray();
         auto asset = assets.at(0).toObject();
@@ -617,7 +1012,7 @@ private slots:
         document.insert("assets", assets);
         document.insert("publicationId", id(4));
         document.insert("revision", 2);
-        auto rejected = engine.execute({{"command", "setSchedule"}, {"schedule", document}, {"contentRoot", directory.path()}});
+        auto rejected = publication(engine, document, directory, false);
         QVERIFY(!rejected.value("ok").toBool());
         QCOMPARE(engine.status().value("publicationId").toString(), id(3));
     }

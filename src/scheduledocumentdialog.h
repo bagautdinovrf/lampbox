@@ -7,12 +7,13 @@
 
 namespace ScheduleV1 { struct Document; }
 
-// Expert editor for the complete, versioned music schedule. Saving a draft and
+// Expert editor for the complete, versioned schedule. Saving a draft and
 // publishing it are separate caller-owned operations.
 class ScheduledDocumentDialog final : public QDialog
 {
 public:
-    explicit ScheduledDocumentDialog(const QJsonObject &document, QWidget *parent = nullptr);
+    explicit ScheduledDocumentDialog(const QJsonObject &document, QWidget *parent = nullptr,
+                                     const QString &mediaType = QStringLiteral("audio"));
     ~ScheduledDocumentDialog() override;
     QJsonObject document() const;
     void accept() override;

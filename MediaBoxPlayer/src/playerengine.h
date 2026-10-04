@@ -1,12 +1,11 @@
 #pragma once
 
 #include "audiobackend.h"
-#include "playbackschedule.h"
+#include "playbackfilevalidation.h"
 #include "schedulev1runtime.h"
 
 #include <QDateTime>
 #include <QJsonObject>
-#include <QMap>
 #include <QSet>
 #include <QStringList>
 #include <QTimer>
@@ -22,17 +21,15 @@ public:
     // backend must remain alive for the lifetime of this engine.
     explicit PlayerEngine(AudioBackend *backend, QObject *parent = nullptr,
                           std::function<QDateTime()> clock = [] { return QDateTime::currentDateTime(); },
-                          const QString &runtimePath = {});
+                          const QString &runtimePath = {},
+                          const QString &mediaType = QStringLiteral("audio"));
 
     QJsonObject execute(const QJsonObject &request);
     QJsonObject status() const;
     void evaluateSchedule(const QDateTime &at);
     void setPlaybackAvailable(bool available);
     // Called by the actual audio process after output and status observers exist.
-    QString restoreScheduledPlayback();
-    // Saved video snapshots retain temporarily unavailable media. New commands
-    // still require readable files and cannot opt out of that validation.
-    QJsonObject restoreLegacySchedule(const QJsonObject &schedule, bool activate);
+    QString restoreScheduledPlayback(bool autoplay = true);
 
 signals:
     void statusChanged();
@@ -52,12 +49,9 @@ private:
     QString switchToManual(bool clearChannelName = false);
     QString retryV1Persistence();
     void clearPlaybackQueue();
-    void applyScheduledChannel(const ScheduleCore::Snapshot &snapshot);
-    void startNextAdvert();
-    void finishAdvert();
     void applyResumePosition();
     void evaluateV1(const QDateTime &at, bool trackBoundary = false);
-    void launchV1Track(const ScheduleV1Runtime::Track &track, qint64 position = 0);
+    void launchV1Track(const ScheduleV1Runtime::Track &track, qint64 position = 0, bool alreadyStarted = false);
     void finishV1Track(bool failed);
 
     AudioBackend *m_backend;
@@ -83,32 +77,14 @@ private:
     QSet<int> m_failedTracks;
     std::function<QDateTime()> m_clock;
     QTimer m_scheduleTimer;
-    PlaybackSchedule m_schedule;
-    bool m_restoringLegacySchedule = false;
-    QSet<QString> m_unavailableChannelPaths;
     bool m_scheduleAvailable = false;
     bool m_playbackAvailable = true;
     QString m_playbackMode = QStringLiteral("manual");
     QString m_channelName;
     QString m_scheduleError;
-    QString m_activeChannelId;
-    int m_activeChannelVolume = -1;
     bool m_runningAdvert = false;
     QString m_runningAdvertId;
-    QList<ScheduledAdvert> m_pendingAdverts;
-    struct InterruptedChannel {
-        QString id;
-        QStringList paths;
-        int index = -1;
-        qint64 positionMs = 0;
-        QList<int> remainingTracks;
-        QString order;
-        QString repeat;
-        QList<int> cycleTracks;
-    } m_interruptedChannel;
-    QMap<qint64, QSet<QString>> m_firedAdverts;
     ScheduleV1Runtime m_v1;
-    bool m_usesV1 = false;
     bool m_v1Started = false;
     bool m_v1DisablePending = false;
     ScheduleV1Runtime::Track m_v1FailedEvent;

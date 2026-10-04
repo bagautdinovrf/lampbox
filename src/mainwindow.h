@@ -106,14 +106,14 @@ class MainWindow : public QMainWindow {
     void addSelectedVideosToPlaylist();
     void playSelectedChannel(int page);
     void startScheduledPlayback(int page);
-    void editScheduleProject();
+    void editScheduleProject(int page = PAGE_MUSIC);
     bool publishMusicSchedule(bool autoplay, QString *error);
     void updateScheduleDocumentPreview();
     QJsonObject playbackSchedule(int page, QString *error) const;
     void refreshPlaybackSchedules();
     void updatePlaybackActions();
     void updatePlayingMedia();
-    void updateVideoPlaybackContext();
+    bool updateVideoPlaybackContext(QString *error = nullptr);
     void showAllSchedules();
     void showError(const QString &message);
     void selectChannel(int page, int row);
@@ -145,6 +145,8 @@ class MainWindow : public QMainWindow {
     QString mVideoConnectionMessage;
     int mPage = PAGE_MUSIC;
     QTimer *mScheduleUpdateTimer = nullptr;
-    QJsonObject mScheduleDocument;
+    std::array<QJsonObject, 2> mScheduleDocuments;
+    QString mVideoScheduleActivePath;
+    QString mVideoScheduleContentRoot;
 };
 #endif

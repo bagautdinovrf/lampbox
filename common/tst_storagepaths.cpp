@@ -2,31 +2,13 @@
 
 #include <QCoreApplication>
 #include <QDir>
-#include <QFile>
 #include <QFileInfo>
 #include <QScopeGuard>
 #include <QStandardPaths>
-#include <QTemporaryDir>
 #include <QTest>
 #include <QUuid>
 
 using namespace MediaBox::StoragePaths;
-
-namespace {
-bool writeFile(const QString &path, const QByteArray &contents)
-{
-    if (!QDir().mkpath(QFileInfo(path).absolutePath()))
-        return false;
-    QFile file(path);
-    return file.open(QIODevice::WriteOnly) && file.write(contents) == contents.size();
-}
-
-QByteArray readFile(const QString &path)
-{
-    QFile file(path);
-    return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
-}
-} // namespace
 
 class StoragePathsTest final : public QObject
 {
@@ -116,57 +98,7 @@ private slots:
         QVERIFY(!QFileInfo::exists(commonDataDirectory()));
     }
 
-    void migrationPreservesSourcesAndNewSettings()
-    {
-        QTemporaryDir directory;
-        QVERIFY(directory.isValid());
-        const QString first = directory.filePath("old/config");
-        const QString second = directory.filePath("older/config");
-        const QString target = directory.filePath("new/app/config");
-        QVERIFY(writeFile(first, "first"));
-        QVERIFY(writeFile(second, "second"));
-        QString error;
-        QVERIFY2(migrateFile(target, {directory.filePath("absent"), first, second}, &error), qPrintable(error));
-        QCOMPARE(readFile(target), QByteArray("first"));
-        QCOMPARE(readFile(first), QByteArray("first"));
-        QCOMPARE(readFile(second), QByteArray("second"));
-        QVERIFY(writeFile(target, "new"));
-        QVERIFY(migrateFile(target, {first, second}, &error));
-        QCOMPARE(readFile(target), QByteArray("new"));
-        QVERIFY(error.isEmpty());
-    }
 
-    void invalidDestinationDoesNotModifySource()
-    {
-        QTemporaryDir directory;
-        QVERIFY(directory.isValid());
-        const QString source = directory.filePath("source");
-        const QString target = directory.filePath("target");
-        QVERIFY(writeFile(source, "original"));
-        QVERIFY(QDir().mkpath(target));
-        QString error;
-        QVERIFY(!migrateFile(target, {source}, &error));
-        QVERIFY(!error.isEmpty());
-        QCOMPARE(readFile(source), QByteArray("original"));
-        QVERIFY(!migrateFile(source + "/blocked", {source}, &error));
-        QVERIFY(!error.isEmpty());
-        QCOMPARE(readFile(source), QByteArray("original"));
-    }
-
-    void migrationKeepsPrivateFilePermissions()
-    {
-#ifdef Q_OS_UNIX
-        QTemporaryDir directory;
-        QVERIFY(directory.isValid());
-        const QString source = directory.filePath("control.token");
-        const QString target = directory.filePath("player/control.token");
-        QVERIFY(writeFile(source, "private token"));
-        QVERIFY(QFile::setPermissions(source, QFileDevice::ReadOwner | QFileDevice::WriteOwner));
-        QVERIFY(migrateFile(target, {source}));
-        QVERIFY(!(QFile::permissions(target) & (QFileDevice::ReadGroup | QFileDevice::WriteGroup
-                                               | QFileDevice::ReadOther | QFileDevice::WriteOther)));
-#endif
-    }
 };
 
 QTEST_GUILESS_MAIN(StoragePathsTest)

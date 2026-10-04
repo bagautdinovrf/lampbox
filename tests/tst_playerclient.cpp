@@ -46,7 +46,11 @@ QJsonObject snapshot(const QStringList &queue = {}, int index = 0,
             {"queue", QJsonArray::fromStringList(queue)}, {"currentIndex", currentIndex},
             {"currentTrack", currentIndex < 0 ? QString() : queue.at(currentIndex)},
             {"positionMs", 0}, {"durationMs", 0}, {"volumePercent", 100},
-            {"muted", false}, {"repeat", "off"}, {"error", ""}};
+            {"muted", false}, {"repeat", "off"}, {"error", ""},
+            {"playbackMode", "manual"}, {"channelName", ""},
+            {"scheduleAvailable", false}, {"scheduleError", ""},
+            {"publicationId", ""}, {"scheduleId", ""}, {"revision", 0},
+            {"supportedCapabilities", QJsonArray{"schedule.current.v1"}}};
 }
 
 QByteArray frame(const QJsonObject &value)
@@ -159,6 +163,54 @@ class PlayerClientTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void statusRequiresCurrentFields()
+    {
+        struct Parser : Client { using Client::parsePlaybackStatus; };
+        for (const QString &field : {QStringLiteral("playbackMode"), QStringLiteral("channelName"),
+                 QStringLiteral("scheduleAvailable"), QStringLiteral("scheduleError"),
+                 QStringLiteral("publicationId"), QStringLiteral("scheduleId"),
+                 QStringLiteral("revision"), QStringLiteral("supportedCapabilities")}) {
+            auto status = snapshot();
+            status.remove(field);
+            PlayerStatus parsed;
+            QVERIFY(!Parser::parsePlaybackStatus(status, &parsed));
+        }
+    }
+
+    void publicationRequiresCurrentPlayerAndSendsOnlyPaths()
+    {
+        ControlledPeer peer;
+        QVERIFY(peer.listening);
+        Client client;
+        client.setTiming(testTiming());
+        QSignalSpy failed(&client, &Client::commandFailed);
+        client.connectToPlayer(settingsFor(peer.port()));
+        QTRY_COMPARE(peer.requests.size(), 1);
+        auto oldStatus = snapshot();
+        oldStatus.insert("supportedCapabilities", QJsonArray{});
+        peer.answer(0, oldStatus);
+        QTRY_VERIFY(client.isReady());
+        QVERIFY(client.loadPublication("/srv/active.json", "/srv/media", true).isEmpty());
+        QCOMPARE(failed.size(), 1);
+        QCOMPARE(failed.last().at(2).toString(), QStringLiteral("unsupported_capability"));
+        QCOMPARE(peer.requests.size(), 1);
+
+        QVERIFY(!client.requestStatus().isEmpty());
+        QTRY_COMPARE(peer.requests.size(), 2);
+        peer.answer(1);
+        QTRY_VERIFY(client.status().supportedCapabilities.contains("schedule.current.v1"));
+        QVERIFY(!client.loadPublication("/srv/active.json", "/srv/media", false).isEmpty());
+        QTRY_COMPARE(peer.requests.size(), 3);
+        const auto &request = peer.requests.last();
+        QCOMPARE(request.object.value("command").toString(), QStringLiteral("loadPublication"));
+        QVERIFY(request.bytes.size() < 1024);
+        QVERIFY(!request.object.contains("schedule"));
+        QVERIFY(!request.object.contains("snapshotBase64"));
+        QVERIFY(!request.object.contains("active"));
+        QVERIFY(!request.object.value("autoplay").toBool());
+        peer.answer(2);
+    }
+
     void handshakeAndAllCommandEnvelopes()
     {
         ControlledPeer peer;
@@ -178,12 +230,6 @@ private slots:
 
         const QStringList paths{QStringLiteral("/srv/Музыка/Первый.wav"),
                                 QStringLiteral("C:/Media/Второй.wav")};
-        const QJsonObject schedule{
-            {"schemaVersion", 1},
-            {"channels", QJsonArray{QJsonObject{{"name", "Утро"},
-                                                {"paths", QJsonArray::fromStringList(paths)}}}},
-            {"adverts", QJsonArray{}}
-        };
         struct Command {
             QString name;
             QJsonObject fields;
@@ -204,9 +250,9 @@ private slots:
             {"mute", {{"value", true}}, [&] { return client.setMuted(true); }},
             {"repeat", {{"mode", "all"}}, [&] { return client.setRepeat("all"); }},
             {"clear", {}, [&] { return client.clear(); }},
-            {"setSchedule", {{"schedule", schedule}}, [&] { return client.setSchedule(schedule); }},
+            {"loadPublication", {{"activePath", "/srv/active.json"}, {"contentRoot", "/srv/media"}, {"autoplay", true}},
+             [&] { return client.loadPublication("/srv/active.json", "/srv/media", true); }},
             {"schedule", {}, [&] { return client.startSchedule(); }},
-            {"schedule", {{"schedule", schedule}}, [&] { return client.startSchedule(schedule); }},
             {"playChannel", {{"name", "Утро"}, {"paths", QJsonArray::fromStringList(paths)}, {"volume", 63}, {"order", "shuffle_cycle"}},
              [&] { return client.playChannel(QStringLiteral("Утро"), paths, 63); }},
             {"playChannel", {{"name", "Утро"}, {"paths", QJsonArray::fromStringList(paths)}, {"volume", 63}, {"order", "sequential"}},
@@ -493,14 +539,14 @@ private slots:
         QCOMPARE(changed.size(), 0);
     }
 
-    void optionalScheduleStatusIsBackwardCompatible_data()
+    void currentScheduleStatusUpdates_data()
     {
         QTest::addColumn<QString>("mode");
         QTest::newRow("manual-channel") << QStringLiteral("manual");
         QTest::newRow("schedule") << QStringLiteral("schedule");
     }
 
-    void optionalScheduleStatusIsBackwardCompatible()
+    void currentScheduleStatusUpdates()
     {
         QFETCH(QString, mode);
         ControlledPeer peer;
@@ -532,11 +578,11 @@ private slots:
         QVERIFY(client.status().scheduleAvailable);
         QCOMPARE(client.status().scheduleError, QStringLiteral("Не найден файл рекламы"));
 
-        const QString legacy = client.requestStatus();
-        QVERIFY(!legacy.isEmpty());
+        const QString manual = client.requestStatus();
+        QVERIFY(!manual.isEmpty());
         QTRY_COMPARE(peer.requests.size(), 3);
         peer.answer(2);
-        QTRY_VERIFY(containsResult(succeeded, legacy));
+        QTRY_VERIFY(containsResult(succeeded, manual));
         QCOMPARE(client.status().playbackMode, QStringLiteral("manual"));
         QVERIFY(client.status().channelName.isEmpty());
         QVERIFY(!client.status().scheduleAvailable);
@@ -776,8 +822,8 @@ private slots:
         const QString path = "/srv/" + QString(3000, QLatin1Char('x')) + ".wav";
         for (int i = 0; i < 1000; ++i) paths.append(path);
         QVERIFY(client.load(paths).isEmpty());
-        QVERIFY(client.setSchedule({}).isEmpty());
-        QVERIFY(client.setSchedule({{"channels", QJsonArray{}}, {"adverts", "invalid"}}).isEmpty());
+        QVERIFY(client.loadPublication("active.json", "/srv/media", true).isEmpty());
+        QVERIFY(client.loadPublication("/srv/active.json", "relative", true).isEmpty());
         QVERIFY(client.playChannel("   ", {"/srv/track.wav"}, 100).isEmpty());
         QVERIFY(client.playChannel("Утро", {}, 100).isEmpty());
         QVERIFY(client.playChannel("Утро", {"relative.wav"}, 100).isEmpty());

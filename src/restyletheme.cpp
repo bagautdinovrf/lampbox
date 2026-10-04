@@ -1058,7 +1058,7 @@ void apply(const QString &appearance,const QString &theme)
     currentTokens=makeTokens(currentAppearance,currentTheme);
     const QPalette p=palette();
     QApplication::setPalette(p);
-    // Explicit per-widget palettes from legacy dialogs cannot pin old light
+    // Explicit per-widget palettes from dialogs cannot pin old light
     // colors. Reset them without rebuilding widgets or their model indexes.
     const auto widgets=QApplication::allWidgets();
     for (QWidget *widget:widgets) {

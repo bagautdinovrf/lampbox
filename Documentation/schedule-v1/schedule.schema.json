@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:mediabox:schedule:v1",
-  "title": "MediaBoxManager and MediaBoxPlayer schedule version 1",
-  "description": "Предложение формата v1. Семантические ограничения описаны в README.md.",
+  "title": "MediaBoxManager, MediaBoxPlayer and MediaBoxVPlayer current schedule",
+  "description": "Единый действующий формат расписания. Семантические ограничения описаны в README.md.",
   "type": "object",
   "properties": {
     "$schema": {
@@ -44,7 +44,8 @@
         "enum": [
           "calendar.v1",
           "rotation.strict.v1",
-          "events.fixed.v1"
+          "events.fixed.v1",
+          "media.video.v1"
         ]
       },
       "minItems": 1,
@@ -369,7 +370,7 @@
           "pattern": "^[^/\\\\:]([^\\\\:]*[^/\\\\:])?$"
         },
         "mediaType": {
-          "const": "audio"
+          "enum": ["audio", "video"]
         }
       },
       "required": [

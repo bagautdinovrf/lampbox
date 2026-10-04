@@ -4,7 +4,6 @@
 #include <QHostAddress>
 #include <QObject>
 #include <QJsonObject>
-#include <QStringList>
 #include <QTcpServer>
 #include <functional>
 
@@ -32,9 +31,7 @@ private:
     int m_connections = 0;
 };
 
-// Validates and reuses the first existing legacy token when the current token
-// is absent, or creates a random token. New files are private; sources stay intact.
-bool loadControlToken(const QString &dataDirectory, QByteArray *token, QString *error,
-                      const QStringList &legacyTokenPaths = {});
+// Loads the token from the configured directory or creates a private random token.
+bool loadControlToken(const QString &dataDirectory, QByteArray *token, QString *error);
 
 } // namespace MediaBox

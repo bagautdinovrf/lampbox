@@ -111,6 +111,7 @@ QString ScheduleDocumentUi::describe(const ScheduleV1::Document &document, const
 }
 
 struct ScheduledDocumentDialog::Private {
+    QString mediaType;
     QJsonObject object;
     ScheduleV1::Document compiled;
     QComboBox *section = nullptr;
@@ -190,7 +191,9 @@ struct ScheduledDocumentDialog::Private {
         const QJsonObject source{{"type", "playlist"}, {"playlistId", firstId(object, "playlists")}};
         QJsonObject item{{"id", newId()}, {"name", QStringLiteral("Новый элемент")}};
         switch (sectionIndex) {
-        case 1: return {{"id", newId()}, {"path", "music/channel/file.mp3"}, {"mediaType", "audio"}};
+        case 1: return {{"id", newId()},
+            {"path", mediaType == "video" ? "video/channel/file.mp4" : "music/channel/file.mp3"},
+            {"mediaType", mediaType}};
         case 2:
             item.insert("revision", 1); item.insert("order", "shuffle_cycle"); item.insert("entries", QJsonArray{}); break;
         case 3:
@@ -225,10 +228,12 @@ struct ScheduledDocumentDialog::Private {
     }
 };
 
-ScheduledDocumentDialog::ScheduledDocumentDialog(const QJsonObject &document, QWidget *parent)
+ScheduledDocumentDialog::ScheduledDocumentDialog(const QJsonObject &document, QWidget *parent,
+                                               const QString &mediaType)
     : QDialog(parent), d(std::make_unique<Private>())
 {
     d->object = document;
+    d->mediaType = mediaType;
     setObjectName(QStringLiteral("scheduledDocumentDialog"));
     setWindowTitle(QStringLiteral("Проект расписания"));
     setFont(Restyle::font(11));

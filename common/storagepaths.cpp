@@ -1,8 +1,6 @@
 #include "storagepaths.h"
 
 #include <QDir>
-#include <QFile>
-#include <QFileInfo>
 #include <QStandardPaths>
 
 #ifdef Q_OS_WIN
@@ -87,36 +85,4 @@ QString dataDirectory(Application application)
     return QDir(rootDirectory(false)).filePath(applicationName(application));
 }
 
-bool migrateFile(const QString &destination, const QStringList &sources, QString *error)
-{
-    if (error)
-        error->clear();
-    const auto fail = [error](const QString &message) {
-        if (error)
-            *error = message;
-        return false;
-    };
-    const QFileInfo target(destination);
-    if (target.exists()) {
-        if (!target.isFile())
-            return fail(QStringLiteral("Settings path is not a file: %1").arg(destination));
-        return true;
-    }
-    if (!QDir().mkpath(target.absolutePath()))
-        return fail(QStringLiteral("Cannot create settings directory: %1").arg(target.absolutePath()));
-    for (const QString &source : sources) {
-        if (!QFileInfo(source).isFile())
-            continue;
-        QFile file(source);
-        if (!file.copy(destination)) {
-            // Another application instance may have completed migration first.
-            if (QFileInfo(destination).isFile())
-                return true;
-            return fail(QStringLiteral("Cannot copy settings from %1 to %2: %3. The source is preserved.")
-                        .arg(source, destination, file.errorString()));
-        }
-        break;
-    }
-    return true;
-}
 } // namespace MediaBox::StoragePaths

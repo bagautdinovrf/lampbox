@@ -60,44 +60,6 @@ if (Test-Path -LiteralPath $playerDataDirectory) {
     Set-Acl -LiteralPath $playerDataDirectory -AclObject $privateAcl
 }
 
-# Preserve a control token created by the previous service installer. Copy only
-# into the protected destination, keep the original, and never overwrite a token.
-# Explicit -DataDirectory values remain independent installations.
-if (-not $PSBoundParameters.ContainsKey('DataDirectory')) {
-    $legacyDataDirectory = Join-Path $env:ProgramData 'MediaBox\Player'
-    $legacyTokenPath = Join-Path $legacyDataDirectory 'control.token'
-    $tokenPath = Join-Path $playerDataDirectory 'control.token'
-    if (-not (Test-Path -LiteralPath $tokenPath) -and (Test-Path -LiteralPath $legacyTokenPath)) {
-        $legacyDirectory = Get-Item -LiteralPath $legacyDataDirectory
-        $legacyToken = Get-Item -LiteralPath $legacyTokenPath
-        if (($legacyDirectory.Attributes -band [IO.FileAttributes]::ReparsePoint) -or
-            $legacyToken.PSIsContainer -or ($legacyToken.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
-            throw 'The legacy token must be a regular file in a normal directory.'
-        }
-        # Create a fresh file so it inherits only the private destination ACL.
-        # CreateNew protects a token installed concurrently from being replaced.
-        $sourceStream = [IO.File]::OpenRead($legacyTokenPath)
-        $tokenStream = $null
-        try {
-            $tokenStream = [IO.File]::Open($tokenPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
-            $sourceStream.CopyTo($tokenStream)
-            $tokenStream.Flush()
-        } catch {
-            if ($null -ne $tokenStream) {
-                $tokenStream.Dispose()
-                $tokenStream = $null
-                Remove-Item -LiteralPath $tokenPath
-            }
-            throw
-        } finally {
-            if ($null -ne $tokenStream) {
-                $tokenStream.Dispose()
-            }
-            $sourceStream.Dispose()
-        }
-    }
-}
-
 function Invoke-ServiceControl {
     param([string[]] $ScArguments)
     # Build the native command line explicitly, preserving the quotes inside binPath

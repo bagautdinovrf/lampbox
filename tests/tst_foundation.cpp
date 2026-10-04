@@ -10,7 +10,7 @@
 #include <fileref.h>
 #include <tag.h>
 
-class MigrationTest final : public QObject
+class FoundationTest final : public QObject
 {
     Q_OBJECT
 
@@ -89,5 +89,5 @@ private slots:
 
 };
 
-QTEST_MAIN(MigrationTest)
-#include "tst_migration.moc"
+QTEST_MAIN(FoundationTest)
+#include "tst_foundation.moc"

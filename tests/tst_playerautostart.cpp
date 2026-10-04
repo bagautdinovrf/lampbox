@@ -50,7 +50,11 @@ QJsonObject stoppedReply(const QJsonObject &)
     return {{"ok", true}, {"status", QJsonObject{
         {"state", "stopped"}, {"playbackRequested", false}, {"queue", QJsonArray{}},
         {"currentIndex", -1}, {"currentTrack", ""}, {"positionMs", 0}, {"durationMs", 0},
-        {"volumePercent", 100}, {"muted", false}, {"repeat", "off"}, {"error", ""}}}};
+        {"volumePercent", 100}, {"muted", false}, {"repeat", "off"}, {"error", ""},
+            {"playbackMode", "manual"}, {"channelName", ""},
+            {"scheduleAvailable", false}, {"scheduleError", ""},
+            {"publicationId", ""}, {"scheduleId", ""}, {"revision", 0},
+            {"supportedCapabilities", QJsonArray{"schedule.current.v1"}}}}};
 }
 
 QString managerDirectory()

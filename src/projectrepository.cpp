@@ -1,5 +1,4 @@
 #include "projectrepository.h"
-#include "scheduleimport.h"
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -92,8 +91,7 @@ bool identity(const QJsonObject &object, QString *id, QString *name, QSet<QStrin
     if (uuid.isNull() || uuid.toString(QUuid::WithoutBraces) != *id || used->contains(*id) || !validFileName(*name, false)) return false;
     used->insert(*id); return true;
 }
-bool decodeChannels(const QJsonValue &value, QList<ScheduleCore::ChannelRule> *rules, QSet<QString> *ids,
-                    bool requireDirectory)
+bool decodeChannels(const QJsonValue &value, QList<ScheduleCore::ChannelRule> *rules, QSet<QString> *ids)
 {
     if (!value.isArray()) return false;
     QSet<QString> names;
@@ -102,20 +100,12 @@ bool decodeChannels(const QJsonValue &value, QList<ScheduleCore::ChannelRule> *r
         if (!item.isObject()) return false;
         auto object = item.toObject();
         ScheduleCore::ChannelRule rule;
-        const bool hasDirectory = object.contains("directory");
-        if (requireDirectory && !hasDirectory) return false;
-        if (hasDirectory) {
-            const auto directory = object.take("directory");
-            if (!directory.isString() || !validFileName(directory.toString(), true)) return false;
-            rule.storageDirectory = directory.toString();
-        }
-        // Projects saved before per-channel ordering keep the previous shuffle default.
-        if (object.contains("order")) {
-            if (!object.value("order").isString()) return false;
-            rule.order = object.take("order").toString();
-        }
-        if (object.contains("untilDayOffset")
-                && !integer(object.take("untilDayOffset"), 0, 1, &rule.untilDayOffset)) return false;
+        const auto directory = object.take("directory");
+        if (!directory.isString() || !validFileName(directory.toString(), true)) return false;
+        rule.storageDirectory = directory.toString();
+        if (!object.value("order").isString()) return false;
+        rule.order = object.take("order").toString();
+        if (!integer(object.take("untilDayOffset"), 0, 1, &rule.untilDayOffset)) return false;
         if (!keys(object, {"id", "name", "start", "end", "weekdays", "days", "months", "volume"})
                 || !identity(object, &rule.stableId, &rule.name, ids)
                 || !object.value("start").isString() || !object.value("end").isString()
@@ -125,7 +115,6 @@ bool decodeChannels(const QJsonValue &value, QList<ScheduleCore::ChannelRule> *r
                 || !integer(object.value("volume"), 0, 100, &rule.volume)) return false;
         rule.start = QTime::fromString(object.value("start").toString(), "HH:mm");
         rule.end = QTime::fromString(object.value("end").toString(), "HH:mm");
-        if (!hasDirectory) rule.storageDirectory = rule.name;
         if (rule.start.toString("HH:mm") != object.value("start").toString()
                 || rule.end.toString("HH:mm") != object.value("end").toString()
                 || names.contains(rule.name.toCaseFolded()) || directories.contains(rule.storageDirectory.toCaseFolded())
@@ -182,7 +171,7 @@ QJsonArray encodeChannels(const QList<ScheduleCore::ChannelRule> &rules)
     QJsonArray array;
     for (const auto &r : rules)
         array.append(QJsonObject{{"id", r.stableId}, {"name", r.name},
-                     {"directory", r.storageDirectory.isEmpty() ? r.name : r.storageDirectory}, {"start", r.start.toString("HH:mm")},
+                     {"directory", r.storageDirectory}, {"start", r.start.toString("HH:mm")},
                      {"end", r.end.toString("HH:mm")}, {"weekdays", calendarJson(r.weekdays, 0, 6)},
                      {"days", calendarJson(r.days, 1, 31)}, {"months", calendarJson(r.months, 1, 12)},
                      {"volume", r.volume}, {"order", r.order}, {"untilDayOffset", r.untilDayOffset}});
@@ -275,13 +264,11 @@ bool decode(const QByteArray &bytes, Project *project, QString *error)
     const auto root = document.object();
     if (!keys(root, {"format", "schemaVersion", "music", "video", "advert"})
             || root.value("format") != QJsonValue("mediabox.manager-project")
-            || (root.value("schemaVersion") != QJsonValue(1) && root.value("schemaVersion") != QJsonValue(2)
-                && root.value("schemaVersion") != QJsonValue(3)))
+            || root.value("schemaVersion") != QJsonValue(3))
         return fail(error, QStringLiteral("Неподдерживаемый формат, версия или поля проекта"));
     Project result; QSet<QString> ids;
-    const bool requireDirectory = root.value("schemaVersion") == QJsonValue(3);
-    if (!decodeChannels(root.value("music"), &result.music, &ids, requireDirectory)) return fail(error, QStringLiteral("Некорректные музыкальные правила проекта"));
-    if (!decodeChannels(root.value("video"), &result.video, &ids, requireDirectory)) return fail(error, QStringLiteral("Некорректные видеоправила проекта"));
+    if (!decodeChannels(root.value("music"), &result.music, &ids)) return fail(error, QStringLiteral("Некорректные музыкальные правила проекта"));
+    if (!decodeChannels(root.value("video"), &result.video, &ids)) return fail(error, QStringLiteral("Некорректные видеоправила проекта"));
     if (!decodeAdverts(root.value("advert"), &result.advert, &ids)) return fail(error, QStringLiteral("Некорректные рекламные правила проекта"));
     *project = result;
     return true;
@@ -303,9 +290,9 @@ bool load(const Paths &paths, Project *project, QString *error)
         QByteArray bytes;
         return readProject(paths, project, &bytes, error);
     }
-    Project imported;
-    if (!ScheduleImport::read(paths, &imported, error) || !saveChecked(paths, imported, error)) return false;
-    *project = imported;
+    Project fresh;
+    if (!saveChecked(paths, fresh, error)) return false;
+    *project = fresh;
     return true;
 }
 bool replaceChannels(const Paths &paths, bool video, const QList<ScheduleCore::ChannelRule> &rules,

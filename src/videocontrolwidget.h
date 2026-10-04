@@ -25,7 +25,7 @@ public:
     explicit VideoControlWidget(QWidget *parent = nullptr, MediaBoxVPlayerClient *client = nullptr);
     void reloadConnection();
     void addPlaylistPaths(const QStringList &paths);
-    void setScheduleSnapshot(const QJsonObject &schedule);
+    void setSchedulePublication(const QString &activePath, const QString &contentRoot);
     void setSelectedChannel(const QString &name, const QStringList &paths, int volume,
                             const QString &order = QStringLiteral("shuffle_cycle"));
     bool playSelectedChannel();
@@ -81,7 +81,8 @@ private:
     QList<WindowProfile> mProfiles;
     QHash<QString, Pending> mPending;
     QString mConnectionErrorMessage;
-    QJsonObject mScheduleSnapshot;
+    QString mScheduleActivePath;
+    QString mScheduleContentRoot;
     QString mSelectedChannelName;
     QStringList mSelectedChannelPaths;
     int mSelectedChannelVolume = 100;

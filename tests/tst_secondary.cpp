@@ -131,7 +131,7 @@ private slots:
         year->setDate(QDate(2026, 1, 1));
         month->setCurrentIndex(9);
         const QString october = mDirectory.filePath(QStringLiteral("1026.csv"));
-        QVERIFY(writeReport(october, QStringLiteral("Маяк — За окном;64\nAster — Новый день;47;legacy\n").toUtf8()));
+        QVERIFY(writeReport(october, QStringLiteral("Маяк — За окном;64\nAster — Новый день;47\n").toUtf8()));
         report.Generate();
         QVERIFY(table->model());
         QCOMPARE(table->model()->rowCount(), 2);
@@ -152,6 +152,10 @@ private slots:
         QVERIFY(!table->model());
         QCOMPARE(empty->text(), QStringLiteral("Не удалось открыть отчёт"));
         QVERIFY(writeReport(november, "track;-1\n"));
+        report.Generate();
+        QVERIFY(!table->model());
+        QCOMPARE(empty->text(), QStringLiteral("Не удалось открыть отчёт"));
+        QVERIFY(writeReport(november, "track;1;unexpected-column\n"));
         report.Generate();
         QVERIFY(!table->model());
         QCOMPARE(empty->text(), QStringLiteral("Не удалось открыть отчёт"));

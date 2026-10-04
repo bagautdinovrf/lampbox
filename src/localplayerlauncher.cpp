@@ -175,18 +175,6 @@ void LocalPlayerLauncher::startLocalPlayer(const PlayerConnectionSettings &setti
         emit connectionError(tr("Не удалось создать каталог локального плеера: %1").arg(directory));
         return;
     }
-    if (mKind == Kind::Video && settings.port == 17656) {
-        const QString source = QDir(MediaBox::StoragePaths::configurationDirectory(
-            MediaBox::StoragePaths::Application::VideoPlayer)).filePath(QStringLiteral("windows.json"));
-        QString error;
-        // Preserve standalone windows on the first local managed launch. An
-        // existing managed profile remains authoritative and is never replaced.
-        if (!MediaBox::StoragePaths::migrateFile(QDir(directory).filePath(QStringLiteral("windows.json")),
-                                               {source}, &error)) {
-            emit connectionError(tr("Не удалось перенести настройки видеоокон: %1").arg(error));
-            return;
-        }
-    }
     QProcess process;
     process.setProgram(executable);
     process.setArguments({QStringLiteral("--managed"), (mKind == Kind::Audio ? QStringLiteral("--listen") : QStringLiteral("--host")),

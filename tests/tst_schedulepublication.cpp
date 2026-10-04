@@ -9,7 +9,7 @@
 #include <QTest>
 
 namespace {
-QJsonObject legacy(const QString &root, int offset = 1, const QString &start = "00:00", const QString &end = "00:00")
+QJsonObject channels(const QString &root, int offset = 1, const QString &start = "00:00", const QString &end = "00:00")
 {
     return {{"channels", QJsonArray{QJsonObject{{"id", "00000000-0000-4000-8000-000000000111"},
         {"name", "Музыка"}, {"start", start}, {"end", end}, {"untilDayOffset", offset},
@@ -22,24 +22,53 @@ QByteArray read(const QString &path) { QFile file(path); if (!file.open(QIODevic
 class SchedulePublicationTests : public QObject {
     Q_OBJECT
 private slots:
-    void migrateAndPublish();
+    void compileAndPublish();
     void unchangedReleaseAndPlaylistRevision();
-    void explicitOvernightAndLegacyAmbiguity();
+    void explicitOvernightAndInvalidIntervals();
     void advancedDraftIsAuthoritative();
     void rejectedPublicationPreservesPointer();
     void contentEscapeRejected();
     void distinctPathsAndRepeatedEntries();
     void renamePreservesEntryIdsAndRevision();
     void generatedHorizonRenewsButAdvancedRangeRemains();
+    void videoUsesCurrentPublicationFiles();
 };
 
-void SchedulePublicationTests::migrateAndPublish()
+void SchedulePublicationTests::videoUsesCurrentPublicationFiles()
+{
+    QTemporaryDir dir;
+    auto input = channels(dir.path());
+    auto channels = input.value("channels").toArray();
+    auto channel = channels[0].toObject();
+    channel.insert("paths", QJsonArray{dir.filePath("video/Экран/ролик.mp4")});
+    channels[0] = channel;
+    input.insert("channels", channels);
+    QJsonObject document;
+    bool advanced = false;
+    QString error;
+    const QString project = dir.filePath("video-schedule");
+    QVERIFY2(SchedulePublication::draft(project, dir.path(), input, &document, &advanced, &error, "video"), qPrintable(error));
+    QCOMPARE(document.value("schemaVersion"), QJsonValue(1));
+    QCOMPARE(document.value("assets").toArray().first().toObject().value("mediaType"), QJsonValue("video"));
+    QVERIFY(document.value("requiredCapabilities").toArray().contains("media.video.v1"));
+    ScheduleV1::Document parsed;
+    QVERIFY2(ScheduleV1::decode(document, &parsed).isEmpty(), qPrintable(ScheduleV1::decode(document, &parsed)));
+    SchedulePublication::Publication publication;
+    QVERIFY2(SchedulePublication::publish(project, dir.path(), document, &publication, &error), qPrintable(error));
+    QCOMPARE(publication.activePath, QDir(project).filePath("active.json"));
+    QCOMPARE(publication.contentRoot, dir.path());
+    const auto pointer = QJsonDocument::fromJson(read(publication.activePath)).object();
+    QCOMPARE(pointer.value("sha256"), publication.active.value("sha256"));
+    QCOMPARE(read(QDir(project).filePath(pointer.value("snapshotPath").toString())), publication.bytes);
+}
+
+void SchedulePublicationTests::compileAndPublish()
 {
     QTemporaryDir dir;
     QJsonObject document;
     bool advanced = true;
     QString error;
-    QVERIFY2(SchedulePublication::draft(dir.path(), dir.path(), legacy(dir.path()), &document, &advanced, &error), qPrintable(error));
+    QVERIFY2(SchedulePublication::draft(dir.path(), dir.path(), channels(dir.path()), &document, &advanced, &error), qPrintable(error));
     QVERIFY(!advanced);
     ScheduleV1::Document parsed;
     QVERIFY2(ScheduleV1::decode(document, &parsed).isEmpty(), qPrintable(ScheduleV1::decode(document, &parsed)));
@@ -52,7 +81,7 @@ void SchedulePublicationTests::migrateAndPublish()
     QCOMPARE(read(QDir(dir.path()).filePath(release.active["snapshotPath"].toString())), release.bytes);
     QCOMPARE(release.active["sha256"].toString(), QString::fromLatin1(QCryptographicHash::hash(release.bytes, QCryptographicHash::Sha256).toHex()));
     const auto journal = QJsonDocument::fromJson(read(QDir(dir.path()).filePath("publications/" + release.active["publicationId"].toString() + ".json"))).object();
-    QCOMPARE(QByteArray::fromBase64(journal["snapshotBase64"].toString().toLatin1()), release.bytes);
+    QCOMPARE(journal, release.active);
 }
 
 void SchedulePublicationTests::unchangedReleaseAndPlaylistRevision()
@@ -61,7 +90,7 @@ void SchedulePublicationTests::unchangedReleaseAndPlaylistRevision()
     QJsonObject document;
     bool advanced;
     QString error;
-    auto source = legacy(dir.path());
+    auto source = channels(dir.path());
     QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), source, &document, &advanced, &error));
     SchedulePublication::Publication first, unchanged, next;
     QVERIFY2(SchedulePublication::publish(dir.path(), dir.path(), document, &first, &error), qPrintable(error));
@@ -79,16 +108,16 @@ void SchedulePublicationTests::unchangedReleaseAndPlaylistRevision()
     QVERIFY(QFileInfo::exists(QDir(dir.path()).filePath(first.active["snapshotPath"].toString())));
 }
 
-void SchedulePublicationTests::explicitOvernightAndLegacyAmbiguity()
+void SchedulePublicationTests::explicitOvernightAndInvalidIntervals()
 {
     QTemporaryDir dir;
     QJsonObject document;
     bool advanced;
     QString error;
-    QVERIFY(!SchedulePublication::draft(dir.path(), dir.path(), legacy(dir.path(), 0), &document, &advanced, &error));
+    QVERIFY(!SchedulePublication::draft(dir.path(), dir.path(), channels(dir.path(), 0), &document, &advanced, &error));
     QVERIFY(error.contains(QStringLiteral("Полные сутки")));
-    QVERIFY(!SchedulePublication::draft(dir.path(), dir.path(), legacy(dir.path(), 0, "22:00", "06:00"), &document, &advanced, &error));
-    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), legacy(dir.path(), 1, "22:00", "06:00"), &document, &advanced, &error));
+    QVERIFY(!SchedulePublication::draft(dir.path(), dir.path(), channels(dir.path(), 0, "22:00", "06:00"), &document, &advanced, &error));
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), channels(dir.path(), 1, "22:00", "06:00"), &document, &advanced, &error));
     const auto window = document["dayTemplates"].toArray().first().toObject()["slots"].toArray().first().toObject()["window"].toObject();
     QCOMPARE(window["from"].toString(), QString("22:00:00"));
     QCOMPARE(window["untilDayOffset"].toInt(), 1);
@@ -100,10 +129,10 @@ void SchedulePublicationTests::advancedDraftIsAuthoritative()
     QJsonObject document, readback;
     bool advanced;
     QString error;
-    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), legacy(dir.path()), &document, &advanced, &error));
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), channels(dir.path()), &document, &advanced, &error));
     document["baseRules"] = QJsonArray{};
     QVERIFY2(SchedulePublication::saveDraft(dir.path(), document, &error), qPrintable(error));
-    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), legacy(dir.path()), &readback, &advanced, &error));
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), channels(dir.path()), &readback, &advanced, &error));
     QVERIFY(advanced);
     QVERIFY(readback["baseRules"].toArray().isEmpty());
     QCOMPARE(readback["scheduleId"], document["scheduleId"]);
@@ -115,7 +144,7 @@ void SchedulePublicationTests::rejectedPublicationPreservesPointer()
     QJsonObject document;
     bool advanced;
     QString error;
-    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), legacy(dir.path()), &document, &advanced, &error));
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), channels(dir.path()), &document, &advanced, &error));
     SchedulePublication::Publication publication;
     QVERIFY(SchedulePublication::publish(dir.path(), dir.path(), document, &publication, &error));
     const auto before = read(publication.activePath);
@@ -127,7 +156,7 @@ void SchedulePublicationTests::rejectedPublicationPreservesPointer()
 void SchedulePublicationTests::contentEscapeRejected()
 {
     QTemporaryDir dir;
-    QJsonObject source = legacy(dir.path()), document;
+    QJsonObject source = channels(dir.path()), document;
     auto channel = source["channels"].toArray().first().toObject();
     channel["paths"] = QJsonArray{QDir(dir.path()).absoluteFilePath("../outside.mp3")};
     source["channels"] = QJsonArray{channel};
@@ -138,7 +167,7 @@ void SchedulePublicationTests::contentEscapeRejected()
 void SchedulePublicationTests::distinctPathsAndRepeatedEntries()
 {
     QTemporaryDir dir;
-    auto source = legacy(dir.path());
+    auto source = channels(dir.path());
     auto channel = source["channels"].toArray().first().toObject();
     const QString first = QDir(dir.path()).filePath("music/channel/a/same.mp3");
     channel["paths"] = QJsonArray{first, QDir(dir.path()).filePath("music/channel/b/same.mp3"), first};
@@ -158,7 +187,7 @@ void SchedulePublicationTests::distinctPathsAndRepeatedEntries()
 void SchedulePublicationTests::renamePreservesEntryIdsAndRevision()
 {
     QTemporaryDir dir;
-    auto source = legacy(dir.path());
+    auto source = channels(dir.path());
     auto channel = source["channels"].toArray().first().toObject();
     channel["paths"] = QJsonArray{QDir(dir.path()).filePath("music/Музыка/папка/трек.mp3")};
     source["channels"] = QJsonArray{channel};
@@ -184,7 +213,7 @@ void SchedulePublicationTests::generatedHorizonRenewsButAdvancedRangeRemains()
     QJsonObject document;
     QString error;
     bool advanced;
-    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), legacy(dir.path()), &document, &advanced, &error));
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), channels(dir.path()), &document, &advanced, &error));
     const QJsonObject expired{{"from", "2020-01-01"}, {"until", "2021-01-01"}};
     document["validity"] = expired;
     auto project = QJsonDocument::fromJson(read(SchedulePublication::projectPath(dir.path()))).object();
@@ -193,10 +222,10 @@ void SchedulePublicationTests::generatedHorizonRenewsButAdvancedRangeRemains()
     QVERIFY(file.open(QIODevice::WriteOnly));
     file.write(QJsonDocument(project).toJson()); file.close();
     QJsonObject renewed;
-    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), legacy(dir.path()), &renewed, &advanced, &error));
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), channels(dir.path()), &renewed, &advanced, &error));
     QCOMPARE(renewed["validity"].toObject()["from"].toString(), QDate::currentDate().toString(Qt::ISODate));
     QVERIFY(SchedulePublication::saveDraft(dir.path(), document, &error));
-    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), legacy(dir.path()), &renewed, &advanced, &error));
+    QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), channels(dir.path()), &renewed, &advanced, &error));
     QVERIFY(advanced);
     QCOMPARE(renewed["validity"].toObject(), expired);
 }

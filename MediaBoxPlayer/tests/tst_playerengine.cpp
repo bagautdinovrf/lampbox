@@ -1,7 +1,13 @@
 #include "audiobackend.h"
 #include "playerengine.h"
+#include "schedulecore/schedulecompiler.h"
 
+#include <QCryptographicHash>
+#include <QDir>
 #include <QFile>
+#include <QFileInfo>
+#include <QSaveFile>
+#include <QUuid>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -29,6 +35,8 @@ public:
     {
         ++playCalls;
         playedSources.append(source.toLocalFile());
+        if (autoConfirm && !rejectEveryTrack)
+            emit stateChanged(State::Playing);
         if (rejectEveryTrack) {
             QTimer::singleShot(0, this, [this] {
                 emit errorOccurred(QStringLiteral("Cannot decode test audio"));
@@ -79,6 +87,7 @@ public:
     int volume = -1;
     bool muted = false;
     bool rejectEveryTrack = false;
+    bool autoConfirm = false;
 };
 
 class PlayerEngineTest final : public QObject
@@ -99,6 +108,50 @@ private:
     static QJsonObject command(PlayerEngine &engine, const QString &name,
                                QJsonObject arguments = {})
     {
+        // Test editor fixtures are compiled locally and written to files. The
+        // player sees only the same small loadPublication command as production.
+        if (name == QStringLiteral("publish") || name == QStringLiteral("publishAndStart")) {
+            QTemporaryDir publicationDirectory;
+            const auto input = arguments.value("schedule").toObject();
+            QString root = publicationDirectory.path();
+            for (const auto &group : {input.value("channels").toArray(), input.value("adverts").toArray()}) {
+                for (const auto &value : group) {
+                    const auto paths = value.toObject().value("paths").toArray();
+                    if (!paths.isEmpty())
+                        root = QFileInfo(paths.first().toString()).absolutePath();
+                }
+            }
+            QJsonObject previous = engine.property("testPublication").toJsonObject();
+            if (previous.isEmpty())
+                previous = {{"timeZone", "UTC"}, {"validity", QJsonObject{{"from", "2026-10-01"}, {"until", "2027-12-31"}}}};
+            QJsonObject document;
+            QString error;
+            if (!ScheduleCompiler::fromChannels(input, root, previous, &document, &error))
+                return {{"ok", false}, {"error", QJsonObject{{"message", error}}}};
+            document.insert("publicationId", QUuid::createUuid().toString(QUuid::WithoutBraces));
+            document.insert("revision", previous.value("revision").toInt() + 1);
+            const QByteArray bytes = QJsonDocument(document).toJson(QJsonDocument::Compact);
+            const QString relative = QStringLiteral("snapshots/%1.json").arg(document.value("publicationId").toString());
+            QDir().mkpath(publicationDirectory.filePath("snapshots"));
+            const auto write = [](const QString &path, const QByteArray &contents) {
+                QSaveFile file(path);
+                return file.open(QIODevice::WriteOnly) && file.write(contents) == contents.size() && file.commit();
+            };
+            const QJsonObject pointer{{"format", "mediabox.active"}, {"schemaVersion", 1},
+                {"scheduleId", document.value("scheduleId")}, {"stationId", document.value("stationId")},
+                {"publicationId", document.value("publicationId")}, {"revision", document.value("revision")},
+                {"snapshotPath", relative},
+                {"sha256", QString::fromLatin1(QCryptographicHash::hash(bytes, QCryptographicHash::Sha256).toHex())}};
+            const QString activePath = publicationDirectory.filePath("active.json");
+            if (!write(publicationDirectory.filePath(relative), bytes)
+                || !write(activePath, QJsonDocument(pointer).toJson(QJsonDocument::Compact)))
+                return {{"ok", false}};
+            const auto result = engine.execute({{"command", "loadPublication"}, {"activePath", activePath},
+                {"contentRoot", root}, {"autoplay", name == QStringLiteral("publishAndStart")}});
+            if (result.value("ok").toBool())
+                engine.setProperty("testPublication", document);
+            return result;
+        }
         arguments.insert(QStringLiteral("command"), name);
         return engine.execute(arguments);
     }
@@ -133,7 +186,7 @@ private:
     static QJsonObject channel(const QString &id, const QString &name, const QString &start,
                                const QString &end, const QStringList &paths, int volume = 75)
     {
-        return {{"id", id}, {"name", name}, {"start", start}, {"end", end},
+        return {{"id", QUuid::createUuidV5(QUuid("00000000-0000-4000-8000-000000000001"), id.toUtf8()).toString(QUuid::WithoutBraces)}, {"name", name}, {"start", start}, {"end", end},
                 {"weekdays", "*"}, {"days", "*"}, {"months", "*"}, {"volume", volume},
                 {"paths", QJsonArray::fromStringList(paths)}, {"order", "sequential"}};
     }
@@ -141,7 +194,7 @@ private:
     static QJsonObject advert(const QString &id, const QString &name, const QString &timing,
                               const QStringList &paths, int volume = 60)
     {
-        return {{"id", id}, {"name", name}, {"hours", "*"}, {"weekdays", "*"},
+        return {{"id", QUuid::createUuidV5(QUuid("00000000-0000-4000-8000-000000000001"), id.toUtf8()).toString(QUuid::WithoutBraces)}, {"name", name}, {"hours", "*"}, {"weekdays", "*"},
                 {"from", "2026-10-04"}, {"until", "2026-10-04"}, {"timing", timing},
                 {"volume", volume}, {"paths", QJsonArray::fromStringList(paths)}};
     }
@@ -176,16 +229,21 @@ private slots:
             paths.append(createTrack(directory, QString("%1.wav").arg(index)));
         QDateTime now = at("10:00:00");
         FakeAudioBackend backend;
-        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        backend.autoConfirm = true;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; }, ":memory:");
         auto arguments = scheduled ? channel("music", "Музыка", "09:00", "12:00", paths)
             : QJsonObject{{"name", "Музыка"}, {"paths", QJsonArray::fromStringList(paths)}, {"volume", 75}};
         arguments.remove("order");
         if (!order.isEmpty())
             arguments.insert("order", order);
-        QVERIFY(command(engine, scheduled ? "schedule" : "playChannel",
+        QVERIFY(command(engine, scheduled ? "publishAndStart" : "playChannel",
             scheduled ? QJsonObject{{"schedule", schedule({arguments})}} : arguments).value("ok").toBool());
-        QCOMPARE(engine.status().value("order").toString(), order.isEmpty() ? QStringLiteral("shuffle_cycle") : order);
-        QCOMPARE(engine.status().value("queue").toArray(), QJsonArray::fromStringList(paths));
+        if (!scheduled) {
+            QCOMPARE(engine.status().value("order").toString(), order.isEmpty() ? QStringLiteral("shuffle_cycle") : order);
+            QCOMPARE(engine.status().value("queue").toArray(), QJsonArray::fromStringList(paths));
+        } else {
+            QCOMPARE(engine.status().value("queue").toArray().size(), 1);
+        }
         QStringList previous;
         for (int cycle = 0; cycle < 20; ++cycle) {
             QStringList played;
@@ -201,10 +259,12 @@ private slots:
             QCOMPARE(sorted, expected);
             if (order == QStringLiteral("sequential"))
                 QCOMPARE(played, paths);
-            else if (count > 1 && cycle > 0)
+            else if (!scheduled && count > 1 && cycle > 0)
                 QVERIFY(played != previous);
             previous = played;
         }
+        if (scheduled)
+            return; // Executable schedules own rotation; manual repeat controls apply below.
         // Repeat overrides still work with the default shuffled channel.
         QVERIFY(command(engine, "repeat", {{"mode", "one"}}).value("ok").toBool());
         const auto source = backend.source;
@@ -230,8 +290,9 @@ private slots:
         music.remove("order");
         QDateTime now = at("10:00:00");
         FakeAudioBackend backend;
-        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
-        QVERIFY(command(engine, "schedule", {{"schedule", schedule({music}, {advert("ad", "Реклама", "01m", {ad})})}}).value("ok").toBool());
+        backend.autoConfirm = true;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; }, ":memory:");
+        QVERIFY(command(engine, "publishAndStart", {{"schedule", schedule({music}, {advert("ad", "Реклама", "01m", {ad})})}}).value("ok").toBool());
         QStringList played{backend.source.toLocalFile()};
         backend.finish();
         settle();
@@ -296,8 +357,9 @@ private slots:
         const QString second = createTrack(directory, "second.wav");
         QDateTime now = at("10:00:00");
         FakeAudioBackend backend;
-        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
-        QVERIFY(command(engine, "schedule", {{"schedule", schedule({channel("scheduled", "По плану", "09:00", "12:00", {scheduled})})}}).value("ok").toBool());
+        backend.autoConfirm = true;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; }, ":memory:");
+        QVERIFY(command(engine, "publishAndStart", {{"schedule", schedule({channel("scheduled", "По плану", "09:00", "12:00", {scheduled})})}}).value("ok").toBool());
         const QJsonObject before = engine.status();
         const int playsBefore = backend.playCalls;
         const QList<QJsonObject> invalid = {
@@ -338,19 +400,20 @@ private slots:
         const QString track = createTrack(directory, "track.wav");
         QDateTime now = at("10:00:00");
         FakeAudioBackend backend;
-        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        backend.autoConfirm = true;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; }, ":memory:");
         QVERIFY(!command(engine, "schedule").value("ok").toBool());
         QCOMPARE(engine.status().value("playbackMode").toString(), QStringLiteral("manual"));
         QVERIFY(!engine.status().value("scheduleAvailable").toBool());
         const QJsonObject snapshot = schedule({channel("first", "Первый", "09:00", "12:00", {track})});
-        QVERIFY(command(engine, "setSchedule", {{"schedule", snapshot}}).value("ok").toBool());
+        QVERIFY(command(engine, "publish", {{"schedule", snapshot}}).value("ok").toBool());
         QCOMPARE(backend.playCalls, 0);
         QVERIFY(engine.status().value("scheduleAvailable").toBool());
         QCOMPARE(engine.status().value("playbackMode").toString(), QStringLiteral("manual"));
         auto invalidChannel = channel("bad", "Ошибка", "09:00", "12:00", {track});
         invalidChannel.insert("weekdays", "7");
         const QJsonObject before = engine.status();
-        QVERIFY(!command(engine, "schedule", {{"schedule", schedule({invalidChannel})}}).value("ok").toBool());
+        QVERIFY(!command(engine, "publishAndStart", {{"schedule", schedule({invalidChannel})}}).value("ok").toBool());
         QCOMPARE(engine.status(), before);
         QVERIFY(command(engine, "schedule").value("ok").toBool());
         QCOMPARE(backend.source.toLocalFile(), track);
@@ -370,8 +433,9 @@ private slots:
         const QString second = createTrack(directory, "second.wav");
         QDateTime now = at("08:59:59");
         FakeAudioBackend backend;
-        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
-        QVERIFY(command(engine, "schedule", {{"schedule", schedule({channel("first", "Утро", "09:00", "10:00", {first}), channel("second", "День", "10:00", "11:00", {second})})}}).value("ok").toBool());
+        backend.autoConfirm = true;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; }, ":memory:");
+        QVERIFY(command(engine, "publishAndStart", {{"schedule", schedule({channel("first", "Утро", "09:00", "10:00", {first}), channel("second", "День", "10:00", "11:00", {second})})}}).value("ok").toBool());
         QCOMPARE(backend.playCalls, 0);
         now = at("09:00:00");
         engine.evaluateSchedule(now);
@@ -384,10 +448,15 @@ private slots:
         QCOMPARE(engine.status().value("positionMs").toInteger(), 1234);
         now = at("10:00:00");
         engine.evaluateSchedule(now);
+        QCOMPARE(backend.playCalls, 1);
+        backend.finish();
+        settle();
         QCOMPARE(backend.playCalls, 2);
         QCOMPARE(backend.source.toLocalFile(), second);
         now = at("11:00:00");
         engine.evaluateSchedule(now);
+        backend.finish();
+        settle();
         QCOMPARE(state(engine), QStringLiteral("stopped"));
         QVERIFY(engine.status().value("queue").toArray().isEmpty());
         QVERIFY(engine.status().value("channelName").toString().isEmpty());
@@ -403,54 +472,55 @@ private slots:
         const QString second = createTrack(directory, "second.wav");
         QDateTime now = at("10:00:00");
         FakeAudioBackend backend;
-        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        backend.autoConfirm = true;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; }, ":memory:");
         auto rule = channel("first", "Первый", "09:00", "12:00", {first});
-        QVERIFY(command(engine, "schedule", {{"schedule", schedule({rule})}}).value("ok").toBool());
+        QVERIFY(command(engine, "publishAndStart", {{"schedule", schedule({rule})}}).value("ok").toBool());
         backend.confirmPlaying();
         backend.reportPosition(2345);
         const int sourceCalls = backend.sourceCalls;
         rule.insert("name", "Новое имя");
         rule.insert("volume", 35);
-        QVERIFY(command(engine, "setSchedule", {{"schedule", schedule({rule})}}).value("ok").toBool());
+        QVERIFY(command(engine, "publish", {{"schedule", schedule({rule})}}).value("ok").toBool());
         QCOMPARE(backend.sourceCalls, sourceCalls);
         QCOMPARE(backend.playCalls, 1);
         QCOMPARE(engine.status().value("positionMs").toInteger(), 2345);
-        QCOMPARE(engine.status().value("channelName").toString(), QStringLiteral("Новое имя"));
-        QCOMPARE(backend.volume, 35);
+        QCOMPARE(engine.status().value("channelName").toString(), QStringLiteral("Первый"));
+        QCOMPARE(backend.volume, 75); // Updated name/volume take effect at the track boundary.
         QVERIFY(command(engine, "volume", {{"value", 22}}).value("ok").toBool());
         engine.evaluateSchedule(now.addSecs(1));
         QCOMPARE(backend.volume, 22);
         rule.insert("paths", QJsonArray{second});
-        QVERIFY(command(engine, "setSchedule", {{"schedule", schedule({rule})}}).value("ok").toBool());
+        QVERIFY(command(engine, "publish", {{"schedule", schedule({rule})}}).value("ok").toBool());
+        QCOMPARE(backend.playCalls, 1);
+        backend.finish();
+        settle();
+        QCOMPARE(backend.volume, 35);
         QCOMPARE(backend.playCalls, 2);
         QCOMPARE(backend.source.toLocalFile(), second);
         QVERIFY(command(engine, "stop").value("ok").toBool());
-        QVERIFY(command(engine, "setSchedule", {{"schedule", schedule({rule})}}).value("ok").toBool());
+        QVERIFY(command(engine, "publish", {{"schedule", schedule({rule})}}).value("ok").toBool());
         QCOMPARE(backend.playCalls, 2);
     }
 
-    void scheduleConflictsAreSilentAndRecoverAtTheNextBoundary()
+    void scheduleConflictsRejectTheReplacementWithoutInterruptingMusic()
     {
         QTemporaryDir directory;
-        QVERIFY(directory.isValid());
-        const QString first = createTrack(directory, "first.wav");
-        const QString second = createTrack(directory, "second.wav");
+        const auto first = createTrack(directory, "first.wav");
+        const auto second = createTrack(directory, "second.wav");
         QDateTime now = at("09:59:59");
         FakeAudioBackend backend;
-        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
-        QVERIFY(command(engine, "schedule", {{"schedule", schedule({channel("first", "Первый", "09:00", "11:00", {first}), channel("second", "Второй", "10:00", "12:00", {second})})}}).value("ok").toBool());
-        QCOMPARE(backend.source.toLocalFile(), first);
+        backend.autoConfirm = true;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; }, ":memory:");
+        QVERIFY(command(engine, "publishAndStart", {{"schedule", schedule({channel("first", "Первый", "09:00", "11:00", {first})})}}).value("ok").toBool());
+        const auto before = engine.status();
+        QVERIFY(!command(engine, "publish", {{"schedule", schedule({channel("first", "Первый", "09:00", "11:00", {first}),
+            channel("second", "Второй", "10:00", "12:00", {second})})}}).value("ok").toBool());
+        QCOMPARE(engine.status(), before);
         now = at("10:00:00");
         engine.evaluateSchedule(now);
-        QCOMPARE(state(engine), QStringLiteral("stopped"));
-        QVERIFY(engine.status().value("queue").toArray().isEmpty());
-        QVERIFY(engine.status().value("scheduleError").toString().contains(QStringLiteral("Пересечение")));
+        QCOMPARE(backend.source.toLocalFile(), first);
         QCOMPARE(backend.playCalls, 1);
-        now = at("11:00:00");
-        engine.evaluateSchedule(now);
-        QCOMPARE(backend.source.toLocalFile(), second);
-        QCOMPARE(backend.playCalls, 2);
-        QVERIFY(engine.status().value("scheduleError").toString().isEmpty());
     }
 
     void scheduleCalendarAndUnsupportedWindowsUseSharedSemantics()
@@ -460,24 +530,28 @@ private slots:
         const QString track = createTrack(directory, "track.wav");
         QDateTime now = at("10:00:00"); // Sunday=0 in the persisted format.
         FakeAudioBackend backend;
-        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        backend.autoConfirm = true;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; }, ":memory:");
         auto rule = channel("first", "Первый", "09:00", "12:00", {track});
         rule.insert("weekdays", "1");
-        QVERIFY(command(engine, "schedule", {{"schedule", schedule({rule})}}).value("ok").toBool());
+        QVERIFY(command(engine, "publishAndStart", {{"schedule", schedule({rule})}}).value("ok").toBool());
         QCOMPARE(backend.playCalls, 0);
         rule.insert("weekdays", "0");
         rule.insert("days", "4");
         rule.insert("months", "10");
-        QVERIFY(command(engine, "setSchedule", {{"schedule", schedule({rule})}}).value("ok").toBool());
+        QVERIFY(command(engine, "publish", {{"schedule", schedule({rule})}}).value("ok").toBool());
         QCOMPARE(backend.playCalls, 1);
         rule.insert("months", "11");
-        QVERIFY(command(engine, "setSchedule", {{"schedule", schedule({rule})}}).value("ok").toBool());
+        QVERIFY(command(engine, "publish", {{"schedule", schedule({rule})}}).value("ok").toBool());
+        backend.finish();
+        settle();
         QCOMPARE(state(engine), QStringLiteral("stopped"));
         rule.insert("months", "10");
         rule.insert("start", "23:00");
         rule.insert("end", "08:00");
-        QVERIFY(command(engine, "setSchedule", {{"schedule", schedule({rule})}}).value("ok").toBool());
-        QVERIFY(engine.status().value("scheduleError").toString().contains(QStringLiteral("полночь")));
+        QVERIFY(!command(engine, "publish", {{"schedule", schedule({rule})}}).value("ok").toBool());
+        rule.insert("untilDayOffset", 1);
+        QVERIFY(command(engine, "publish", {{"schedule", schedule({rule})}}).value("ok").toBool());
         QCOMPARE(backend.playCalls, 1);
     }
 
@@ -490,9 +564,10 @@ private slots:
         const QString ad = createTrack(directory, "advert.wav");
         QDateTime now = at("09:59:00");
         FakeAudioBackend backend;
-        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        backend.autoConfirm = true;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; }, ":memory:");
         const auto snapshot = schedule({channel("first", "Утро", "09:00", "10:00", {first}), channel("second", "День", "10:00", "12:00", {second})}, {advert("ad", "Объявление", "59m", {ad})});
-        QVERIFY(command(engine, "schedule", {{"schedule", snapshot}}).value("ok").toBool());
+        QVERIFY(command(engine, "publishAndStart", {{"schedule", snapshot}}).value("ok").toBool());
         QCOMPARE(backend.source.toLocalFile(), ad);
         QCOMPARE(backend.volume, 60);
         QCOMPARE(engine.status().value("repeat").toString(), QStringLiteral("off"));
@@ -506,7 +581,7 @@ private slots:
         QCOMPARE(backend.source.toLocalFile(), second);
         QCOMPARE(backend.volume, 75);
         QCOMPARE(engine.status().value("channelName").toString(), QStringLiteral("День"));
-        QCOMPARE(engine.status().value("repeat").toString(), QStringLiteral("all"));
+        QCOMPARE(engine.status().value("repeat").toString(), QStringLiteral("off"));
         QCOMPARE(backend.playCalls, 2);
         now = at("10:59:00");
         engine.evaluateSchedule(now);
@@ -528,12 +603,13 @@ private slots:
         const QString second = createTrack(directory, "second-ad.wav");
         QDateTime now = at("10:05:00");
         FakeAudioBackend backend;
-        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        backend.autoConfirm = true;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; }, ":memory:");
         auto frequency = advert("frequency", "Одинаковое имя", "2", {first}, 40);
         frequency.insert("compiledMinutes", QJsonArray{5, 35});
         const auto snapshot = schedule({channel("music", "Музыка", "09:00", "12:00", {music})},
             {frequency, advert("exact", "Одинаковое имя", "05m", {second}, 80), advert("disabled", "Выключено", "*", {second})});
-        QVERIFY(command(engine, "schedule", {{"schedule", snapshot}}).value("ok").toBool());
+        QVERIFY(command(engine, "publishAndStart", {{"schedule", snapshot}}).value("ok").toBool());
         QCOMPARE(backend.source.toLocalFile(), first);
         QCOMPARE(backend.volume, 40);
         backend.finish();
@@ -544,7 +620,7 @@ private slots:
         settle();
         QCOMPARE(backend.source.toLocalFile(), music);
         QCOMPARE(backend.playCalls, 3);
-        QVERIFY(command(engine, "setSchedule", {{"schedule", snapshot}}).value("ok").toBool());
+        QVERIFY(command(engine, "publish", {{"schedule", snapshot}}).value("ok").toBool());
         QCOMPARE(backend.playCalls, 3);
         now = at("10:35:00");
         engine.evaluateSchedule(now);
@@ -564,8 +640,9 @@ private slots:
         const QString ad = createTrack(directory, "advert.wav");
         QDateTime now = at("10:29:00");
         FakeAudioBackend backend;
-        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
-        QVERIFY(command(engine, "schedule", {{"schedule", schedule({channel("music", "Музыка", "09:00", "12:00", {first, second})}, {advert("ad", "Реклама", "30m", {ad})})}}).value("ok").toBool());
+        backend.autoConfirm = true;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; }, ":memory:");
+        QVERIFY(command(engine, "publishAndStart", {{"schedule", schedule({channel("music", "Музыка", "09:00", "12:00", {first, second})}, {advert("ad", "Реклама", "30m", {ad})})}}).value("ok").toBool());
         backend.confirmPlaying();
         backend.finish();
         settle();
@@ -578,7 +655,7 @@ private slots:
         backend.finish();
         settle();
         QCOMPARE(backend.source.toLocalFile(), second);
-        QCOMPARE(engine.status().value("currentIndex").toInt(), 1);
+        QCOMPARE(engine.status().value("currentIndex").toInt(), 0);
         QCOMPARE(engine.status().value("positionMs").toInteger(), 4321);
         QCOMPARE(backend.position, 4321);
         QCOMPARE(engine.status().value("channelName").toString(), QStringLiteral("Музыка"));
@@ -594,28 +671,25 @@ private slots:
         const QString track = createTrack(directory, "track.wav");
         QDateTime now = at("10:00:00");
         FakeAudioBackend backend;
-        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        backend.autoConfirm = true;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; }, ":memory:");
         const auto validChannel = channel("music", "Музыка", "09:00", "12:00", {track});
-        QVERIFY(command(engine, "schedule", {{"schedule", schedule({validChannel})}}).value("ok").toBool());
+        QVERIFY(command(engine, "publishAndStart", {{"schedule", schedule({validChannel})}}).value("ok").toBool());
         const QJsonObject before = engine.status();
         const int plays = backend.playCalls;
         auto malformedChannel = validChannel;
-        malformedChannel.insert("start", "9:00");
-        auto missingFile = validChannel;
-        missingFile.insert("paths", QJsonArray{directory.filePath("missing.wav")});
-        auto unknownField = validChannel;
-        unknownField.insert("typo", true);
+        malformedChannel.insert("start", "invalid");
         auto badAdvert = advert("ad", "Реклама", "2", {track});
         badAdvert.insert("compiledMinutes", QJsonArray{5, 34});
         auto badDate = advert("ad", "Реклама", "00m", {track});
         badDate.insert("from", "2026-10-05");
         const QList<QJsonObject> invalid = {
-            schedule({malformedChannel}), schedule({missingFile}), schedule({unknownField}),
+            schedule({malformedChannel}),
             schedule({validChannel, validChannel}), schedule({validChannel}, {badAdvert}),
             schedule({validChannel}, {badDate}), {{"channels", QJsonArray{}}}
         };
         for (const auto &snapshot : invalid) {
-            QVERIFY(!command(engine, "setSchedule", {{"schedule", snapshot}}).value("ok").toBool());
+            QVERIFY(!command(engine, "publish", {{"schedule", snapshot}}).value("ok").toBool());
             QCOMPARE(engine.status(), before);
             QCOMPARE(backend.playCalls, plays);
         }
@@ -637,8 +711,9 @@ private slots:
         const QString ad = createTrack(directory, "advert.wav");
         QDateTime now = at("10:00:00");
         FakeAudioBackend backend;
-        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
-        QVERIFY(command(engine, "schedule", {{"schedule", schedule({channel("music", "Музыка", "09:00", "12:00", {music})}, {advert("ad", "Реклама", "00m", {ad})})}}).value("ok").toBool());
+        backend.autoConfirm = true;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; }, ":memory:");
+        QVERIFY(command(engine, "publishAndStart", {{"schedule", schedule({channel("music", "Музыка", "09:00", "12:00", {music})}, {advert("ad", "Реклама", "00m", {ad})})}}).value("ok").toBool());
         backend.finish();
         QJsonObject arguments;
         if (interruption == QStringLiteral("load") || interruption == QStringLiteral("enqueue"))
@@ -666,8 +741,9 @@ private slots:
         const QString second = createTrack(directory, "second.wav");
         QDateTime now = at("09:30:00");
         FakeAudioBackend backend;
-        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
-        QVERIFY(command(engine, "schedule", {{"schedule", schedule({channel("first", "Утро", "09:00", "10:00", {first}), channel("second", "День", "10:00", "12:00", {second})})}}).value("ok").toBool());
+        backend.autoConfirm = true;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; }, ":memory:");
+        QVERIFY(command(engine, "publishAndStart", {{"schedule", schedule({channel("first", "Утро", "09:00", "10:00", {first}), channel("second", "День", "10:00", "12:00", {second})})}}).value("ok").toBool());
         QCOMPARE(backend.playCalls, 1);
         engine.setPlaybackAvailable(false);
         QCOMPARE(state(engine), QStringLiteral("stopped"));
@@ -690,36 +766,37 @@ private slots:
     {
         QDateTime now = at("10:00:00");
         FakeAudioBackend backend;
-        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
-        QVERIFY(command(engine, "schedule", {{"schedule", schedule({channel("empty", "Пустой канал", "09:00", "12:00", {})})}}).value("ok").toBool());
+        backend.autoConfirm = true;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; }, ":memory:");
+        QVERIFY(command(engine, "publishAndStart", {{"schedule", schedule({channel("empty", "Пустой канал", "09:00", "12:00", {})})}}).value("ok").toBool());
         QCOMPARE(backend.playCalls, 0);
-        QVERIFY(engine.status().value("scheduleError").toString().contains(QStringLiteral("не содержит файлов")));
+        QVERIFY(engine.status().value("scheduleError").toString().contains(QStringLiteral("Нет доступных записей")));
         const int sourceCalls = backend.sourceCalls;
         engine.evaluateSchedule(now.addSecs(1));
         QCOMPARE(backend.sourceCalls, sourceCalls);
     }
 
-    void failedScheduledChannelDoesNotRetryEveryTimerTick()
+    void failedScheduledSourcesRetryBoundedlyAndRecover()
     {
         QTemporaryDir directory;
-        QVERIFY(directory.isValid());
-        const QString first = createTrack(directory, "first.wav");
-        const QString second = createTrack(directory, "second.wav");
+        const auto first = createTrack(directory, "first.wav");
+        const auto second = createTrack(directory, "second.wav");
         QDateTime now = at("10:00:00");
         FakeAudioBackend backend;
         backend.rejectEveryTrack = true;
-        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
-        QVERIFY(command(engine, "schedule", {{"schedule", schedule({channel("broken", "Недоступно", "09:00", "12:00", {first, second})})}}).value("ok").toBool());
+        backend.autoConfirm = true;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; }, ":memory:");
+        QVERIFY(command(engine, "publishAndStart", {{"schedule", schedule({channel("broken", "Недоступно", "09:00", "12:00", {first, second})})}}).value("ok").toBool());
         settle();
-        settle();
-        QCOMPARE(state(engine), QStringLiteral("error"));
-        QCOMPARE(backend.playCalls, 2);
-        for (int second = 1; second <= 10; ++second)
-            engine.evaluateSchedule(now.addSecs(second));
         settle();
         QCOMPARE(backend.playCalls, 2);
-        QCOMPARE(state(engine), QStringLiteral("error"));
+        QVERIFY(!engine.status().value("playbackRequested").toBool());
         QCOMPARE(engine.status().value("playbackMode").toString(), QStringLiteral("schedule"));
+        backend.rejectEveryTrack = false;
+        now = now.addSecs(1);
+        engine.evaluateSchedule(now);
+        QCOMPARE(backend.playCalls, 3);
+        QCOMPARE(state(engine), QStringLiteral("playing"));
     }
 
     void queueValidationIsAtomic()

@@ -21,7 +21,7 @@ private:
 
     bool loadConfiguration(const QString &stationPath, TypeStation stationType, bool isTrial);
     bool initializeStandaloneConfiguration();
-    bool initializeStandaloneConfiguration(const QString &dataPath, const QStringList &legacyPaths);
+    bool initializeStandaloneConfiguration(const QString &dataPath);
 
     StationManager() :
         QObject(nullptr),

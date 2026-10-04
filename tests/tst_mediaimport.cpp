@@ -81,7 +81,7 @@ private slots:
         QVERIFY(writeFile(m_fixture.filePath("mediabox.conf"),
             "[mediastation]\nmediabox_id=-1\nmediabox_name=ImportTest\nmedia=media\n"));
         QVERIFY(writeFile(m_fixture.filePath("project.json"),
-            "{\"format\":\"mediabox.manager-project\",\"schemaVersion\":1,\"music\":[],\"video\":[],\"advert\":[]}\n"));
+            "{\"format\":\"mediabox.manager-project\",\"schemaVersion\":3,\"music\":[],\"video\":[],\"advert\":[]}\n"));
         for (const QString &directory : {"media/music", "media/video", "media/ads"})
             QVERIFY(QDir().mkpath(m_fixture.filePath(directory)));
         QSettings settings(m_fixture.filePath("manager.conf"), QSettings::IniFormat);
@@ -107,7 +107,8 @@ private slots:
         const auto before = QDir(directory.path()).entryList(QDir::Files);
         const auto snapshot = MediaImportService::scanDirectory(directory.path(), {"*.wav"});
         QCOMPARE(snapshot.size(), 2);
-        QCOMPARE(snapshot.first().length(), uint(901));
+        QCOMPARE(snapshot.first().length(), uint(301));
+        QVERIFY(snapshot.first().title().isEmpty());
         QCOMPARE(QDir(directory.path()).entryList(QDir::Files), before);
         QCOMPARE(readFile(sidecar), cache);
         QVERIFY(!QFileInfo::exists(directory.filePath("uncached.wav.tag")));

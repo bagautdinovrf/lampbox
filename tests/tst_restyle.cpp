@@ -32,6 +32,8 @@
 #include <QTreeView>
 
 #include "channelmanager.h"
+#include "projectfixture.h"
+#include "mediafixture.h"
 #include "mainwindow.h"
 #include "mediacontroller.h"
 #include "mediamodel.h"
@@ -65,13 +67,15 @@ void resetStation()
         if (channels.exists() && !channels.removeRecursively())
             qFatal("Cannot reset isolated media fixture");
     }
-    for (const QString &folder : {"timetable", "media/music", "media/video", "media/ads", "cron"})
+    for (const QString &folder : {"media/music", "media/video", "media/ads"})
         QDir().mkpath(fixtureRoot + '/' + folder);
-    writeFile(fixtureRoot + "/timetable/timetable", {});
-    writeFile(fixtureRoot + "/timetable/vtimetable", {});
-    writeFile(fixtureRoot + "/timetable/advertView",
-              QStringLiteral("Осенняя коллекция.mp3;9,10,11,12,13,14,15,16,17,18,19,20;00m,30m;*;01.10.2026;31.10.2026;75\n"
-                             "Кофе с собой.mp3;8,9,10,11,12;3;1,2,3,4,5;01.10.2026;31.10.2026;70\n").toUtf8());
+    ProjectRepository::Project fixture;
+    fixture.advert = {
+        ProjectFixture::advert("Осенняя коллекция.mp3", "9,10,11,12,13,14,15,16,17,18,19,20", "00m,30m",
+            QDate(2026, 10, 1), QDate(2026, 10, 31), 75),
+        ProjectFixture::advert("Кофе с собой.mp3", "8,9,10,11,12", "3",
+            QDate(2026, 10, 1), QDate(2026, 10, 31), 70, {}, "1,2,3,4,5")};
+    writeFile(project, ProjectRepository::encode(fixture));
 }
 
 void mediaFile(const QString &folder, const QString &title, const QString &artist,
@@ -79,15 +83,9 @@ void mediaFile(const QString &folder, const QString &title, const QString &artis
                const QString &extension = QStringLiteral("mp3"))
 {
     const QString file = folder + '/' + title + '.' + extension;
-    writeFile(file, QByteArray(1024, '\0'));
-    QSettings tags(file + ".tag", QSettings::IniFormat);
-    tags.setValue("title", title);
-    tags.setValue("artist", artist);
-    tags.setValue("album", album);
-    tags.setValue("genre", genre);
-    tags.setValue("year", year);
-    tags.setValue("length", seconds);
-    tags.sync();
+    writeFile(file, extension == QStringLiteral("mp4")
+        ? MediaFixture::mp4(title, artist, album, genre, year, seconds)
+        : MediaFixture::mp3(title, artist, album, genre, year, seconds));
 }
 
 QByteArray stationDigest()
@@ -354,10 +352,8 @@ private slots:
         mediaFile(directory.path(), "02_delete", "Live", "Album", "Ambient", 2026, 240);
         mediaFile(directory.path(), "03_delete", "Live", "Album", "Ambient", 2026, 30);
         // Display titles deliberately differ from disk identities and disk sort order.
-        {
-            QSettings tags(directory.filePath("02_delete.mp3.tag"), QSettings::IniFormat);
-            tags.setValue("title", "Первое название");
-        }
+        writeFile(directory.filePath("02_delete.mp3"),
+            MediaFixture::mp3("Первое название", "Live", "Album", "Ambient", 2026, 240));
         MediaManager manager(directory.path(), MediaBoxManager::MUSIC);
         MediaModel source(&manager, MediaBoxManager::MUSIC);
         QSortFilterProxyModel proxy;
@@ -725,7 +721,7 @@ int capture(MainWindow &window, const QString &directory, bool smoke)
                              {"cyrillicVerified", Restyle::verifiedCyrillicFont()},
                              {"platform", QGuiApplication::platformName()},
                              {"availableGeometry", QJsonArray{available.x(), available.y(), available.width(), available.height()}},
-                             {"fixture", "Temporary station; legacy-safe underscore channel names; metadata sidecars; player controller absent"},
+                             {"fixture", "Temporary station; current project channel rules; in-file metadata; player controller absent"},
                              {"limitations", "Offscreen Qt captures are not Windows physical-screen acceptance. Segoe UI is not redistributed; the installed fallback font is recorded."}};
     writeFile(directory + "/capture.json", QJsonDocument(report).toJson());
     return 0;

@@ -67,18 +67,6 @@ QString managedDirectory(quint16 port)
     return QDir(managerDirectory()).filePath(QStringLiteral("managed-vplayer/127.0.0.1-%1").arg(port));
 }
 
-bool writeProfile(const QString &directory, const QString &name, const QString &path)
-{
-    if (!QDir().mkpath(directory))
-        return false;
-    const QJsonObject window{{"windowId", "main"}, {"name", name}, {"screen", ""},
-        {"fullscreen", false}, {"paths", QJsonArray{path}}, {"currentIndex", 0},
-        {"volumePercent", 29}, {"muted", false}, {"repeat", "off"}};
-    QFile file(QDir(directory).filePath("windows.json"));
-    const auto bytes = QJsonDocument(QJsonObject{{"version", 1}, {"windows", QJsonArray{window}}}).toJson();
-    return file.open(QIODevice::WriteOnly) && file.write(bytes) == bytes.size();
-}
-
 class OwnedProcess final {
 public:
     explicit OwnedProcess(qint64 processId) : id(processId)
@@ -374,84 +362,6 @@ private slots:
         QVERIFY(QFileInfo::exists(QDir(managedDirectory(17656)).filePath("control.token")));
     }
 
-    void firstManagedLaunchImportsStandaloneWindowsAndKeepsOwnLaterEdits()
-    {
-        QTcpServer reservation;
-        if (!reservation.listen(QHostAddress::LocalHost, 17656))
-            QSKIP("Default port is already occupied; leave the existing player untouched.");
-        reservation.close();
-        const QString mediaPath = mSettingsDirectory->filePath("saved-video.mp4");
-        QFile media(mediaPath);
-        QVERIFY(media.open(QIODevice::WriteOnly));
-        QVERIFY(media.write("test media") > 0);
-        media.close();
-        QVERIFY(writeProfile(playerDirectory(), QStringLiteral("Исходный экран"), mediaPath));
-        QFile source(QDir(playerDirectory()).filePath("windows.json"));
-        QVERIFY(source.open(QIODevice::ReadOnly));
-        const QByteArray original = source.readAll();
-        source.close();
-        QByteArray token;
-        QString error;
-        QVERIFY(MediaBox::loadControlToken(playerDirectory(), &token, &error));
-        QVERIFY(Settings().setVideoPlayerConnection({"localhost", 17656, {}}));
-        {
-            VideoController controller;
-            configure(controller);
-            track(controller);
-            QSignalSpy launched(&controller, &VideoController::localPlayerStarted);
-            QTRY_VERIFY_WITH_TIMEOUT(controller.isReady(), 15000);
-            QCOMPARE(launched.size(), 1);
-            QCOMPARE(controller.videoStatus().windows.size(), 1);
-            const auto window = controller.videoStatus().windows.first();
-            QCOMPARE(window.name, QStringLiteral("Исходный экран"));
-            QCOMPARE(window.playback.queue, QStringList{mediaPath});
-            QCOMPARE(window.playback.volumePercent, 29);
-            QVERIFY(!window.playback.playbackRequested);
-            controller.configureWindow("main", QStringLiteral("Настройка Manager"), {}, false);
-            QTRY_COMPARE(controller.videoStatus().windows.first().name, QStringLiteral("Настройка Manager"));
-            QVERIFY(source.open(QIODevice::ReadOnly));
-            QCOMPARE(source.readAll(), original);
-            source.close();
-            controller.disconnectFromPlayer();
-            mProcesses.clear();
-        }
-        QVERIFY(writeProfile(playerDirectory(), QStringLiteral("Поздняя настройка standalone"), mediaPath));
-        VideoController nextManager;
-        configure(nextManager);
-        track(nextManager);
-        QSignalSpy launchedAgain(&nextManager, &VideoController::localPlayerStarted);
-        QTRY_VERIFY_WITH_TIMEOUT(nextManager.isReady(), 15000);
-        QCOMPARE(launchedAgain.size(), 1);
-        QCOMPARE(nextManager.videoStatus().windows.size(), 1);
-        const auto restored = nextManager.videoStatus().windows.first();
-        QCOMPARE(restored.name, QStringLiteral("Настройка Manager"));
-        QCOMPARE(restored.playback.queue, QStringList{mediaPath});
-        QVERIFY(!restored.playback.playbackRequested);
-    }
-
-    void profileMigrationFailureDoesNotStartAnEmptyPlayer()
-    {
-        QTcpServer reservation;
-        if (!reservation.listen(QHostAddress::LocalHost, 17656))
-            QSKIP("Default port is already occupied; leave the existing player untouched.");
-        reservation.close();
-        QVERIFY(QDir().mkpath(QDir(managedDirectory(17656)).filePath("windows.json")));
-        VideoController controller;
-        configure(controller);
-        track(controller);
-        QSignalSpy errors(&controller, &MediaBoxPlayerClient::connectionError);
-        QSignalSpy launched(&controller, &VideoController::localPlayerStarted);
-        controller.connectToPlayer({"127.0.0.1", 17656, testToken()});
-        const auto migrationError = [&errors] {
-            for (const auto &error : errors) {
-                if (error.first().toString().contains(QStringLiteral("настройки видеоокон")))
-                    return true;
-            }
-            return false;
-        };
-        QTRY_VERIFY(migrationError());
-        QCOMPARE(launched.size(), 0);
-    }
 };
 
 QTEST_GUILESS_MAIN(VideoAutostartTests)

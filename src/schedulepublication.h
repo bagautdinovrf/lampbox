@@ -14,11 +14,12 @@ struct Publication {
     QString contentRoot;
 };
 
-// Legacy is the manager's channels/adverts transport, including media paths.
+// Channel input belongs to the editor/compiler only, including media paths.
 // In channel mode it is compiled afresh; an explicitly edited project uses its
 // saved document. Opening/validating never marks a publication as accepted.
-bool draft(const QString &directory, const QString &contentRoot, const QJsonObject &legacy,
-           QJsonObject *document, bool *advanced, QString *error);
+bool draft(const QString &directory, const QString &contentRoot, const QJsonObject &channels,
+           QJsonObject *document, bool *advanced, QString *error,
+           const QString &mediaType = QStringLiteral("audio"));
 bool saveDraft(const QString &directory, const QJsonObject &document, QString *error);
 bool publish(const QString &directory, const QString &contentRoot, const QJsonObject &document,
              Publication *publication, QString *error);

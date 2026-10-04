@@ -10,7 +10,6 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QSet>
-#include <QSettings>
 #include <QTemporaryFile>
 #include <QThread>
 #include <algorithm>
@@ -26,7 +25,7 @@ bool accepted(const QString &name, const QStringList &formats)
     return formats.isEmpty() || QDir::match(formats, name);
 }
 
-MediaData readMedia(const QString &path, bool useSidecar)
+MediaData readMedia(const QString &path)
 {
     const QFileInfo info(path);
     MediaData media;
@@ -34,18 +33,6 @@ MediaData readMedia(const QString &path, bool useSidecar)
     media.setFileSize(info.size());
     media.setLength(0);
     media.setYear(0);
-    // Existing sidecars are a read-only cache. Merely listing a library must
-    // never create files or remove tracks because a licence changed.
-    if (useSidecar && QFileInfo::exists(path + QStringLiteral(".tag"))) {
-        QSettings tags(path + QStringLiteral(".tag"), QSettings::IniFormat);
-        media.setAlbum(tags.value(QStringLiteral("album")).toString());
-        media.setArtist(tags.value(QStringLiteral("artist")).toString());
-        media.setTitle(tags.value(QStringLiteral("title")).toString());
-        media.setGenre(tags.value(QStringLiteral("genre")).toString());
-        media.setYear(tags.value(QStringLiteral("year")).toUInt());
-        media.setLength(tags.value(QStringLiteral("length")).toUInt());
-        return media;
-    }
 #ifdef Q_OS_WIN
     const auto native = path.toStdWString();
 #else
@@ -81,7 +68,7 @@ QList<MediaData> scan(const QString &directory, const QStringList &formats,
             continue;
         if (progress)
             progress(0, 0, entry.fileName(), 0, 0);
-        snapshot.append(readMedia(entry.absoluteFilePath(), true));
+        snapshot.append(readMedia(entry.absoluteFilePath()));
     }
     *complete = !cancelled(flag);
     return snapshot;
@@ -224,7 +211,7 @@ MediaImportResult MediaImportService::run(const MediaImportRequest &request,
             result.errors << tr("Файл уже существует: %1").arg(name);
             continue;
         }
-        MediaData media = readMedia(sourcePath, false);
+        MediaData media = readMedia(sourcePath);
         if (request.maximumDurationSeconds && media.length() > request.maximumDurationSeconds) {
             result.errors << tr("Длительность файла превышает %1 секунд: %2")
                                  .arg(request.maximumDurationSeconds).arg(name);

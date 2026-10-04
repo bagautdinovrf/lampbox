@@ -143,7 +143,7 @@ void Report::setReportDirectory(const QString &directory)
 
 void Report::Generate()
 {
-    // The on-disk report filename remains the historical MMYY.csv contract.
+    // Report filenames use MMYY.csv.
     const QDate period(mYear->date().year(), mMonth->currentIndex() + 1, 1);
     const QString filePath = QDir(mReportDirectory).filePath(period.toString(QStringLiteral("MMyy")) + QStringLiteral(".csv"));
     mTable->setModel(nullptr);

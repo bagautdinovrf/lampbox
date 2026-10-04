@@ -11,7 +11,7 @@ namespace {
 void apply(ChannelData &data, const ScheduleCore::ChannelRule &rule)
 {
     data.setChannelName(rule.name);
-    data.setStorageDirectory(rule.storageDirectory.isEmpty() ? rule.name : rule.storageDirectory);
+    data.setStorageDirectory(rule.storageDirectory);
     data.setRuleId(rule.stableId);
     data.setStartTime(rule.start); data.setEndTime(rule.end);
     data.setDaysOfWeek(rule.weekdays); data.setDays(rule.days); data.setMonths(rule.months);

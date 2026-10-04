@@ -29,7 +29,7 @@ systemctl --user status mediaboxplayer.service
 journalctl --user -u mediaboxplayer.service -f
 ```
 
-Unit использует указанные выше системные каталоги и задаёт `UMask=0077`. При первом запуске старый токен из `QStandardPaths::AppLocalDataLocation` текущего пользователя (обычно `~/.local/share/MediaBoxPlayer/control.token`) копируется в `/etc/mediabox/mediaboxplayer/control.token`, только если нового токена ещё нет; исходный файл сохраняется. Текущие настройки переменных XDG учитываются при поиске прежних файлов, но не меняют новые общесистемные пути.
+Unit использует указанные выше системные каталоги и задаёт `UMask=0077`.
 
 По умолчанию управление доступно только через loopback. Адрес и порт можно заменить через `systemctl --user edit mediaboxplayer.service`:
 
@@ -39,7 +39,7 @@ ExecStart=
 ExecStart=/usr/local/bin/MediaBoxPlayer --listen 127.0.0.1 --port 17655
 ```
 
-При необходимости `--data-dir /абсолютный/путь` переопределяет каталог Player: `control.token` и `player.lock` размещаются вместе в указанной папке. Этот параметр отключает автоматический перенос старого токена. Для перехода со старого unit-файла установите новый unit без `--data-dir` до перезапуска.
+При необходимости `--data-dir /абсолютный/путь` переопределяет каталог Player: `control.token` и `player.lock` размещаются вместе в указанной папке.
 
 После изменения выполните `systemctl --user daemon-reload` и `systemctl --user restart mediaboxplayer.service`. Если путь содержит пробелы, заключите соответствующий аргумент `ExecStart` в двойные кавычки.
 

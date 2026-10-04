@@ -113,7 +113,6 @@ bool MediaManager::delFile(const QString &fileName)
         BoxLog() << "cannot remove file: " << fileName << "!";
         return false;
     }
-    mDirMediaFiles.remove(fileName+".tag");
     return true;
 }
 

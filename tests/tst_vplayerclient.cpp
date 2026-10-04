@@ -25,7 +25,11 @@ QJsonObject playback(const QStringList &paths = {})
     return {{"state", "stopped"}, {"playbackRequested", false},
             {"queue", QJsonArray::fromStringList(paths)}, {"currentIndex", paths.isEmpty() ? -1 : 0},
             {"currentTrack", paths.value(0)}, {"positionMs", 0}, {"durationMs", 0},
-            {"volumePercent", 100}, {"muted", false}, {"repeat", "off"}, {"error", ""}};
+            {"volumePercent", 100}, {"muted", false}, {"repeat", "off"}, {"error", ""},
+            {"playbackMode", "manual"}, {"channelName", ""},
+            {"scheduleAvailable", false}, {"scheduleError", ""},
+            {"publicationId", ""}, {"scheduleId", ""}, {"revision", 0},
+            {"supportedCapabilities", QJsonArray{"schedule.current.v1"}}};
 }
 
 QJsonObject snapshot()
@@ -99,6 +103,42 @@ class VideoPlayerClientTests final : public QObject
     Q_OBJECT
 
 private slots:
+    void publicationRejectsOldWindowWithoutInlineFallback()
+    {
+        Peer peer;
+        QVERIFY(peer.listening);
+        Client client;
+        configureTiming(&client);
+        QSignalSpy failed(&client, &Client::commandFailed);
+        client.connectToPlayer(settingsFor(peer.port()));
+        QTRY_COMPARE(peer.requests.size(), 1);
+        auto oldStatus = snapshot();
+        auto windows = oldStatus.value("windows").toArray();
+        auto hall = windows[0].toObject();
+        auto state = hall.value("playback").toObject();
+        state.insert("supportedCapabilities", QJsonArray{});
+        hall.insert("playback", state);
+        windows[0] = hall;
+        oldStatus.insert("windows", windows);
+        peer.answer(0, oldStatus);
+        QTRY_VERIFY(client.isReady());
+        QVERIFY(client.loadPublication("hall", "/srv/active.json", "/srv/media", true).isEmpty());
+        QCOMPARE(failed.size(), 1);
+        QCOMPARE(failed.last().at(2).toString(), QStringLiteral("unsupported_capability"));
+        QCOMPARE(peer.requests.size(), 1);
+        QVERIFY(!client.loadPublication("foyer", "/srv/active.json", "/srv/media", false).isEmpty());
+        QTRY_COMPARE(peer.requests.size(), 2);
+        const auto request = peer.requests.last().object;
+        QCOMPARE(request.value("command").toString(), QStringLiteral("loadPublication"));
+        QCOMPARE(request.value("windowId").toString(), QStringLiteral("foyer"));
+        QVERIFY(QJsonDocument(request).toJson(QJsonDocument::Compact).size() < 1024);
+        QVERIFY(!request.contains("schedule"));
+        QVERIFY(!request.contains("snapshotBase64"));
+        QVERIFY(!request.contains("active"));
+        QVERIFY(!request.value("autoplay").toBool());
+        peer.answer(1);
+    }
+
     void routesCommandsAndKeepsWindowQueuesIndependent()
     {
         Peer peer;
@@ -130,10 +170,8 @@ private slots:
              [&] { return client.load("foyer", {"/video/updated.mp4"}, 0, true); }},
             {"enqueue", {{"paths", QJsonArray{"/video/next.mp4"}}},
              [&] { return client.enqueue("foyer", {"/video/next.mp4"}); }},
-            {"setSchedule", {{"schedule", QJsonObject{{"channels", QJsonArray{}}, {"adverts", QJsonArray{}}}}},
-             [&] { return client.setSchedule("foyer", {{"channels", QJsonArray{}}, {"adverts", QJsonArray{}}}); }},
-            {"schedule", {{"schedule", QJsonObject{{"channels", QJsonArray{}}, {"adverts", QJsonArray{}}}}},
-             [&] { return client.startSchedule("foyer", {{"channels", QJsonArray{}}, {"adverts", QJsonArray{}}}); }},
+            {"loadPublication", {{"activePath", "/srv/video-schedule/active.json"}, {"contentRoot", "/srv/media"}, {"autoplay", true}},
+             [&] { return client.loadPublication("foyer", "/srv/video-schedule/active.json", "/srv/media", true); }},
             {"schedule", {}, [&] { return client.startSchedule("foyer"); }},
             {"playChannel", {{"name", "Канал"}, {"paths", QJsonArray{"/video/channel.mp4"}}, {"volume", 45}, {"order", "shuffle_cycle"}},
              [&] { return client.playChannel("foyer", "Канал", {"/video/channel.mp4"}, 45); }},
@@ -358,8 +396,8 @@ private slots:
         QVERIFY(client.seek("hall", -1).isEmpty());
         QVERIFY(client.setVolume("hall", 101).isEmpty());
         QVERIFY(client.setRepeat("hall", "random").isEmpty());
-        QVERIFY(client.setSchedule("hall", {{"channels", QJsonArray{}}}).isEmpty());
-        QVERIFY(client.startSchedule("hall", {{"adverts", QJsonArray{}}}).isEmpty());
+        QVERIFY(client.loadPublication("hall", "active.json", "/video", true).isEmpty());
+        QVERIFY(client.loadPublication("hall", "/schedule/active.json", "video", true).isEmpty());
         QVERIFY(client.playChannel("hall", " ", {"/video/a.mp4"}, 100).isEmpty());
         QVERIFY(client.playChannel("hall", "Канал", {"relative.mp4"}, 100).isEmpty());
         QVERIFY(client.playChannel("hall", "Канал", {"/video/a.mp4"}, -1).isEmpty());

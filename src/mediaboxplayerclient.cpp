@@ -95,7 +95,7 @@ bool parseStatus(const QJsonObject &object, PlayerStatus *status)
         paths.append(entry.toString());
     }
 
-    qint64 index, position, duration, volume;
+    qint64 index = -1, position = 0, duration = 0, volume = 0;
     if (!integer(object.value(QStringLiteral("currentIndex")), -1, 999, &index)
         || !integer(object.value(QStringLiteral("positionMs")), 0,
                     std::numeric_limits<qint64>::max(), &position)
@@ -125,28 +125,24 @@ bool parseStatus(const QJsonObject &object, PlayerStatus *status)
     status->muted = muted.toBool();
     status->repeat = repeat.toString();
     status->error = error.toString();
-    // Older v1 players omit these fields; accept their manual playback status.
     const auto mode = object.value(QStringLiteral("playbackMode"));
     const auto channel = object.value(QStringLiteral("channelName"));
     const auto available = object.value(QStringLiteral("scheduleAvailable"));
     const auto scheduleError = object.value(QStringLiteral("scheduleError"));
-    if ((!mode.isUndefined() && (!mode.isString()
-            || (mode.toString() != QStringLiteral("manual") && mode.toString() != QStringLiteral("schedule"))))
-        || (!channel.isUndefined() && !channel.isString())
-        || (!available.isUndefined() && !available.isBool())
-        || (!scheduleError.isUndefined() && !scheduleError.isString()))
+    if (!mode.isString()
+        || (mode.toString() != QStringLiteral("manual") && mode.toString() != QStringLiteral("schedule"))
+        || !channel.isString() || !available.isBool() || !scheduleError.isString())
         return false;
-    status->playbackMode = mode.toString(QStringLiteral("manual"));
+    status->playbackMode = mode.toString();
     status->channelName = channel.toString();
     status->scheduleAvailable = available.toBool();
     status->scheduleError = scheduleError.toString();
     const auto publication = object.value("publicationId"), scheduleId = object.value("scheduleId");
     const auto revision = object.value("revision"), capabilities = object.value("supportedCapabilities");
     qint64 revisionNumber = 0;
-    if ((!publication.isUndefined() && !publication.isString())
-            || (!scheduleId.isUndefined() && !scheduleId.isString())
-            || (!revision.isUndefined() && !integer(revision, 0, std::numeric_limits<int>::max(), &revisionNumber))
-            || (!capabilities.isUndefined() && !capabilities.isArray())) return false;
+    if (!publication.isString() || !scheduleId.isString()
+            || !integer(revision, 0, std::numeric_limits<int>::max(), &revisionNumber)
+            || !capabilities.isArray()) return false;
     status->publicationId = publication.toString();
     status->scheduleId = scheduleId.toString();
     status->revision = int(revisionNumber);
@@ -654,33 +650,21 @@ QString MediaBoxPlayerClient::next() { return submit(QStringLiteral("next")); }
 QString MediaBoxPlayerClient::previous() { return submit(QStringLiteral("previous")); }
 QString MediaBoxPlayerClient::clear() { return submit(QStringLiteral("clear")); }
 
-QString MediaBoxPlayerClient::setSchedule(const QJsonObject &schedule)
+QString MediaBoxPlayerClient::loadPublication(const QString &activePath, const QString &contentRoot, bool autoplay)
 {
-    if (!schedule.value(QStringLiteral("channels")).isArray()
-        || !schedule.value(QStringLiteral("adverts")).isArray())
-        return reject(QStringLiteral("setSchedule"), QStringLiteral("invalid_arguments"),
-                      tr("Расписание должно содержать массивы каналов и рекламы."));
-    return submit(QStringLiteral("setSchedule"), {{QStringLiteral("schedule"), schedule}});
+    if (!validPath(activePath) || !validPath(contentRoot))
+        return reject(QStringLiteral("loadPublication"), QStringLiteral("invalid_arguments"),
+                      tr("Укажите абсолютные пути к active.json и медиатеке, доступные плееру."));
+    if (isReady() && !status().supportedCapabilities.contains(QStringLiteral("schedule.current.v1")))
+        return reject(QStringLiteral("loadPublication"), QStringLiteral("unsupported_capability"),
+                      tr("Обновите MediaBoxPlayer: подключённый плеер не поддерживает загрузку текущего формата расписания из файлов."));
+    return submit(QStringLiteral("loadPublication"), {{"activePath", activePath},
+                  {"contentRoot", contentRoot}, {"autoplay", autoplay}});
 }
 
-QString MediaBoxPlayerClient::setPublication(const QByteArray &snapshot, const QJsonObject &active,
-                                             const QString &contentRoot, bool autoplay)
+QString MediaBoxPlayerClient::startSchedule()
 {
-    if (snapshot.isEmpty() || active.value("format") != QJsonValue("mediabox.active"))
-        return reject(QStringLiteral("setPublication"), QStringLiteral("invalid_arguments"),
-                      tr("Подготовьте проверенный выпуск расписания."));
-    return submit(QStringLiteral("setPublication"), {{"snapshotBase64", QString::fromLatin1(snapshot.toBase64())},
-                  {"active", active}, {"contentRoot", contentRoot}, {"autoplay", autoplay}});
-}
-
-QString MediaBoxPlayerClient::startSchedule(const QJsonObject &schedule)
-{
-    if (schedule.isEmpty()) return submit(QStringLiteral("schedule"));
-    if (!schedule.value(QStringLiteral("channels")).isArray()
-        || !schedule.value(QStringLiteral("adverts")).isArray())
-        return reject(QStringLiteral("schedule"), QStringLiteral("invalid_arguments"),
-                      tr("Расписание должно содержать массивы каналов и рекламы."));
-    return submit(QStringLiteral("schedule"), {{QStringLiteral("schedule"), schedule}});
+    return submit(QStringLiteral("schedule"));
 }
 
 QString MediaBoxPlayerClient::playChannel(const QString &name, const QStringList &paths, int volume,

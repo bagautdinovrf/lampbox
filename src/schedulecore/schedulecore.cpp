@@ -82,6 +82,10 @@ QString ScheduleCore::validateChannel(const ChannelRule &rule)
     if (rule.untilDayOffset < 0 || rule.untilDayOffset > 1
             || (rule.untilDayOffset == 1 && rule.end > rule.start))
         return QStringLiteral("Интервал должен длиться не более суток; проверьте время и день окончания.");
+    if (rule.untilDayOffset == 0 && rule.start >= rule.end)
+        return rule.start == rule.end
+                ? QStringLiteral("Начало совпадает с окончанием: включите «Полные сутки» или укажите следующий день")
+                : QStringLiteral("Переход через полночь: укажите окончание на следующий день");
     if (rule.volume < 0 || rule.volume > 100)
         return QStringLiteral("Громкость должна быть от 0 до 100%.");
     return {};
@@ -231,8 +235,7 @@ ScheduleCore::Snapshot ScheduleCore::evaluate(const QList<ChannelRule> &channels
         const ChannelCalendar calendar{parseCalendar(channel.weekdays, 0, 6), parseCalendar(channel.days, 1, 31), parseCalendar(channel.months, 1, 12)};
         channel.untilDayOffset = rule.untilDayOffset;
         const QString validationError = validateChannel(rule);
-        channel.valid = validationError.isEmpty()
-                && (rule.untilDayOffset == 1 || channel.start < channel.end);
+        channel.valid = validationError.isEmpty();
         bool localWindowSupported = true;
         // A night window belongs to its start date. Check yesterday before
         // today's filter so month, year and weekday boundaries retain the tail.
@@ -255,10 +258,6 @@ ScheduleCore::Snapshot ScheduleCore::evaluate(const QList<ChannelRule> &channels
         channel.calendarMatches = !channel.dayIntervals.isEmpty();
         if (!validationError.isEmpty()) {
             channel.reason = validationError;
-        } else if (!channel.valid) {
-            channel.reason = channel.start == channel.end
-                    ? QStringLiteral("Начало совпадает с окончанием: включите «Полные сутки» или укажите следующий день")
-                    : QStringLiteral("Переход через полночь: укажите окончание на следующий день");
         } else if (!localWindowSupported) {
             channel.reason = QStringLiteral("Локальное время начала или окончания отсутствует при переводе часов; окно не включено в расчёт");
         } else if (channel.active) {

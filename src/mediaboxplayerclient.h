@@ -101,10 +101,8 @@ public:
     QString setMuted(bool muted);
     QString setRepeat(const QString &mode);
     QString clear();
-    QString setSchedule(const QJsonObject &schedule);
-    QString setPublication(const QByteArray &snapshot, const QJsonObject &active,
-                           const QString &contentRoot, bool autoplay);
-    QString startSchedule(const QJsonObject &schedule = {});
+    QString loadPublication(const QString &activePath, const QString &contentRoot, bool autoplay);
+    QString startSchedule();
     QString playChannel(const QString &name, const QStringList &paths, int volume,
                         const QString &order = QStringLiteral("shuffle_cycle"));
 

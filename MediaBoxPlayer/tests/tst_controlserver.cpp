@@ -1,13 +1,16 @@
 #include "audiobackend.h"
 #include "controlserver.h"
 #include "playerengine.h"
+#include "schedulecore/schedulecompiler.h"
 
+#include <QCryptographicHash>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSaveFile>
 #include <QTcpSocket>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -52,6 +55,59 @@ class ControlTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void tcpLoadsLargePublicationThroughSmallFileNotification()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QFile media(directory.filePath("music.wav"));
+        QVERIFY(media.open(QIODevice::WriteOnly));
+        media.close();
+        const QJsonObject channel{{"id", "00000000-0000-4000-8000-000000000001"},
+            {"name", QString(1100000, u'x')}, {"start", "00:00"}, {"end", "00:00"},
+            {"untilDayOffset", 1}, {"weekdays", "*"}, {"days", "*"}, {"months", "*"},
+            {"volume", 70}, {"order", "sequential"}, {"paths", QJsonArray{media.fileName()}}};
+        QJsonObject document;
+        QString error;
+        QVERIFY2(ScheduleCompiler::fromChannels({{"channels", QJsonArray{channel}}, {"adverts", QJsonArray{}}},
+            directory.path(), {}, &document, &error), qPrintable(error));
+        const QByteArray snapshot = QJsonDocument(document).toJson(QJsonDocument::Compact);
+        QVERIFY(snapshot.size() > 1024 * 1024);
+        QVERIFY(QDir().mkpath(directory.filePath("snapshots")));
+        const QString relative = QStringLiteral("snapshots/%1.json").arg(document.value("publicationId").toString());
+        QSaveFile snapshotFile(directory.filePath(relative));
+        QVERIFY(snapshotFile.open(QIODevice::WriteOnly));
+        QCOMPARE(snapshotFile.write(snapshot), snapshot.size());
+        QVERIFY(snapshotFile.commit());
+        const QJsonObject pointer{{"format", "mediabox.active"}, {"schemaVersion", 1},
+            {"scheduleId", document.value("scheduleId")}, {"stationId", document.value("stationId")},
+            {"publicationId", document.value("publicationId")}, {"revision", document.value("revision")},
+            {"snapshotPath", relative},
+            {"sha256", QString::fromLatin1(QCryptographicHash::hash(snapshot, QCryptographicHash::Sha256).toHex())}};
+        QSaveFile pointerFile(directory.filePath("active.json"));
+        QVERIFY(pointerFile.open(QIODevice::WriteOnly));
+        QVERIFY(pointerFile.write(QJsonDocument(pointer).toJson(QJsonDocument::Compact)) > 0);
+        QVERIFY(pointerFile.commit());
+        SilentBackend backend;
+        PlayerEngine engine(&backend, nullptr, [] { return QDateTime::currentDateTime(); }, ":memory:");
+        const QByteArray token(64, 'a');
+        ControlServer server(&engine, token);
+        QVERIFY2(server.listen(QHostAddress::LocalHost, 0, &error), qPrintable(error));
+        QTcpSocket client;
+        client.connectToHost(QHostAddress::LocalHost, server.port());
+        QTRY_COMPARE(client.state(), QAbstractSocket::ConnectedState);
+        const QByteArray notification = QJsonDocument(QJsonObject{{"protocolVersion", 1},
+            {"token", QString::fromLatin1(token)}, {"command", "loadPublication"},
+            {"activePath", pointerFile.fileName()}, {"contentRoot", directory.path()}, {"autoplay", false}})
+                .toJson(QJsonDocument::Compact) + '\n';
+        QVERIFY(notification.size() < 4096);
+        QCOMPARE(client.write(notification), notification.size());
+        QTRY_VERIFY(client.canReadLine());
+        const auto response = QJsonDocument::fromJson(client.readLine()).object();
+        QVERIFY2(response.value("ok").toBool(), qPrintable(QString::fromUtf8(QJsonDocument(response).toJson())));
+        QCOMPARE(response.value("status").toObject().value("publicationId"), document.value("publicationId"));
+        QVERIFY(response.value("status").toObject().value("scheduleAvailable").toBool());
+    }
+
     void allPlaybackControlsUseTcpAndSurviveReconnect()
     {
         QTemporaryDir directory;
@@ -234,72 +290,9 @@ private slots:
         QCOMPARE(file.readAll(), QByteArray("invalid-token\n"));
     }
 
-    void tokenMigrationPreservesValueAndSource()
-    {
-        QTemporaryDir directory;
-        QVERIFY(directory.isValid());
-        const QString legacyPath = directory.filePath("legacy.token");
-        const QString targetDirectory = directory.filePath("current");
-        QVERIFY(QDir().mkpath(targetDirectory));
-        const QByteArray original(64, 'a');
-        QFile legacy(legacyPath);
-        QVERIFY(legacy.open(QIODevice::WriteOnly));
-        QCOMPARE(legacy.write(original + '\n'), 65);
-        legacy.close();
-#ifdef Q_OS_UNIX
-        QVERIFY(legacy.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner
-                                      | QFileDevice::ReadGroup | QFileDevice::ReadOther));
-#endif
-        QByteArray token;
-        QString error;
-        const QStringList sources{directory.filePath("missing.token"), legacyPath};
-        QVERIFY2(loadControlToken(targetDirectory, &token, &error, sources), qPrintable(error));
-        QCOMPARE(token, original);
-        QVERIFY(legacy.open(QIODevice::ReadOnly));
-        QCOMPARE(legacy.readAll(), original + '\n');
-        legacy.close();
-        const QString currentPath = QDir(targetDirectory).filePath("control.token");
-#ifdef Q_OS_UNIX
-        QVERIFY(!(QFile::permissions(currentPath) & (QFileDevice::ReadGroup | QFileDevice::WriteGroup
-                                                    | QFileDevice::ReadOther | QFileDevice::WriteOther)));
-        QVERIFY(legacy.permissions() & QFileDevice::ReadOther);
-#endif
-        QVERIFY(legacy.open(QIODevice::WriteOnly | QIODevice::Truncate));
-        QCOMPARE(legacy.write(QByteArray(64, 'b') + '\n'), 65);
-        legacy.close();
-        QVERIFY2(loadControlToken(targetDirectory, &token, &error, sources), qPrintable(error));
-        QCOMPARE(token, original);
-    }
-
-    void invalidLegacyTokenDoesNotCreateOrReplaceToken()
-    {
-        QTemporaryDir directory;
-        QVERIFY(directory.isValid());
-        const QString legacyPath = directory.filePath("legacy.token");
-        QFile legacy(legacyPath);
-        QVERIFY(legacy.open(QIODevice::WriteOnly));
-        QCOMPARE(legacy.write("invalid-token\n"), 14);
-        legacy.close();
-        QByteArray token;
-        QString error;
-        QVERIFY(!loadControlToken(directory.path(), &token, &error, {legacyPath}));
-        QVERIFY(!error.isEmpty());
-        QVERIFY(!QFile::exists(directory.filePath("control.token")));
-        QVERIFY(legacy.open(QIODevice::ReadOnly));
-        QCOMPARE(legacy.readAll(), QByteArray("invalid-token\n"));
-    }
-
 #ifdef Q_OS_WIN
-    void newTokenDoesNotInheritSharedDirectoryAccess_data()
-    {
-        QTest::addColumn<bool>("migrate");
-        QTest::newRow("generated") << false;
-        QTest::newRow("migrated") << true;
-    }
-
     void newTokenDoesNotInheritSharedDirectoryAccess()
     {
-        QFETCH(bool, migrate);
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
         // A readable shared parent models ProgramData without modifying the
@@ -321,17 +314,7 @@ private slots:
 
         QByteArray token;
         QString error;
-        QStringList sources;
-        if (migrate) {
-            QFile source(directory.filePath("legacy.token"));
-            QVERIFY(source.open(QIODevice::WriteOnly));
-            QCOMPARE(source.write(QByteArray(64, 'c') + '\n'), 65);
-            source.close();
-            sources.append(source.fileName());
-        }
-        QVERIFY2(loadControlToken(directory.path(), &token, &error, sources), qPrintable(error));
-        if (migrate)
-            QCOMPARE(token, QByteArray(64, 'c'));
+        QVERIFY2(loadControlToken(directory.path(), &token, &error), qPrintable(error));
         QString path = QDir::toNativeSeparators(directory.filePath("control.token"));
         PACL tokenAcl = nullptr;
         PSECURITY_DESCRIPTOR tokenDescriptor = nullptr;

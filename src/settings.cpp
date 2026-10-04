@@ -28,7 +28,7 @@ bool syncSettings(QSettings &settings)
 
 
 Settings::Settings(QObject *parent) :
-    Settings(configurationFilePath(qApp->applicationDirPath()), parent)
+    Settings(configurationFilePath(), parent)
 {
 }
 
@@ -42,54 +42,20 @@ Settings::Settings(const QString &configurationFile, QObject *parent) :
     readSettings();
 }
 
-QString Settings::configurationFilePath(const QString &applicationDirectory)
+QString Settings::configurationFilePath()
 {
-    // The dedicated preview harness supplies an owned temporary path before
-    // any singleton is constructed. Normal application startup never sets it.
     const QString previewFile = QCoreApplication::instance()->property("restylePreviewSettings").toString();
     if (QStandardPaths::isTestModeEnabled() && !previewFile.isEmpty()
             && QDir::isAbsolutePath(previewFile))
         return previewFile;
-    return configurationFilePath(applicationDirectory,
-                                 QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation));
-}
-
-QString Settings::configurationFilePath(const QString &applicationDirectory,
-                                       const QString &previousUserConfigurationDirectory)
-{
-    const QString configurationDirectory = MediaBox::StoragePaths::configurationDirectory(
+    const QString directory = MediaBox::StoragePaths::configurationDirectory(
             MediaBox::StoragePaths::Application::Manager);
-    const QDir configurationDir(configurationDirectory);
-    const QString configurationFile = configurationDir.absoluteFilePath("MediaBoxManager.conf");
-    if (QFileInfo::exists(configurationFile)) {
-        if (!QFileInfo(configurationFile).isFile()) {
-            throw std::runtime_error(QStringLiteral("Путь настроек не является файлом: %1")
-                    .arg(configurationFile).toUtf8().constData());
-        }
-        return configurationFile;
-    }
-    if (!configurationDir.mkpath(".")) {
-        throw std::runtime_error(QStringLiteral("Не удалось создать каталог настроек: %1")
-                .arg(configurationDirectory).toUtf8().constData());
-    }
-
-    QStringList previousFiles{
-        QDir(MediaBox::StoragePaths::commonConfigurationDirectory())
-                .absoluteFilePath("MediaBoxManager.conf")
-    };
-    if (!previousUserConfigurationDirectory.isEmpty())
-        previousFiles << QDir(previousUserConfigurationDirectory).absoluteFilePath("MediaBoxManager.conf");
-    const QDir applicationDir(applicationDirectory);
-    previousFiles << applicationDir.absoluteFilePath("MediaBoxManager.conf");
-    QString error;
-    if (!MediaBox::StoragePaths::migrateFile(configurationFile, previousFiles, &error)) {
-        // Do not let initSettings() replace an unreadable legacy configuration
-        // with defaults: leaving the target absent allows migration to retry.
-        throw std::runtime_error(QStringLiteral(
-                "Не удалось перенести настройки в %1: %2. Исходные файлы сохранены.")
-                .arg(configurationFile, error).toUtf8().constData());
-    }
-    return configurationFile;
+    const QString file = QDir(directory).absoluteFilePath("MediaBoxManager.conf");
+    if (QFileInfo::exists(file) && !QFileInfo(file).isFile())
+        throw std::runtime_error(QStringLiteral("Путь настроек не является файлом: %1").arg(file).toUtf8().constData());
+    if (!QDir().mkpath(directory))
+        throw std::runtime_error(QStringLiteral("Не удалось создать каталог настроек: %1").arg(directory).toUtf8().constData());
+    return file;
 }
 
 
@@ -330,7 +296,7 @@ const QStringList Settings::availablelVideoFileFormats()
 QStringList Settings::allFormats()
 {
     QStringList list;
-    QSettings settings(configurationFilePath(qApp->applicationDirPath()), QSettings::IniFormat);
+    QSettings settings(configurationFilePath(), QSettings::IniFormat);
     // Форматы файлов
     settings.beginGroup("FileFormats");
     QStringList keys = settings.allKeys();
@@ -350,7 +316,7 @@ QStringList Settings::allFormats()
 QStringList Settings::allAudioFormats()
 {
     QStringList list;
-    QSettings settings(configurationFilePath(qApp->applicationDirPath()), QSettings::IniFormat);
+    QSettings settings(configurationFilePath(), QSettings::IniFormat);
     // Форматы файлов
     settings.beginGroup("FileFormats");
     settings.beginGroup("AudioFormats");
@@ -372,7 +338,7 @@ QStringList Settings::allAudioFormats()
 QStringList Settings::allVideoFormats()
 {
     QStringList list;
-    QSettings settings(configurationFilePath(qApp->applicationDirPath()), QSettings::IniFormat);
+    QSettings settings(configurationFilePath(), QSettings::IniFormat);
     // Форматы файлов
     settings.beginGroup("FileFormats");
     settings.beginGroup("VideoFormats");

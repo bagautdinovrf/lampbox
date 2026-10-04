@@ -62,6 +62,29 @@ void replaceWindow(QJsonObject &o, const QJsonObject &w)
 class ScheduleV1Tests : public QObject {
     Q_OBJECT
 private slots:
+    void sharedAudioVideoContractAndStrictVersion()
+    {
+        auto object = fixture();
+        auto assets = object.value("assets").toArray();
+        auto asset = assets.first().toObject();
+        asset.insert("mediaType", "video");
+        asset.insert("path", "video/Экран/ролик.mp4");
+        assets[0] = asset;
+        object.insert("assets", assets);
+        Document document;
+        QVERIFY2(read(object, &document).isEmpty(), qPrintable(read(object, &document)));
+        QVERIFY(requiredCapabilities(object).contains(QStringLiteral("media.video.v1")));
+        QCOMPARE(evaluate(document, at("2026-10-04T12:00:00+03:00")).playlistId, id(11));
+        object.insert("schemaVersion", 0);
+        QVERIFY(!read(object, &document).isEmpty());
+        object.insert("schemaVersion", 2);
+        QVERIFY(!read(object, &document).isEmpty());
+        object.insert("schemaVersion", 1);
+        asset.insert("mediaType", "unknown");
+        assets[0] = asset;
+        object.insert("assets", assets);
+        QVERIFY(!read(object, &document).isEmpty());
+    }
     void documentedExample()
     {
         QFile file(QFINDTESTDATA("../Documentation/schedule-v1/example.new-year.json"));

@@ -130,7 +130,7 @@ private slots:
             rule.volume = volume;
             QCOMPARE(compileAdvertMinutes(rule), original);
         }
-        // Equivalent legacy calendar encodings have the same phase.
+        // Equivalent calendar encodings have the same phase.
         rule.weekdays = QStringLiteral("6,5,4,3,2,1,0,0");
         QCOMPARE(compileAdvertMinutes(rule), original);
         rule.stableId = QStringLiteral("campaign-17");
@@ -222,7 +222,7 @@ private slots:
         QCOMPARE(evaluate({}, {quieter}, at).nextAdvertTime, preview.nextAdvertTime);
     }
 
-    void publishedLegacyPhaseTakesPrecedence()
+    void preparedPhaseTakesPrecedence()
     {
         auto rule = advertRule();
         QCOMPARE(compileAdvertMinutes(rule), QList<int>({19, 39, 59}));
@@ -260,8 +260,8 @@ private slots:
         const QDateTime start(QDate(2026, 10, 4), QTime(8, 0), QTimeZone::UTC);
         QCOMPARE(evaluate({channel}, {}, start).activeRows, QList<int>{0});
         QVERIFY(evaluate({channel}, {}, start.addSecs(10 * 3600)).activeRows.isEmpty());
-        channel.start = channel.end; // Legacy data remains readable, not interpreted as 24h.
-        QVERIFY(validateChannel(channel).isEmpty());
+        channel.start = channel.end;
+        QVERIFY(!validateChannel(channel).isEmpty());
         QVERIFY(evaluate({channel}, {}, start).hasUnresolvedRules);
         channel.months = QStringLiteral("13");
         QVERIFY(!validateChannel(channel).isEmpty());

@@ -4,6 +4,7 @@
 #include <QRegularExpression>
 #include <QSet>
 
+#include <algorithm>
 #include <limits>
 
 namespace {
@@ -188,25 +189,29 @@ QString MediaBoxVPlayerClient::enqueue(const QString &windowId, const QStringLis
                         {{QStringLiteral("paths"), QJsonArray::fromStringList(paths)}});
 }
 
-QString MediaBoxVPlayerClient::setSchedule(const QString &windowId, const QJsonObject &schedule)
+QString MediaBoxVPlayerClient::loadPublication(const QString &windowId, const QString &activePath,
+                                             const QString &contentRoot, bool autoplay)
 {
-    if (!schedule.value(QStringLiteral("channels")).isArray()
-        || !schedule.value(QStringLiteral("adverts")).isArray())
-        return reject(QStringLiteral("setSchedule"), QStringLiteral("invalid_arguments"),
-                      tr("Расписание должно содержать списки каналов и рекламы."));
-    return submitWindow(QStringLiteral("setSchedule"), windowId,
-                        {{QStringLiteral("schedule"), schedule}});
+    if (!validWindowId(windowId) || !validMediaPaths({activePath, contentRoot}))
+        return reject(QStringLiteral("loadPublication"), QStringLiteral("invalid_arguments"),
+                      tr("Выберите видеоокно и укажите абсолютные пути к active.json и медиатеке, доступные видеоплееру."));
+    if (isReady()) {
+        const auto window = std::find_if(m_videoStatus.windows.cbegin(), m_videoStatus.windows.cend(),
+                                        [&windowId](const auto &entry) { return entry.id == windowId; });
+        if (window == m_videoStatus.windows.cend())
+            return reject(QStringLiteral("loadPublication"), QStringLiteral("unknown_window"),
+                          tr("Примените настройки видеоокна перед запуском расписания."));
+        if (!window->playback.supportedCapabilities.contains(QStringLiteral("schedule.current.v1")))
+            return reject(QStringLiteral("loadPublication"), QStringLiteral("unsupported_capability"),
+                          tr("Обновите MediaBoxVPlayer: подключённый плеер не поддерживает загрузку текущего формата расписания из файлов."));
+    }
+    return submitWindow(QStringLiteral("loadPublication"), windowId,
+                        {{"activePath", activePath}, {"contentRoot", contentRoot}, {"autoplay", autoplay}});
 }
 
-QString MediaBoxVPlayerClient::startSchedule(const QString &windowId, const QJsonObject &schedule)
+QString MediaBoxVPlayerClient::startSchedule(const QString &windowId)
 {
-    if (!schedule.isEmpty()
-        && (!schedule.value(QStringLiteral("channels")).isArray()
-            || !schedule.value(QStringLiteral("adverts")).isArray()))
-        return reject(QStringLiteral("schedule"), QStringLiteral("invalid_arguments"),
-                      tr("Расписание должно содержать списки каналов и рекламы."));
-    return submitWindow(QStringLiteral("schedule"), windowId, schedule.isEmpty()
-                        ? QJsonObject{} : QJsonObject{{QStringLiteral("schedule"), schedule}});
+    return submitWindow(QStringLiteral("schedule"), windowId);
 }
 
 QString MediaBoxVPlayerClient::playChannel(const QString &windowId, const QString &name,

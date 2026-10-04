@@ -8,15 +8,15 @@ set(_manager_test_source "${CMAKE_SOURCE_DIR}/tests")
 set(_player_test_source "${CMAKE_SOURCE_DIR}/MediaBoxPlayer/tests")
 set(_vplayer_test_source "${CMAKE_SOURCE_DIR}/MediaBoxVPlayer/tests")
 
-qt_add_executable(MediaBoxManagerTests "${_manager_test_source}/tst_migration.cpp")
+qt_add_executable(MediaBoxManagerTests "${_manager_test_source}/tst_foundation.cpp")
 target_link_libraries(MediaBoxManagerTests PRIVATE MediaBoxManagerUi MediaBoxManager::TagLib Qt6::Test)
 set_target_properties(MediaBoxManagerTests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
-add_test(NAME MediaBoxManager_migration COMMAND "${CMAKE_COMMAND}"
+add_test(NAME MediaBoxManager_foundation COMMAND "${CMAKE_COMMAND}"
     "-DTEST_EXECUTABLE=$<TARGET_FILE:MediaBoxManagerTests>"
-    "-DTEST_REPORT=${_test_report_directory}/migration-results.txt"
+    "-DTEST_REPORT=${_test_report_directory}/foundation-results.txt"
     -P "${CMAKE_CURRENT_LIST_DIR}/run_qt_test.cmake")
-set_tests_properties(MediaBoxManager_migration PROPERTIES
+set_tests_properties(MediaBoxManager_foundation PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     TIMEOUT 30
 )
@@ -47,7 +47,7 @@ set_tests_properties(MediaBoxManager_version PROPERTIES
 if(WIN32)
     get_target_property(_qt_qmake Qt6::qmake IMPORTED_LOCATION)
     get_filename_component(_qt_bin "${_qt_qmake}" DIRECTORY)
-    set_property(TEST MediaBoxManager_migration MediaBoxManager_stationmanager MediaBoxManager_settings MediaBoxManager_version APPEND PROPERTY
+    set_property(TEST MediaBoxManager_foundation MediaBoxManager_stationmanager MediaBoxManager_settings MediaBoxManager_version APPEND PROPERTY
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${_qt_bin}")
 endif()
 
