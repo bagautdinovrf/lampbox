@@ -1,7 +1,7 @@
 ﻿; MediaBoxManager installer. Compile with Inno Setup 6.
 #define AppName "MediaBoxManager"
 #ifndef AppVersion
-  #define AppVersion "1.2.8"
+  #define AppVersion "1.2.9"
 #endif
 #ifndef PackageDir
   #define PackageDir "..\agent_build\deploy\Release"

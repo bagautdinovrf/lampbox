@@ -199,9 +199,10 @@ protected:
             p.setPen(laneSelected ? t.accentText : t.secondary);
             p.drawText(titleRect, Qt::AlignVCenter,
                        p.fontMetrics().elidedText(lane.title, Qt::ElideRight, int(titleRect.width())));
-            p.setPen(Qt::NoPen);
-            p.setBrush(t.field);
-            p.drawRoundedRect(track, t.trackRadius, t.trackRadius);
+            p.setPen(t.relief ? QPen(Qt::NoPen) : QPen(t.line));
+            p.setBrush(t.relief || t.dark ? t.field : Restyle::mix(t.line, .4, t.surface));
+            p.drawRoundedRect(t.relief ? track : track.adjusted(.5, .5, -.5, -.5),
+                              t.trackRadius, t.trackRadius);
             if (t.relief) {
                 p.setPen(QColor(0, 0, 0, t.dark ? 65 : 13));
                 p.drawLine(track.topLeft() + QPointF(4, 1), track.topRight() + QPointF(-4, 1));
