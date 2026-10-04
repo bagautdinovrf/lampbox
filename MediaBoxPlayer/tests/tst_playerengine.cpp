@@ -125,7 +125,466 @@ private:
         QCoreApplication::processEvents();
     }
 
+    static QDateTime at(const QString &time)
+    {
+        return QDateTime::fromString(QStringLiteral("2026-10-04T") + time + QLatin1Char('Z'), Qt::ISODate);
+    }
+
+    static QJsonObject channel(const QString &id, const QString &name, const QString &start,
+                               const QString &end, const QStringList &paths, int volume = 75)
+    {
+        return {{"id", id}, {"name", name}, {"start", start}, {"end", end},
+                {"weekdays", "*"}, {"days", "*"}, {"months", "*"}, {"volume", volume},
+                {"paths", QJsonArray::fromStringList(paths)}};
+    }
+
+    static QJsonObject advert(const QString &id, const QString &name, const QString &timing,
+                              const QStringList &paths, int volume = 60)
+    {
+        return {{"id", id}, {"name", name}, {"hours", "*"}, {"weekdays", "*"},
+                {"from", "2026-10-04"}, {"until", "2026-10-04"}, {"timing", timing},
+                {"volume", volume}, {"paths", QJsonArray::fromStringList(paths)}};
+    }
+
+    static QJsonObject schedule(const QJsonArray &channels, const QJsonArray &adverts = {})
+    {
+        return {{"channels", channels}, {"adverts", adverts}};
+    }
+
 private slots:
+    void playChannelStartsWholeQueueAtomicallyAndOverridesSchedule()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString scheduled = createTrack(directory, "scheduled.wav");
+        const QString first = createTrack(directory, "first.wav");
+        const QString second = createTrack(directory, "second.wav");
+        QDateTime now = at("10:00:00");
+        FakeAudioBackend backend;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        QVERIFY(command(engine, "schedule", {{"schedule", schedule({channel("scheduled", "По плану", "09:00", "12:00", {scheduled})})}}).value("ok").toBool());
+        const QJsonObject before = engine.status();
+        const int playsBefore = backend.playCalls;
+        const QList<QJsonObject> invalid = {
+            {{"name", "Канал"}, {"paths", QJsonArray{}}, {"volume", 50}},
+            {{"name", "Канал"}, {"paths", QJsonArray{first, directory.filePath("missing.wav")}}, {"volume", 50}},
+            {{"name", " "}, {"paths", QJsonArray{first}}, {"volume", 50}},
+            {{"name", "Канал"}, {"paths", QJsonArray{first}}, {"volume", 100.5}}
+        };
+        for (const auto &arguments : invalid) {
+            QVERIFY(!command(engine, "playChannel", arguments).value("ok").toBool());
+            QCOMPARE(engine.status(), before);
+            QCOMPARE(backend.playCalls, playsBefore);
+        }
+        QVERIFY(command(engine, "playChannel", {{"name", "Любимый канал"}, {"paths", QJsonArray{first, second}}, {"volume", 42}}).value("ok").toBool());
+        QCOMPARE(engine.status().value("playbackMode").toString(), QStringLiteral("manual"));
+        QCOMPARE(engine.status().value("channelName").toString(), QStringLiteral("Любимый канал"));
+        QCOMPARE(engine.status().value("queue").toArray(), (QJsonArray{first, second}));
+        QCOMPARE(engine.status().value("repeat").toString(), QStringLiteral("all"));
+        QCOMPARE(backend.volume, 42);
+        QCOMPARE(backend.source.toLocalFile(), first);
+        backend.finish();
+        settle();
+        QCOMPARE(backend.source.toLocalFile(), second);
+        backend.finish();
+        settle();
+        QCOMPARE(backend.source.toLocalFile(), first);
+        now = at("11:00:00");
+        engine.evaluateSchedule(now);
+        QCOMPARE(backend.source.toLocalFile(), first);
+    }
+
+    void scheduleSnapshotLoadsWithoutChangingModeAndActivationIsAtomic()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString track = createTrack(directory, "track.wav");
+        QDateTime now = at("10:00:00");
+        FakeAudioBackend backend;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        QVERIFY(!command(engine, "schedule").value("ok").toBool());
+        QCOMPARE(engine.status().value("playbackMode").toString(), QStringLiteral("manual"));
+        QVERIFY(!engine.status().value("scheduleAvailable").toBool());
+        const QJsonObject snapshot = schedule({channel("first", "Первый", "09:00", "12:00", {track})});
+        QVERIFY(command(engine, "setSchedule", {{"schedule", snapshot}}).value("ok").toBool());
+        QCOMPARE(backend.playCalls, 0);
+        QVERIFY(engine.status().value("scheduleAvailable").toBool());
+        QCOMPARE(engine.status().value("playbackMode").toString(), QStringLiteral("manual"));
+        auto invalidChannel = channel("bad", "Ошибка", "09:00", "12:00", {track});
+        invalidChannel.insert("weekdays", "7");
+        const QJsonObject before = engine.status();
+        QVERIFY(!command(engine, "schedule", {{"schedule", schedule({invalidChannel})}}).value("ok").toBool());
+        QCOMPARE(engine.status(), before);
+        QVERIFY(command(engine, "schedule").value("ok").toBool());
+        QCOMPARE(backend.source.toLocalFile(), track);
+        QCOMPARE(engine.status().value("playbackMode").toString(), QStringLiteral("schedule"));
+        QVERIFY(command(engine, "stop").value("ok").toBool());
+        const int stoppedPlays = backend.playCalls;
+        engine.evaluateSchedule(now.addSecs(1));
+        QCOMPARE(backend.playCalls, stoppedPlays);
+        QCOMPARE(engine.status().value("playbackMode").toString(), QStringLiteral("manual"));
+    }
+
+    void scheduleHonoursBoundariesGapsAndDoesNotRestartCurrentChannel()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString first = createTrack(directory, "first.wav");
+        const QString second = createTrack(directory, "second.wav");
+        QDateTime now = at("08:59:59");
+        FakeAudioBackend backend;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        QVERIFY(command(engine, "schedule", {{"schedule", schedule({channel("first", "Утро", "09:00", "10:00", {first}), channel("second", "День", "10:00", "11:00", {second})})}}).value("ok").toBool());
+        QCOMPARE(backend.playCalls, 0);
+        now = at("09:00:00");
+        engine.evaluateSchedule(now);
+        QCOMPARE(backend.playCalls, 1);
+        QCOMPARE(backend.source.toLocalFile(), first);
+        backend.confirmPlaying();
+        backend.reportPosition(1234);
+        engine.evaluateSchedule(at("09:59:59"));
+        QCOMPARE(backend.playCalls, 1);
+        QCOMPARE(engine.status().value("positionMs").toInteger(), 1234);
+        now = at("10:00:00");
+        engine.evaluateSchedule(now);
+        QCOMPARE(backend.playCalls, 2);
+        QCOMPARE(backend.source.toLocalFile(), second);
+        now = at("11:00:00");
+        engine.evaluateSchedule(now);
+        QCOMPARE(state(engine), QStringLiteral("stopped"));
+        QVERIFY(engine.status().value("queue").toArray().isEmpty());
+        QVERIFY(engine.status().value("channelName").toString().isEmpty());
+        QCOMPARE(engine.status().value("playbackMode").toString(), QStringLiteral("schedule"));
+        QCOMPARE(backend.playCalls, 2);
+    }
+
+    void scheduleUpdatesPreservePlaybackWhenQueueIsUnchanged()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString first = createTrack(directory, "first.wav");
+        const QString second = createTrack(directory, "second.wav");
+        QDateTime now = at("10:00:00");
+        FakeAudioBackend backend;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        auto rule = channel("first", "Первый", "09:00", "12:00", {first});
+        QVERIFY(command(engine, "schedule", {{"schedule", schedule({rule})}}).value("ok").toBool());
+        backend.confirmPlaying();
+        backend.reportPosition(2345);
+        const int sourceCalls = backend.sourceCalls;
+        rule.insert("name", "Новое имя");
+        rule.insert("volume", 35);
+        QVERIFY(command(engine, "setSchedule", {{"schedule", schedule({rule})}}).value("ok").toBool());
+        QCOMPARE(backend.sourceCalls, sourceCalls);
+        QCOMPARE(backend.playCalls, 1);
+        QCOMPARE(engine.status().value("positionMs").toInteger(), 2345);
+        QCOMPARE(engine.status().value("channelName").toString(), QStringLiteral("Новое имя"));
+        QCOMPARE(backend.volume, 35);
+        QVERIFY(command(engine, "volume", {{"value", 22}}).value("ok").toBool());
+        engine.evaluateSchedule(now.addSecs(1));
+        QCOMPARE(backend.volume, 22);
+        rule.insert("paths", QJsonArray{second});
+        QVERIFY(command(engine, "setSchedule", {{"schedule", schedule({rule})}}).value("ok").toBool());
+        QCOMPARE(backend.playCalls, 2);
+        QCOMPARE(backend.source.toLocalFile(), second);
+        QVERIFY(command(engine, "stop").value("ok").toBool());
+        QVERIFY(command(engine, "setSchedule", {{"schedule", schedule({rule})}}).value("ok").toBool());
+        QCOMPARE(backend.playCalls, 2);
+    }
+
+    void scheduleConflictsAreSilentAndRecoverAtTheNextBoundary()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString first = createTrack(directory, "first.wav");
+        const QString second = createTrack(directory, "second.wav");
+        QDateTime now = at("09:59:59");
+        FakeAudioBackend backend;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        QVERIFY(command(engine, "schedule", {{"schedule", schedule({channel("first", "Первый", "09:00", "11:00", {first}), channel("second", "Второй", "10:00", "12:00", {second})})}}).value("ok").toBool());
+        QCOMPARE(backend.source.toLocalFile(), first);
+        now = at("10:00:00");
+        engine.evaluateSchedule(now);
+        QCOMPARE(state(engine), QStringLiteral("stopped"));
+        QVERIFY(engine.status().value("queue").toArray().isEmpty());
+        QVERIFY(engine.status().value("scheduleError").toString().contains(QStringLiteral("Пересечение")));
+        QCOMPARE(backend.playCalls, 1);
+        now = at("11:00:00");
+        engine.evaluateSchedule(now);
+        QCOMPARE(backend.source.toLocalFile(), second);
+        QCOMPARE(backend.playCalls, 2);
+        QVERIFY(engine.status().value("scheduleError").toString().isEmpty());
+    }
+
+    void scheduleCalendarAndUnsupportedWindowsUseSharedSemantics()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString track = createTrack(directory, "track.wav");
+        QDateTime now = at("10:00:00"); // Sunday=0 in the persisted format.
+        FakeAudioBackend backend;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        auto rule = channel("first", "Первый", "09:00", "12:00", {track});
+        rule.insert("weekdays", "1");
+        QVERIFY(command(engine, "schedule", {{"schedule", schedule({rule})}}).value("ok").toBool());
+        QCOMPARE(backend.playCalls, 0);
+        rule.insert("weekdays", "0");
+        rule.insert("days", "4");
+        rule.insert("months", "10");
+        QVERIFY(command(engine, "setSchedule", {{"schedule", schedule({rule})}}).value("ok").toBool());
+        QCOMPARE(backend.playCalls, 1);
+        rule.insert("months", "11");
+        QVERIFY(command(engine, "setSchedule", {{"schedule", schedule({rule})}}).value("ok").toBool());
+        QCOMPARE(state(engine), QStringLiteral("stopped"));
+        rule.insert("months", "10");
+        rule.insert("start", "23:00");
+        rule.insert("end", "08:00");
+        QVERIFY(command(engine, "setSchedule", {{"schedule", schedule({rule})}}).value("ok").toBool());
+        QVERIFY(engine.status().value("scheduleError").toString().contains(QStringLiteral("полночь")));
+        QCOMPARE(backend.playCalls, 1);
+    }
+
+    void advertsRunOncePerMinuteAndReturnToCurrentChannel()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString first = createTrack(directory, "first.wav");
+        const QString second = createTrack(directory, "second.wav");
+        const QString ad = createTrack(directory, "advert.wav");
+        QDateTime now = at("09:59:00");
+        FakeAudioBackend backend;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        const auto snapshot = schedule({channel("first", "Утро", "09:00", "10:00", {first}), channel("second", "День", "10:00", "12:00", {second})}, {advert("ad", "Объявление", "59m", {ad})});
+        QVERIFY(command(engine, "schedule", {{"schedule", snapshot}}).value("ok").toBool());
+        QCOMPARE(backend.source.toLocalFile(), ad);
+        QCOMPARE(backend.volume, 60);
+        QCOMPARE(engine.status().value("repeat").toString(), QStringLiteral("off"));
+        engine.evaluateSchedule(now.addSecs(20));
+        QCOMPARE(backend.playCalls, 1);
+        now = at("10:00:00");
+        engine.evaluateSchedule(now);
+        QCOMPARE(backend.source.toLocalFile(), ad);
+        backend.finish();
+        settle();
+        QCOMPARE(backend.source.toLocalFile(), second);
+        QCOMPARE(backend.volume, 75);
+        QCOMPARE(engine.status().value("channelName").toString(), QStringLiteral("День"));
+        QCOMPARE(engine.status().value("repeat").toString(), QStringLiteral("all"));
+        QCOMPARE(backend.playCalls, 2);
+        now = at("10:59:00");
+        engine.evaluateSchedule(now);
+        QCOMPARE(backend.source.toLocalFile(), ad);
+        backend.finish();
+        settle();
+        QCOMPARE(backend.source.toLocalFile(), second);
+        const int plays = backend.playCalls;
+        engine.evaluateSchedule(now.addSecs(30));
+        QCOMPARE(backend.playCalls, plays);
+    }
+
+    void advertsUseStableIdsPreparedMinutesAndCompleteAllMatchingBlocks()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString music = createTrack(directory, "music.wav");
+        const QString first = createTrack(directory, "first-ad.wav");
+        const QString second = createTrack(directory, "second-ad.wav");
+        QDateTime now = at("10:05:00");
+        FakeAudioBackend backend;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        auto frequency = advert("frequency", "Одинаковое имя", "2", {first}, 40);
+        frequency.insert("compiledMinutes", QJsonArray{5, 35});
+        const auto snapshot = schedule({channel("music", "Музыка", "09:00", "12:00", {music})},
+            {frequency, advert("exact", "Одинаковое имя", "05m", {second}, 80), advert("disabled", "Выключено", "*", {second})});
+        QVERIFY(command(engine, "schedule", {{"schedule", snapshot}}).value("ok").toBool());
+        QCOMPARE(backend.source.toLocalFile(), first);
+        QCOMPARE(backend.volume, 40);
+        backend.finish();
+        settle();
+        QCOMPARE(backend.source.toLocalFile(), second);
+        QCOMPARE(backend.volume, 80);
+        backend.finish();
+        settle();
+        QCOMPARE(backend.source.toLocalFile(), music);
+        QCOMPARE(backend.playCalls, 3);
+        QVERIFY(command(engine, "setSchedule", {{"schedule", snapshot}}).value("ok").toBool());
+        QCOMPARE(backend.playCalls, 3);
+        now = at("10:35:00");
+        engine.evaluateSchedule(now);
+        QCOMPARE(backend.source.toLocalFile(), first);
+        backend.fail();
+        settle();
+        QCOMPARE(backend.source.toLocalFile(), music);
+        QCOMPARE(backend.playCalls, 5);
+    }
+
+    void advertRestoresInterruptedTrackAndPositionWhenChannelRemainsActive()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString first = createTrack(directory, "first.wav");
+        const QString second = createTrack(directory, "second.wav");
+        const QString ad = createTrack(directory, "advert.wav");
+        QDateTime now = at("10:29:00");
+        FakeAudioBackend backend;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        QVERIFY(command(engine, "schedule", {{"schedule", schedule({channel("music", "Музыка", "09:00", "12:00", {first, second})}, {advert("ad", "Реклама", "30m", {ad})})}}).value("ok").toBool());
+        backend.confirmPlaying();
+        backend.finish();
+        settle();
+        QCOMPARE(backend.source.toLocalFile(), second);
+        backend.confirmPlaying();
+        backend.reportPosition(4321);
+        now = at("10:30:00");
+        engine.evaluateSchedule(now);
+        QCOMPARE(backend.source.toLocalFile(), ad);
+        backend.finish();
+        settle();
+        QCOMPARE(backend.source.toLocalFile(), second);
+        QCOMPARE(engine.status().value("currentIndex").toInt(), 1);
+        QCOMPARE(engine.status().value("positionMs").toInteger(), 4321);
+        QCOMPARE(backend.position, 4321);
+        QCOMPARE(engine.status().value("channelName").toString(), QStringLiteral("Музыка"));
+        const int plays = backend.playCalls;
+        engine.evaluateSchedule(now.addSecs(20));
+        QCOMPARE(backend.playCalls, plays);
+    }
+
+    void invalidScheduleSnapshotsPreserveTheActiveQueueAndMode()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString track = createTrack(directory, "track.wav");
+        QDateTime now = at("10:00:00");
+        FakeAudioBackend backend;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        const auto validChannel = channel("music", "Музыка", "09:00", "12:00", {track});
+        QVERIFY(command(engine, "schedule", {{"schedule", schedule({validChannel})}}).value("ok").toBool());
+        const QJsonObject before = engine.status();
+        const int plays = backend.playCalls;
+        auto malformedChannel = validChannel;
+        malformedChannel.insert("start", "9:00");
+        auto missingFile = validChannel;
+        missingFile.insert("paths", QJsonArray{directory.filePath("missing.wav")});
+        auto unknownField = validChannel;
+        unknownField.insert("typo", true);
+        auto badAdvert = advert("ad", "Реклама", "2", {track});
+        badAdvert.insert("compiledMinutes", QJsonArray{5, 34});
+        auto badDate = advert("ad", "Реклама", "00m", {track});
+        badDate.insert("from", "2026-10-05");
+        const QList<QJsonObject> invalid = {
+            schedule({malformedChannel}), schedule({missingFile}), schedule({unknownField}),
+            schedule({validChannel, validChannel}), schedule({validChannel}, {badAdvert}),
+            schedule({validChannel}, {badDate}), {{"channels", QJsonArray{}}}
+        };
+        for (const auto &snapshot : invalid) {
+            QVERIFY(!command(engine, "setSchedule", {{"schedule", snapshot}}).value("ok").toBool());
+            QCOMPARE(engine.status(), before);
+            QCOMPARE(backend.playCalls, plays);
+        }
+    }
+
+    void manualControlCancelsAdvertsAndStaleScheduledContinuation_data()
+    {
+        QTest::addColumn<QString>("interruption");
+        for (const QString &name : {QStringLiteral("stop"), QStringLiteral("pause"), QStringLiteral("clear"), QStringLiteral("load"), QStringLiteral("enqueue")})
+            QTest::newRow(name.toUtf8().constData()) << name;
+    }
+
+    void manualControlCancelsAdvertsAndStaleScheduledContinuation()
+    {
+        QFETCH(QString, interruption);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString music = createTrack(directory, "music.wav");
+        const QString ad = createTrack(directory, "advert.wav");
+        QDateTime now = at("10:00:00");
+        FakeAudioBackend backend;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        QVERIFY(command(engine, "schedule", {{"schedule", schedule({channel("music", "Музыка", "09:00", "12:00", {music})}, {advert("ad", "Реклама", "00m", {ad})})}}).value("ok").toBool());
+        backend.finish();
+        QJsonObject arguments;
+        if (interruption == QStringLiteral("load") || interruption == QStringLiteral("enqueue"))
+            arguments.insert("paths", QJsonArray{music});
+        QVERIFY(command(engine, interruption, arguments).value("ok").toBool());
+        QCOMPARE(engine.status().value("playbackMode").toString(), QStringLiteral("manual"));
+        const int plays = backend.playCalls;
+        settle();
+        // Enqueue continues its now-manual queue naturally, but never restores
+        // the scheduled music queue or a pending advertising block.
+        if (interruption == QStringLiteral("enqueue"))
+            QCOMPARE(backend.playCalls, plays + 1);
+        else
+            QCOMPARE(backend.playCalls, plays);
+        const int settledPlays = backend.playCalls;
+        engine.evaluateSchedule(at("11:00:00"));
+        QCOMPARE(backend.playCalls, settledPlays);
+    }
+
+    void playbackAvailabilitySuspendsScheduleAndReevaluatesOnReconnect()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString first = createTrack(directory, "first.wav");
+        const QString second = createTrack(directory, "second.wav");
+        QDateTime now = at("09:30:00");
+        FakeAudioBackend backend;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        QVERIFY(command(engine, "schedule", {{"schedule", schedule({channel("first", "Утро", "09:00", "10:00", {first}), channel("second", "День", "10:00", "12:00", {second})})}}).value("ok").toBool());
+        QCOMPARE(backend.playCalls, 1);
+        engine.setPlaybackAvailable(false);
+        QCOMPARE(state(engine), QStringLiteral("stopped"));
+        QCOMPARE(engine.status().value("playbackMode").toString(), QStringLiteral("schedule"));
+        now = at("10:30:00");
+        engine.evaluateSchedule(now);
+        QCOMPARE(backend.playCalls, 1);
+        engine.setPlaybackAvailable(true);
+        QCOMPARE(backend.source.toLocalFile(), second);
+        QCOMPARE(backend.playCalls, 2);
+        QVERIFY(command(engine, "playChannel", {{"name", "Ручной"}, {"paths", QJsonArray{first}}, {"volume", 70}}).value("ok").toBool());
+        engine.setPlaybackAvailable(false);
+        engine.setPlaybackAvailable(true);
+        QCOMPARE(backend.playCalls, 3);
+        QCOMPARE(state(engine), QStringLiteral("stopped"));
+        QCOMPARE(engine.status().value("playbackMode").toString(), QStringLiteral("manual"));
+    }
+
+    void emptyScheduledChannelIsDiagnosedWithoutAPlaybackLoop()
+    {
+        QDateTime now = at("10:00:00");
+        FakeAudioBackend backend;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        QVERIFY(command(engine, "schedule", {{"schedule", schedule({channel("empty", "Пустой канал", "09:00", "12:00", {})})}}).value("ok").toBool());
+        QCOMPARE(backend.playCalls, 0);
+        QVERIFY(engine.status().value("scheduleError").toString().contains(QStringLiteral("не содержит файлов")));
+        const int sourceCalls = backend.sourceCalls;
+        engine.evaluateSchedule(now.addSecs(1));
+        QCOMPARE(backend.sourceCalls, sourceCalls);
+    }
+
+    void failedScheduledChannelDoesNotRetryEveryTimerTick()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString first = createTrack(directory, "first.wav");
+        const QString second = createTrack(directory, "second.wav");
+        QDateTime now = at("10:00:00");
+        FakeAudioBackend backend;
+        backend.rejectEveryTrack = true;
+        PlayerEngine engine(&backend, nullptr, [&now] { return now; });
+        QVERIFY(command(engine, "schedule", {{"schedule", schedule({channel("broken", "Недоступно", "09:00", "12:00", {first, second})})}}).value("ok").toBool());
+        settle();
+        settle();
+        QCOMPARE(state(engine), QStringLiteral("error"));
+        QCOMPARE(backend.playCalls, 2);
+        for (int second = 1; second <= 10; ++second)
+            engine.evaluateSchedule(now.addSecs(second));
+        settle();
+        QCOMPARE(backend.playCalls, 2);
+        QCOMPARE(state(engine), QStringLiteral("error"));
+        QCOMPARE(engine.status().value("playbackMode").toString(), QStringLiteral("schedule"));
+    }
+
     void queueValidationIsAtomic()
     {
         QTemporaryDir directory;

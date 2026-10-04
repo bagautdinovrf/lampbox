@@ -23,7 +23,7 @@ private slots:
         mOriginalApplicationName = QCoreApplication::applicationName();
         mOriginalTestMode = QStandardPaths::isTestModeEnabled();
         QStandardPaths::setTestModeEnabled(true);
-        QCoreApplication::setApplicationName("lampbox_station_test_"
+        QCoreApplication::setApplicationName("mediaboxmanager_station_test_"
                 + QUuid::createUuid().toString(QUuid::Id128));
         mStandalonePath = MediaBox::StoragePaths::commonDataDirectory();
         QVERIFY(QDir::isAbsolutePath(mStandalonePath));
@@ -56,7 +56,7 @@ private slots:
     {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        const QDir source(directory.filePath("lampbox"));
+        const QDir source(directory.filePath("previous-MediaBoxManager"));
         const QDir destination(directory.filePath("mediabox"));
         const QStringList publicFiles = {"timetable/1.xml", "media/music/song.mp3",
                                          "cron/playlist.cron", "nncronlt/nncron.tab"};

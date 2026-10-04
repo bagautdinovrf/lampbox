@@ -2,7 +2,7 @@
 #include <stdexcept>
 
 #include "settings.h"
-#include "lampdata.h"
+#include "mediaboxmanagerdata.h"
 #include "storagepaths.h"
 
 #include <QSettings>
@@ -80,8 +80,7 @@ QString Settings::configurationFilePath(const QString &applicationDirectory,
     if (!previousUserConfigurationDirectory.isEmpty())
         previousFiles << QDir(previousUserConfigurationDirectory).absoluteFilePath("MediaBoxManager.conf");
     const QDir applicationDir(applicationDirectory);
-    previousFiles << applicationDir.absoluteFilePath("MediaBoxManager.conf")
-                  << applicationDir.absoluteFilePath("lampbox.conf");
+    previousFiles << applicationDir.absoluteFilePath("MediaBoxManager.conf");
     QString error;
     if (!MediaBox::StoragePaths::migrateFile(configurationFile, previousFiles, &error)) {
         // Do not let initSettings() replace an unreadable legacy configuration
@@ -193,6 +192,22 @@ void Settings::setThemeId(const QString &id)
                                            "graphite", "pearl", "dark"};
     if (supported.contains(id))
         writeStringSettings("Appearance/theme", id);
+}
+
+QByteArray Settings::mainWindowGeometry() const
+{
+    QSettings settings(mConfigFile, QSettings::IniFormat);
+    return settings.value("MainWindow/Geometry").toByteArray();
+}
+
+bool Settings::setMainWindowGeometry(const QByteArray &geometry)
+{
+    QSettings settings(mConfigFile, QSettings::IniFormat);
+    if (geometry.isEmpty())
+        settings.remove("MainWindow/Geometry");
+    else
+        settings.setValue("MainWindow/Geometry", geometry);
+    return syncSettings(settings);
 }
 
 PlayerConnectionSettings Settings::playerConnection() const

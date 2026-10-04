@@ -8,7 +8,7 @@
     library: ['06', 'Library', 'У каждого дня своё звучание', 'Любимые коллекции и точное место в программе.'],
     timeline: ['07', 'Timeline', 'Ваш день в музыке', 'Обычная программа и праздничное подмешивание — отдельными слоями.']
   }[variant];
-  const audioKey='lampbox-interactive-v3-'+variant;
+  const audioKey='mediaboxmanager-interactive-v3-'+variant;
   const modeKey='mediabox-mode-'+variant;
   let mediaMode='audio';
   try {mediaMode=localStorage.getItem(modeKey)==='video'?'video':'audio';} catch {}
@@ -276,7 +276,7 @@ function adverts(){
   function settings(){return panel('Настройки',legacy.settingsEditor(state.settings),'','settings-panel');}
   const ui={isVideo,week,calendar,program,player,rotation,queue:queueComponent,library,ruleEditor,ruleList,inspector,timeline,adverts,settings};
   function viewContent() {
-    if(state.view==='overview') return window.LampBoxLayouts[variant](ui);
+    if(state.view==='overview') return window.MediaBoxManagerLayouts[variant](ui);
     if(state.view==='calendar') return `<div class="calendar-workspace">${calendar()}${inspector()}</div>${player({compact:true})}`;
     if(state.view==='rules') return `<div class="rules-workspace">${ruleList()}${ruleEditor()}</div>${queueComponent({strip:true})}`;
     if(state.view==='library') return library();
@@ -333,7 +333,7 @@ function adverts(){
   function closeModal() {const dialog=document.getElementById('modal');dialog.close();modal=null;modalError='';}
   function modalContent() {
     if(modal.type==='help')return {title:'Что можно попробовать',body:`<div class="feature-summary"><h3>Возможности текущего ПО</h3><p>Музыка, видео и реклама. Каналы, файлы и расписание по времени, дням недели, числам и месяцам. Громкость для каждого назначения, форматы файлов и команды плеера.</p><h3>Предложения по улучшению</h3><p>Календарный обзор, поиск, предпросмотр очереди и праздничное подмешивание музыки 1:1. Для настроек подмешивания выберите «Музыка» → «Подмешивание».</p><p class="panel-note">Все действия здесь изменяют демонстрационные данные. Реальные файлы и установленный плеер остаются нетронутыми.</p></div>`,footer:button('close-modal','Понятно',{className:'btn btn-primary'})};
-    if(modal.type==='station') return {title:state.settings.name,body:`<div class="station-summary"><span class="badge badge-main">Демонстрационное пространство</span><p>Время: ${esc(state.settings.zone)}</p><p>Громкость: ${state.settings.volume}%</p><p>Коллекций: ${state.playlists.length} · Правил: ${state.rules.length}</p></div><p class="panel-note">Этот прототип работает с демоданными и не управляет установленным LampPlayer.</p>`,footer:button('open-settings','Настроить пространство',{className:'btn btn-primary'})};
+    if(modal.type==='station') return {title:state.settings.name,body:`<div class="station-summary"><span class="badge badge-main">Демонстрационное пространство</span><p>Время: ${esc(state.settings.zone)}</p><p>Громкость: ${state.settings.volume}%</p><p>Коллекций: ${state.playlists.length} · Правил: ${state.rules.length}</p></div><p class="panel-note">Этот прототип работает с демоданными и не управляет установленным MediaBoxPlayer.</p>`,footer:button('open-settings','Настроить пространство',{className:'btn btn-primary'})};
     if(modal.type==='playlist') {
       const p=playlist(modal.id),query=modal.query || '';
       const all=p.tracks.map((t,i)=>({...t,position:i})).filter(t=>`${t.title} ${t.artist}`.toLowerCase().includes(query.toLowerCase()));

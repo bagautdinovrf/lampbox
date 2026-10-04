@@ -139,7 +139,7 @@ bool StationManager::update()
     }
     if (!QStandardPaths::isTestModeEnabled()) {
 #ifdef Q_OS_WIN
-        QSettings settings("HKEY_LOCAL_MACHINE\\SOFTWARE\\LampBox\\Station", QSettings::NativeFormat);
+        QSettings settings("HKEY_LOCAL_MACHINE\\SOFTWARE\\MediaBox\\Station", QSettings::NativeFormat);
         const QString configuredPath = settings.value("Path").toString();
         const TypeStation configuredType = settings.value("Type").toInt()
                 == std::to_underlying(STATION_NETWORK) ? STATION_NETWORK : STATION_LOCAL;
@@ -196,11 +196,9 @@ bool StationManager::initializeStandaloneConfiguration()
     QStringList legacyPaths;
     if (!oldDataPath.isEmpty()) {
         legacyPaths.append(oldDataPath);
-        legacyPaths.append(QFileInfo(oldDataPath).dir().absoluteFilePath("lampbox"));
     }
     if (!QStandardPaths::isTestModeEnabled()) {
         legacyPaths.append(QDir::home().absoluteFilePath(".mediaboxmanager"));
-        legacyPaths.append(QDir::home().absoluteFilePath(".lampbox"));
     }
     return initializeStandaloneConfiguration(MediaBox::StoragePaths::commonDataDirectory(), legacyPaths);
 }

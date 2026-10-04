@@ -1,4 +1,4 @@
-#include "aboutlampbox.h"
+#include "aboutmediaboxmanager.h"
 #include "restylewidgets.h"
 
 #include <QDesktopServices>
@@ -15,10 +15,10 @@ constexpr int buildYear = (__DATE__[7] - '0') * 1000
         + (__DATE__[10] - '0');
 }
 
-AboutLampbox::AboutLampbox(QWidget *parent, Qt::WindowFlags f) :
+AboutMediaBoxManager::AboutMediaBoxManager(QWidget *parent, Qt::WindowFlags f) :
     QDialog(parent, f)
 {
-    setObjectName(QStringLiteral("AboutLampbox"));
+    setObjectName(QStringLiteral("AboutMediaBoxManager"));
     setWindowTitle(tr("О MediaBoxManager"));
     setFont(Restyle::font());
     resize(1124, 570);
@@ -103,4 +103,4 @@ AboutLampbox::AboutLampbox(QWidget *parent, Qt::WindowFlags f) :
     });
 }
 
-AboutLampbox::~AboutLampbox() = default;
+AboutMediaBoxManager::~AboutMediaBoxManager() = default;

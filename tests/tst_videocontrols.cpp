@@ -243,6 +243,85 @@ private slots:
         QCOMPARE(peer.requests.size(), 1);
     }
 
+    void scheduledAndSelectedChannelPlaybackRequireConfirmedWindow()
+    {
+        Peer peer;
+        QVERIFY(peer.server.isListening());
+        QVERIFY(Settings().setVideoPlayerConnection(peer.settings()));
+        MediaBoxVPlayerClient client;
+        client.setTiming({60000, 2000, 5000, 60000, 60000});
+        VideoControlWidget widget(nullptr, &client);
+        widget.resize(1100, 760);
+        widget.show();
+        const QJsonObject schedule{{"channels", QJsonArray{}}, {"adverts", QJsonArray{}}};
+        widget.setScheduleSnapshot(schedule);
+        widget.setSelectedChannel("Выбранный канал", {"/remote/channel-one.mp4", "/remote/channel-two.mp4"}, 42);
+        auto *scheduled = widget.findChild<QPushButton *>("videoSchedule");
+        auto *channel = widget.findChild<QPushButton *>("videoPlayChannel");
+        auto *status = widget.findChild<QLabel *>("videoConfirmedStatus");
+        QVERIFY(scheduled && channel && status);
+        QVERIFY(!scheduled->isEnabled());
+        QVERIFY(!channel->isEnabled());
+        QVERIFY(!widget.startSelectedSchedule());
+        QVERIFY(!widget.playSelectedChannel());
+        client.connectToPlayer(peer.settings());
+        QTRY_COMPARE(peer.requests.size(), 1);
+        peer.answer(0, snapshot());
+        QTRY_VERIFY(client.isReady());
+        QVERIFY(scheduled->isEnabled());
+        QVERIFY(channel->isEnabled());
+        QVERIFY(widget.startSelectedSchedule());
+        QTRY_COMPARE(peer.requests.size(), 2);
+        QCOMPARE(peer.command(1), QStringLiteral("schedule"));
+        QCOMPARE(peer.requests.at(1).object.value("windowId").toString(), QStringLiteral("lobby"));
+        QCOMPARE(peer.requests.at(1).object.value("schedule").toObject(), schedule);
+        QVERIFY(!channel->isEnabled());
+        auto scheduledStatus = snapshot("playing");
+        auto windows = scheduledStatus.value("windows").toArray();
+        auto window = windows.first().toObject();
+        auto playback = window.value("playback").toObject();
+        playback.insert("playbackMode", "schedule");
+        playback.insert("channelName", "Дневной");
+        playback.insert("scheduleAvailable", true);
+        playback.insert("scheduleError", "");
+        window.insert("playback", playback);
+        windows[0] = window;
+        scheduledStatus.insert("windows", windows);
+        peer.answer(1, scheduledStatus);
+        QTRY_VERIFY(status->text().contains("по расписанию"));
+        QTRY_VERIFY(channel->isEnabled());
+        QCOMPARE(peer.requests.size(), 2); // Activating the snapshot is one atomic command.
+        QVERIFY(widget.playSelectedChannel());
+        QTRY_COMPARE(peer.requests.size(), 3);
+        QCOMPARE(peer.command(2), QStringLiteral("playChannel"));
+        QCOMPARE(peer.requests.at(2).object.value("windowId").toString(), QStringLiteral("lobby"));
+        QCOMPARE(peer.requests.at(2).object.value("name").toString(), QStringLiteral("Выбранный канал"));
+        QCOMPARE(peer.requests.at(2).object.value("paths").toArray(),
+                 (QJsonArray{"/remote/channel-one.mp4", "/remote/channel-two.mp4"}));
+        QCOMPARE(peer.requests.at(2).object.value("volume").toInt(), 42);
+        peer.answer(2, snapshot("playing"));
+        QTRY_VERIFY(status->text().contains("ручной"));
+        QTRY_VERIFY(scheduled->isEnabled());
+        QVERIFY(capture(widget, "video-playback-modes"));
+        QVERIFY(!client.requestStatus().isEmpty());
+        QTRY_COMPARE(peer.requests.size(), 4);
+        auto detached = snapshot();
+        auto displays = detached.value("displays").toArray();
+        displays.removeLast();
+        detached.insert("displays", displays);
+        auto detachedWindows = detached.value("windows").toArray();
+        auto detachedWindow = detachedWindows.first().toObject();
+        detachedWindow.insert("actualScreen", "");
+        detachedWindows[0] = detachedWindow;
+        detached.insert("windows", detachedWindows);
+        peer.answer(3, detached);
+        QTRY_VERIFY(!scheduled->isEnabled());
+        QVERIFY(!channel->isEnabled());
+        QVERIFY(!widget.startSelectedSchedule());
+        QVERIFY(!widget.playSelectedChannel());
+        QCOMPARE(peer.requests.size(), 4);
+    }
+
     void remoteStatusAndExplicitCommands()
     {
         Peer peer;

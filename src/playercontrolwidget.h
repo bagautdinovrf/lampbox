@@ -51,6 +51,7 @@ private:
     RestyleLabel *mFreshnessLabel;
     RestyleLabel *mStateLabel;
     RestyleLabel *mIntentLabel;
+    RestyleLabel *mModeLabel;
     RestyleLabel *mPositionLabel;
     RestyleLabel *mVolumeLabel;
     RestyleLabel *mAudioErrorLabel;

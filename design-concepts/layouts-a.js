@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const layouts = window.LampBoxLayouts = window.LampBoxLayouts || {};
+  const layouts = window.MediaBoxManagerLayouts = window.MediaBoxManagerLayouts || {};
 
   layouts.air = function (ui) {
     return `

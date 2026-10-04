@@ -35,6 +35,10 @@ struct PlayerStatus
     bool muted = false;
     QString repeat = QStringLiteral("off");
     QString error;
+    QString playbackMode = QStringLiteral("manual");
+    QString channelName;
+    bool scheduleAvailable = false;
+    QString scheduleError;
 };
 
 Q_DECLARE_METATYPE(PlayerConnectionSettings)
@@ -93,6 +97,9 @@ public:
     QString setMuted(bool muted);
     QString setRepeat(const QString &mode);
     QString clear();
+    QString setSchedule(const QJsonObject &schedule);
+    QString startSchedule(const QJsonObject &schedule = {});
+    QString playChannel(const QString &name, const QStringList &paths, int volume);
 
 signals:
     void connectionStateChanged(MediaBoxPlayerClient::ConnectionState state);

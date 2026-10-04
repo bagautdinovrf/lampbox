@@ -1,7 +1,7 @@
 
 #include "channeldata.h"
 
-namespace LampBox {
+namespace MediaBoxManager {
 
 ChannelData::ChannelData(CHANNEL_TYPE type) :
     mMediaManager(type),

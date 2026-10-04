@@ -155,6 +155,10 @@ PlayerControlWidget::PlayerControlWidget(MediaBoxPlayerClient *client, QWidget *
     mIntentLabel->setColorRole(QStringLiteral("secondary"));
     state->addWidget(mIntentLabel, 1);
     playbackLayout->addLayout(state);
+    mModeLabel = label({}, playback, 11);
+    mModeLabel->setObjectName(QStringLiteral("playerPlaybackMode"));
+    mModeLabel->setColorRole(QStringLiteral("secondary"));
+    playbackLayout->addWidget(mModeLabel);
     mTrack = new QLineEdit(playback);
     mTrack->setObjectName(QStringLiteral("playerCurrentTrack"));
     mTrack->setReadOnly(true);
@@ -406,6 +410,10 @@ void PlayerControlWidget::refresh()
                                   : tr("Состояние неизвестно"));
     mStateLabel->setColorRole(mHasStatus && ready && mStatus.state == "error"
                              ? QStringLiteral("error") : QStringLiteral("text"));
+    mModeLabel->setText(mHasStatus
+        ? (mStatus.playbackMode == "schedule" ? tr("По расписанию") : tr("Вручную"))
+            + (mStatus.channelName.isEmpty() ? QString() : QStringLiteral(" · ") + mStatus.channelName)
+        : QString());
     mIntentLabel->setText(mHasStatus && mStatus.playbackRequested && mStatus.state != "playing"
                          ? tr("Воспроизведение запрошено") : QString());
     mIntentLabel->setVisible(!mIntentLabel->text().isEmpty());
@@ -439,8 +447,9 @@ void PlayerControlWidget::refresh()
         const QSignalBlocker blocker(mRepeat);
         mRepeat->setCurrentIndex(mHasStatus ? mRepeat->findData(mStatus.repeat) : -1);
     }
-    mAudioErrorLabel->setText(mHasStatus ? mStatus.error : QString());
-    mAudioErrorLabel->setVisible(mHasStatus && !mStatus.error.isEmpty());
+    const QString playbackError = mStatus.scheduleError.isEmpty() ? mStatus.error : mStatus.scheduleError;
+    mAudioErrorLabel->setText(mHasStatus ? playbackError : QString());
+    mAudioErrorLabel->setVisible(mHasStatus && !playbackError.isEmpty());
 
     const QStringList queue = mHasStatus ? mStatus.queue : QStringList();
     const int currentIndex = mHasStatus ? mStatus.currentIndex : -1;

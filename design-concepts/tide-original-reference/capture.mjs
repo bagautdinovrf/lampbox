@@ -82,7 +82,7 @@ const ready=async()=>{
   await page.waitForFunction(()=>!!window.MB);
   assert.equal(await page.locator('body').getAttribute('data-variant'),'tide');
   assert.equal(await page.locator('body').getAttribute('data-palette'),currentPalette);
-  assert(await page.evaluate(async text=>{await document.fonts.ready;for(const weight of [400,600,700])await document.fonts.load(`${weight} 14px "Lamp Sans"`,text);return[400,600,700].every(weight=>document.fonts.check(`${weight} 14px "Lamp Sans"`,text));},sample));
+  assert(await page.evaluate(async text=>{await document.fonts.ready;for(const weight of [400,600,700])await document.fonts.load(`${weight} 14px "MediaBoxManager Sans"`,text);return[400,600,700].every(weight=>document.fonts.check(`${weight} 14px "MediaBoxManager Sans"`,text));},sample));
   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
 };
 const reset=async()=>{await page.goto(targetUrl.replace('palette=denim','palette='+currentPalette));await ready();await page.evaluate(()=>{localStorage.clear();MB.reset();});await ready();};

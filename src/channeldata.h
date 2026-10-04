@@ -1,16 +1,16 @@
 
 #pragma once
-#ifndef LAMPBOXDATA_H
-#define LAMPBOXDATA_H
+#ifndef CHANNELDATA_H
+#define CHANNELDATA_H
 
 #include "mediamanager.h"
-#include "lampdata.h"
+#include "mediaboxmanagerdata.h"
 
 #include <QString>
 #include <QStringList>
 #include <QDateTime>
 
-namespace LampBox {
+namespace MediaBoxManager {
 
 class ChannelData
 {
@@ -159,4 +159,4 @@ private:
 };
 
 }
-#endif // LAMPBOXDATA_H
+#endif // CHANNELDATA_H

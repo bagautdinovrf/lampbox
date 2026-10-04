@@ -18,7 +18,9 @@ public:
     bool setRule(int row, const QVariantList &fields);
     bool collectAdvert();
     QString lastError() const { return mLastError; }
+    bool scheduleLoaded() const { return !mLoadFailed; }
     QList<int> compiledMinutes(int row) const;
+    QString ruleId(int row) const { return mRuleIds.value(row); }
 
 signals:
     void beginCollect();

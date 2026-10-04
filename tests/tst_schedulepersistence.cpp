@@ -113,7 +113,7 @@ private slots:
         QVERIFY(!ProjectRepository::load(paths(), &project, &error));
         QVERIFY(!error.isEmpty()); QVERIFY(!QFileInfo::exists(projectFile()));
         QCOMPARE(get(timetable()), input);
-        ChannelManager manager(LampBox::MUSIC);
+        ChannelManager manager(MediaBoxManager::MUSIC);
         QVERIFY(!manager.collectChannels());
         QVERIFY(!manager.createChannel(channelFields("Two")));
         QVERIFY(!QFileInfo::exists(projectFile()));
@@ -174,7 +174,7 @@ private slots:
     }
     void failedReloadPreservesMemoryAndBlocksMutations()
     {
-        ChannelManager manager(LampBox::MUSIC); QVERIFY(manager.collectChannels());
+        ChannelManager manager(MediaBoxManager::MUSIC); QVERIFY(manager.collectChannels());
         const QByteArray good = get(projectFile());
         put(projectFile(), "broken\n");
         QVERIFY(!manager.collectChannels()); QCOMPARE(manager.channelCount(), 1);
@@ -191,7 +191,7 @@ private slots:
         put(timetable(), input);
         for (const QString &name : {QStringLiteral("One"), QStringLiteral("Two"), QStringLiteral("Three")})
             put(station.filePath("media/music/" + name + "/track.mp3"), "untouched");
-        ChannelManager manager(LampBox::MUSIC); QVERIFY(manager.collectChannels());
+        ChannelManager manager(MediaBoxManager::MUSIC); QVERIFY(manager.collectChannels());
         QCOMPARE(manager.channelCount(), 3); QCOMPARE(get(timetable()), input);
         for (const QString &name : {QStringLiteral("One"), QStringLiteral("Two"), QStringLiteral("Three")}) {
             QCOMPARE(get(station.filePath("media/music/" + name + "/track.mp3")), QByteArray("untouched"));
@@ -200,7 +200,7 @@ private slots:
     }
     void wholeRuleAndSingleCellPreserveOtherSections()
     {
-        ChannelManager music(LampBox::MUSIC), video(LampBox::VIDEO);
+        ChannelManager music(MediaBoxManager::MUSIC), video(MediaBoxManager::VIDEO);
         QVERIFY(music.collectChannels()); QVERIFY(video.collectChannels());
         AdvertManager advertsManager;
         const auto original = readProject();
@@ -301,7 +301,7 @@ private slots:
     void actualReplaceFailurePreservesProjectMemoryAndMedia()
     {
 #ifdef Q_OS_WIN
-        ChannelManager channels(LampBox::MUSIC); QVERIFY(channels.collectChannels());
+        ChannelManager channels(MediaBoxManager::MUSIC); QVERIFY(channels.collectChannels());
         ChannelModel channelModel(&channels);
         AdvertManager ads; AdvertModel advertModel(&ads);
         const QByteArray before = get(projectFile()), oldLegacy = get(timetable());

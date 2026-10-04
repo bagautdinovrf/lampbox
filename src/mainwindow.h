@@ -3,6 +3,7 @@
 #define MAINWINDOW_H
 #include <QMainWindow>
 #include <QModelIndex>
+#include <QJsonObject>
 #include <array>
 #include <memory>
 
@@ -23,6 +24,7 @@ class QTreeView;
 class QTableView;
 class QSortFilterProxyModel;
 class QLineEdit;
+class QTimer;
 class SchedulePreviewWidget;
 
 class MainWindow : public QMainWindow {
@@ -57,6 +59,7 @@ class MainWindow : public QMainWindow {
 
   private:
     friend void seedRestyleWindow(MainWindow &window);
+    friend class PlaybackUiTests;
     struct MediaPage {
         QWidget *root = nullptr;
         QTableView *channels = nullptr;
@@ -86,6 +89,9 @@ class MainWindow : public QMainWindow {
         QPushButton *deleteAdvert = nullptr;
         QPushButton *preview = nullptr;
         QPushButton *fileInfo = nullptr;
+        QPushButton *playChannel = nullptr;
+        QPushButton *schedulePlayback = nullptr;
+        QPushButton *openFolder = nullptr;
     };
     QWidget *buildMediaPage(int page);
     void buildShell();
@@ -98,6 +104,12 @@ class MainWindow : public QMainWindow {
     void showPlayerControls();
     void showVideoControls();
     void addSelectedVideosToPlaylist();
+    void playSelectedChannel(int page);
+    void startScheduledPlayback(int page);
+    QJsonObject playbackSchedule(int page, QString *error) const;
+    void refreshPlaybackSchedules();
+    void updatePlaybackActions();
+    void updateVideoPlaybackContext();
     void showAllSchedules();
     void showError(const QString &message);
     void selectChannel(int page, int row);
@@ -128,5 +140,6 @@ class MainWindow : public QMainWindow {
     QString mAudioConnectionMessage;
     QString mVideoConnectionMessage;
     int mPage = PAGE_MUSIC;
+    QTimer *mScheduleUpdateTimer = nullptr;
 };
 #endif

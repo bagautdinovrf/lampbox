@@ -24,6 +24,10 @@ public:
     explicit VideoControlWidget(QWidget *parent = nullptr, MediaBoxVPlayerClient *client = nullptr);
     void reloadConnection();
     void addPlaylistPaths(const QStringList &paths);
+    void setScheduleSnapshot(const QJsonObject &schedule);
+    void setSelectedChannel(const QString &name, const QStringList &paths, int volume);
+    bool playSelectedChannel();
+    bool startSelectedSchedule();
 signals:
     void settingsRequested();
 private:
@@ -62,6 +66,7 @@ private:
     void addRemotePaths();
     void removePaths();
     void movePath(int direction);
+    bool playbackTargetAvailable() const;
     void submit(const QString &id, const QString &description, const QString &removeWindow = {});
     void message(const QString &text, const QString &role = QStringLiteral("muted"));
 
@@ -69,6 +74,10 @@ private:
     QList<WindowProfile> mProfiles;
     QHash<QString, Pending> mPending;
     QString mConnectionErrorMessage;
+    QJsonObject mScheduleSnapshot;
+    QString mSelectedChannelName;
+    QStringList mSelectedChannelPaths;
+    int mSelectedChannelVolume = 100;
     bool mUpdating = false;
     QListWidget *mWindows = nullptr;
     QLineEdit *mName = nullptr;
@@ -85,6 +94,9 @@ private:
     QPushButton *mRemoveWindow = nullptr;
     QPushButton *mApply = nullptr;
     QPushButton *mLoad = nullptr;
+    QPushButton *mSchedule = nullptr;
+    QPushButton *mPlayChannel = nullptr;
+    RestyleLabel *mSelectedChannel = nullptr;
     QPushButton *mToggleFullscreen = nullptr;
     QList<QPushButton *> mTransportButtons;
     QList<QPushButton *> mPlaylistButtons;

@@ -4,6 +4,7 @@
 #define SETTINGS_H
 
 #include <QObject>
+#include <QByteArray>
 #include <QMap>
 #include <QJsonArray>
 
@@ -71,6 +72,10 @@ public:
     QString themeId() const;
     void setAppearanceId(const QString &id);
     void setThemeId(const QString &id);
+
+    // Preserve Qt's opaque saveGeometry() data, including the window state.
+    QByteArray mainWindowGeometry() const;
+    bool setMainWindowGeometry(const QByteArray &geometry);
 
     PlayerConnectionSettings playerConnection() const;
     bool setPlayerConnection(const PlayerConnectionSettings &connection);

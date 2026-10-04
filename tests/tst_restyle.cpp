@@ -327,8 +327,8 @@ private slots:
         QVERIFY(directory.isValid());
         mediaFile(directory.path(), "Короткая", "Aster", "Album", "Ambient", 2025, 9);
         mediaFile(directory.path(), "Длинная", "Маяк", "Album", "Electronic", 2026, 120);
-        MediaManager manager(directory.path(), LampBox::MUSIC);
-        MediaModel source(&manager, LampBox::MUSIC);
+        MediaManager manager(directory.path(), MediaBoxManager::MUSIC);
+        MediaModel source(&manager, MediaBoxManager::MUSIC);
         QSortFilterProxyModel proxy;
         proxy.setSourceModel(&source);
         proxy.setSortRole(MediaModel::SortRole);
@@ -358,8 +358,8 @@ private slots:
             QSettings tags(directory.filePath("02_delete.mp3.tag"), QSettings::IniFormat);
             tags.setValue("title", "Первое название");
         }
-        MediaManager manager(directory.path(), LampBox::MUSIC);
-        MediaModel source(&manager, LampBox::MUSIC);
+        MediaManager manager(directory.path(), MediaBoxManager::MUSIC);
+        MediaModel source(&manager, MediaBoxManager::MUSIC);
         QSortFilterProxyModel proxy;
         proxy.setSourceModel(&source);
         proxy.setSortRole(MediaModel::SortRole);
@@ -412,9 +412,9 @@ private slots:
         QVERIFY(second.isValid());
         mediaFile(first.path(), "Первый", "Artist", "Album", "Ambient", 2026, 100);
         mediaFile(second.path(), "Второй", "Artist", "Album", "Ambient", 2026, 200);
-        auto firstManager = std::make_unique<MediaManager>(first.path(), LampBox::MUSIC);
-        auto secondManager = std::make_unique<MediaManager>(second.path(), LampBox::MUSIC);
-        MediaModel source(firstManager.get(), LampBox::MUSIC);
+        auto firstManager = std::make_unique<MediaManager>(first.path(), MediaBoxManager::MUSIC);
+        auto secondManager = std::make_unique<MediaManager>(second.path(), MediaBoxManager::MUSIC);
+        MediaModel source(firstManager.get(), MediaBoxManager::MUSIC);
         source.setMediaManager(secondManager.get());
         firstManager.reset();
         QCOMPARE(source.rowCount(), 1);
@@ -429,9 +429,9 @@ private slots:
         QVERIFY(!selected.isValid());
         QVERIFY(!source.data(selected, Qt::DisplayRole).isValid());
 
-        MediaManager survivingManager(first.path(), LampBox::MUSIC);
+        MediaManager survivingManager(first.path(), MediaBoxManager::MUSIC);
         {
-            MediaModel temporaryModel(&survivingManager, LampBox::MUSIC);
+            MediaModel temporaryModel(&survivingManager, MediaBoxManager::MUSIC);
             QCOMPARE(temporaryModel.rowCount(), 1);
         }
         // Destroying a view/model first must not leave reset callbacks dangling.
@@ -445,7 +445,7 @@ private slots:
         QVERIFY(directory.isValid());
         const QString file = directory.filePath("Файл.mp3");
         writeFile(file, "isolated fixture");
-        MediaModel source(nullptr, LampBox::MUSIC);
+        MediaModel source(nullptr, MediaBoxManager::MUSIC);
         QSignalSpy dropped(&source, &MediaModel::dropFileList);
         QMimeData remote;
         remote.setUrls({QUrl("https://example.invalid/remote.mp3")});
@@ -472,8 +472,8 @@ private slots:
         QVERIFY(directory.isValid());
         mediaFile(directory.path(), "Первый", "Artist", "Album", "Ambient", 2026, 100);
         mediaFile(directory.path(), "Второй", "Artist", "Album", "Ambient", 2026, 200);
-        MediaManager manager(directory.path(), LampBox::MUSIC);
-        MediaModel model(&manager, LampBox::MUSIC);
+        MediaManager manager(directory.path(), MediaBoxManager::MUSIC);
+        MediaModel model(&manager, MediaBoxManager::MUSIC);
         QTreeView view;
         view.setRootIsDecorated(false);
         view.setModel(&model);

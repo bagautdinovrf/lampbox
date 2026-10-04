@@ -87,6 +87,50 @@ class SettingsTest final : public QObject
     Q_OBJECT
 
 private slots:
+    void mainWindowGeometryPreservesBinaryDataAndOtherSettings()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString file = directory.filePath("window.conf");
+        Settings settings(file, nullptr);
+        QVERIFY(settings.mainWindowGeometry().isEmpty());
+        settings.setThemeId("dark");
+        settings.writeStringSettings("Station/Name", "Студия");
+
+        QByteArray geometry;
+        for (int value = 0; value <= 255; ++value)
+            geometry.append(static_cast<char>(value));
+        QVERIFY(settings.setMainWindowGeometry(geometry));
+
+        Settings reopened(file, nullptr);
+        QCOMPARE(reopened.mainWindowGeometry(), geometry);
+        QCOMPARE(reopened.themeId(), QString("dark"));
+        {
+            const QSettings raw(file, QSettings::IniFormat);
+            QCOMPARE(raw.value("Station/Name").toString(), QString("Студия"));
+        }
+
+        QVERIFY(reopened.setMainWindowGeometry({}));
+        QCOMPARE(settings.mainWindowGeometry(), QByteArray());
+        const QSettings raw(file, QSettings::IniFormat);
+        QVERIFY(!raw.contains("MainWindow/Geometry"));
+        QCOMPARE(raw.value("Appearance/theme").toString(), QString("dark"));
+        QCOMPARE(raw.value("Station/Name").toString(), QString("Студия"));
+    }
+
+    void mainWindowGeometryWriteFailureIsReported()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString file = directory.filePath("window.conf");
+        Settings settings(file, nullptr);
+        QVERIFY(QFile::remove(file));
+        QVERIFY(QDir().mkpath(file));
+        QTest::ignoreMessage(QtWarningMsg, QRegularExpression("^Не удалось сохранить настройки в .*"));
+        QVERIFY(!settings.setMainWindowGeometry(QByteArray("geometry")));
+        QVERIFY(QFileInfo(file).isDir());
+    }
+
     void playerConnectionDefaults()
     {
         QTemporaryDir directory;
@@ -216,16 +260,14 @@ private slots:
         QTest::addColumn<bool>("commonExists");
         QTest::addColumn<bool>("userExists");
         QTest::addColumn<bool>("localExists");
-        QTest::addColumn<bool>("legacyExists");
         QTest::addColumn<QByteArray>("expectedContents");
 
-        QTest::newRow("new-install") << false << false << false << false << false << QByteArray();
-        QTest::newRow("migrate-lampbox") << false << false << false << false << true << QByteArray("source=legacy\n");
-        QTest::newRow("exe-manager-before-lampbox") << false << false << false << true << true << QByteArray("source=local\n");
-        QTest::newRow("old-user-before-exe") << false << false << true << true << true << QByteArray("source=user\n");
-        QTest::newRow("old-common-before-user") << false << true << true << true << true << QByteArray("source=common\n");
-        QTest::newRow("existing-new-is-never-replaced") << true << true << true << true << true << QByteArray("source=new\n");
-        QTest::newRow("existing-new-only") << true << false << false << false << false << QByteArray("source=new\n");
+        QTest::newRow("new-install") << false << false << false << false << QByteArray();
+        QTest::newRow("migrate-exe-manager") << false << false << false << true << QByteArray("source=local\n");
+        QTest::newRow("old-user-before-exe") << false << false << true << true << QByteArray("source=user\n");
+        QTest::newRow("old-common-before-user") << false << true << true << true << QByteArray("source=common\n");
+        QTest::newRow("existing-new-is-never-replaced") << true << true << true << true << QByteArray("source=new\n");
+        QTest::newRow("existing-new-only") << true << false << false << false << QByteArray("source=new\n");
     }
 
     void configurationMigration()
@@ -234,7 +276,6 @@ private slots:
         QFETCH(bool, commonExists);
         QFETCH(bool, userExists);
         QFETCH(bool, localExists);
-        QFETCH(bool, legacyExists);
         QFETCH(QByteArray, expectedContents);
         const SettingsEnvironment environment;
         QTemporaryDir directory;
@@ -246,12 +287,10 @@ private slots:
                 .absoluteFilePath("MediaBoxManager.conf");
         const QString userFile = QDir(userDirectory).absoluteFilePath("MediaBoxManager.conf");
         const QString localFile = QDir(applicationDirectory).absoluteFilePath("MediaBoxManager.conf");
-        const QString legacyFile = QDir(applicationDirectory).absoluteFilePath("lampbox.conf");
         const QByteArray newContents("source=new\n");
         const QByteArray commonContents("source=common\n");
         const QByteArray userContents("source=user\n");
         const QByteArray localContents("source=local\n");
-        const QByteArray legacyContents("source=legacy\n");
         if (newExists)
             QVERIFY(writeContents(selectedFile, newContents));
         if (commonExists)
@@ -260,8 +299,6 @@ private slots:
             QVERIFY(writeContents(userFile, userContents));
         if (localExists)
             QVERIFY(writeContents(localFile, localContents));
-        if (legacyExists)
-            QVERIFY(writeContents(legacyFile, legacyContents));
 
         const QString selected = Settings::configurationFilePath(applicationDirectory, userDirectory);
         QCOMPARE(selected, selectedFile);
@@ -288,11 +325,9 @@ private slots:
         QCOMPARE(QFileInfo(commonFile).isFile(), commonExists);
         QCOMPARE(QFileInfo(userFile).isFile(), userExists);
         QCOMPARE(QFileInfo(localFile).isFile(), localExists);
-        QCOMPARE(QFileInfo(legacyFile).isFile(), legacyExists);
         for (const auto &source : {qMakePair(commonFile, commonContents),
                                    qMakePair(userFile, userContents),
-                                   qMakePair(localFile, localContents),
-                                   qMakePair(legacyFile, legacyContents)}) {
+                                   qMakePair(localFile, localContents)}) {
             if (!QFileInfo(source.first).isFile())
                 continue;
             QFile file(source.first);
@@ -348,21 +383,18 @@ private slots:
                 .absoluteFilePath("MediaBoxManager.conf");
         const QString userFile = QDir(userDirectory).filePath("MediaBoxManager.conf");
         const QString localFile = QDir(applicationDirectory).filePath("MediaBoxManager.conf");
-        const QString legacyFile = QDir(applicationDirectory).filePath("lampbox.conf");
-        const QByteArray legacyContents("source=legacy\n");
+        const QByteArray localContents("source=local\n");
         QVERIFY(QDir().mkpath(commonFile));
         QVERIFY(QDir().mkpath(userFile));
-        QVERIFY(QDir().mkpath(localFile));
-        QVERIFY(writeContents(legacyFile, legacyContents));
+        QVERIFY(writeContents(localFile, localContents));
         const QString selected = Settings::configurationFilePath(applicationDirectory, userDirectory);
         QCOMPARE(selected, managerConfigurationFile());
         QFile file(selected);
         QVERIFY(file.open(QIODevice::ReadOnly));
-        QCOMPARE(file.readAll(), legacyContents);
+        QCOMPARE(file.readAll(), localContents);
         QVERIFY(QFileInfo(commonFile).isDir());
         QVERIFY(QFileInfo(userFile).isDir());
-        QVERIFY(QFileInfo(localFile).isDir());
-        QVERIFY(QFileInfo(legacyFile).isFile());
+        QVERIFY(QFileInfo(localFile).isFile());
     }
 
     void configurationDirectoryFailure()

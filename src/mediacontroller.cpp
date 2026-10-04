@@ -42,6 +42,11 @@ QString MediaController::playTrack(const QString &track)
     return load({track}, 0, true);
 }
 
+QString MediaController::playSchedule(const QJsonObject &schedule)
+{
+    return startSchedule(schedule);
+}
+
 void MediaController::refreshPlayer()
 {
     requestStatus();

@@ -379,7 +379,7 @@ try {
         Invoke-LoggedCommand 'build' $cmake @('--build', $buildDirectory, '--config', $Configuration, '--parallel', "$Jobs")
         if ($WithTests) {
             Invoke-LoggedCommand 'build-tests' $cmake @('--build', $buildDirectory, '--config', $Configuration,
-                '--target', 'lampbox_tests', '--parallel', "$Jobs")
+                '--target', 'mediaboxmanager_tests', '--parallel', "$Jobs")
             Invoke-LoggedCommand 'test' $ctest @('--test-dir', $buildDirectory, '-C', $Configuration,
                 '--output-on-failure', '--no-tests=error', '--parallel', "$Jobs")
         }

@@ -1,6 +1,6 @@
 #include "advertmanager.h"
 #include "informer.h"
-#include "lampdata.h"
+#include "mediaboxmanagerdata.h"
 #include "stationmanager.h"
 #include <QUuid>
 

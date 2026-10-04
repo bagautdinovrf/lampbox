@@ -188,6 +188,41 @@ QString MediaBoxVPlayerClient::enqueue(const QString &windowId, const QStringLis
                         {{QStringLiteral("paths"), QJsonArray::fromStringList(paths)}});
 }
 
+QString MediaBoxVPlayerClient::setSchedule(const QString &windowId, const QJsonObject &schedule)
+{
+    if (!schedule.value(QStringLiteral("channels")).isArray()
+        || !schedule.value(QStringLiteral("adverts")).isArray())
+        return reject(QStringLiteral("setSchedule"), QStringLiteral("invalid_arguments"),
+                      tr("Расписание должно содержать списки каналов и рекламы."));
+    return submitWindow(QStringLiteral("setSchedule"), windowId,
+                        {{QStringLiteral("schedule"), schedule}});
+}
+
+QString MediaBoxVPlayerClient::startSchedule(const QString &windowId, const QJsonObject &schedule)
+{
+    if (!schedule.isEmpty()
+        && (!schedule.value(QStringLiteral("channels")).isArray()
+            || !schedule.value(QStringLiteral("adverts")).isArray()))
+        return reject(QStringLiteral("schedule"), QStringLiteral("invalid_arguments"),
+                      tr("Расписание должно содержать списки каналов и рекламы."));
+    return submitWindow(QStringLiteral("schedule"), windowId, schedule.isEmpty()
+                        ? QJsonObject{} : QJsonObject{{QStringLiteral("schedule"), schedule}});
+}
+
+QString MediaBoxVPlayerClient::playChannel(const QString &windowId, const QString &name,
+                                         const QStringList &paths, int volume)
+{
+    if (name.trimmed().isEmpty() || name.size() > 256 || name.contains(QChar::Null)
+        || !validMediaPaths(paths) || volume < 0 || volume > 100)
+        return reject(QStringLiteral("playChannel"), QStringLiteral("invalid_arguments"),
+                      tr("Выберите канал с названием до 256 символов, от 1 до 1000 файлов "
+                         "с абсолютными путями на машине видеоплеера и громкостью от 0 до 100."));
+    return submitWindow(QStringLiteral("playChannel"), windowId,
+                        {{QStringLiteral("name"), name},
+                         {QStringLiteral("paths"), QJsonArray::fromStringList(paths)},
+                         {QStringLiteral("volume"), volume}});
+}
+
 QString MediaBoxVPlayerClient::play(const QString &id) { return submitWindow(QStringLiteral("play"), id); }
 QString MediaBoxVPlayerClient::pause(const QString &id) { return submitWindow(QStringLiteral("pause"), id); }
 QString MediaBoxVPlayerClient::stop(const QString &id) { return submitWindow(QStringLiteral("stop"), id); }

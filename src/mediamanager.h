@@ -6,7 +6,7 @@
 
 
 #include "mediadata.h"
-#include "lampdata.h"
+#include "mediaboxmanagerdata.h"
 
 
 #include <QDir>
@@ -14,7 +14,7 @@
 
 class MediaModel;
 
-using namespace LampBox;
+using namespace MediaBoxManager;
 
 class MediaManager
 {

@@ -88,13 +88,13 @@ add_library(MediaBoxManagerApplication STATIC
     src/mediacontroller.h
     src/videocontroller.cpp
     src/videocontroller.h
-    src/lampdata.h
+    src/mediaboxmanagerdata.h
 )
 mediabox_manager_library(MediaBoxManagerApplication)
 
 target_link_libraries(MediaBoxScheduleCore PUBLIC Qt6::Core)
 target_link_libraries(MediaBoxScheduleStorage PUBLIC MediaBoxScheduleCore)
-target_link_libraries(MediaBoxMediaLibrary PUBLIC Qt6::Core PRIVATE LampBox::TagLib)
+target_link_libraries(MediaBoxMediaLibrary PUBLIC Qt6::Core PRIVATE MediaBoxManager::TagLib)
 target_link_libraries(MediaBoxPlayerClients PUBLIC Qt6::Core Qt6::Network)
 target_link_libraries(MediaBoxManagerApplication PUBLIC
     MediaBoxScheduleStorage MediaBoxMediaLibrary
@@ -104,8 +104,8 @@ target_compile_definitions(MediaBoxManagerApplication PUBLIC VERSION="${PROJECT_
 
 # An object library keeps resources linked into both the application and tests.
 add_library(MediaBoxManagerUi OBJECT
-    src/aboutlampbox.cpp
-    src/aboutlampbox.h
+    src/aboutmediaboxmanager.cpp
+    src/aboutmediaboxmanager.h
     src/composition.cpp
     src/composition.h
     src/compositionslist.cpp

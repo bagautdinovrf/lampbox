@@ -19,6 +19,7 @@ public:
     void disconnectFromPlayer() override;
     bool isPlaying() const;
     QString playTrack(const QString &track);
+    QString playSchedule(const QJsonObject &schedule);
 
 public slots:
     void reloadConnection();

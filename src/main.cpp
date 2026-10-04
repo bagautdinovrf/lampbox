@@ -42,8 +42,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    // Keep the legacy key to prevent concurrent access by an older LampBox.
-    QSharedMemory mem("LampBoxMemory");
+    QSharedMemory mem("MediaBoxManagerMemory");
     if( mem.attach() ) {
         QMessageBox msgBox;
         msgBox.setText("Программа уже запущена!");
@@ -62,6 +61,6 @@ int main(int argc, char *argv[])
         TrialMessageBox();
 
     MainWindow w;
-    w.showMaximized();
+    w.show();
     return a.exec();
 }

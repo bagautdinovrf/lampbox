@@ -130,6 +130,13 @@ private slots:
              [&] { return client.load("foyer", {"/video/updated.mp4"}, 0, true); }},
             {"enqueue", {{"paths", QJsonArray{"/video/next.mp4"}}},
              [&] { return client.enqueue("foyer", {"/video/next.mp4"}); }},
+            {"setSchedule", {{"schedule", QJsonObject{{"channels", QJsonArray{}}, {"adverts", QJsonArray{}}}}},
+             [&] { return client.setSchedule("foyer", {{"channels", QJsonArray{}}, {"adverts", QJsonArray{}}}); }},
+            {"schedule", {{"schedule", QJsonObject{{"channels", QJsonArray{}}, {"adverts", QJsonArray{}}}}},
+             [&] { return client.startSchedule("foyer", {{"channels", QJsonArray{}}, {"adverts", QJsonArray{}}}); }},
+            {"schedule", {}, [&] { return client.startSchedule("foyer"); }},
+            {"playChannel", {{"name", "Канал"}, {"paths", QJsonArray{"/video/channel.mp4"}}, {"volume", 45}},
+             [&] { return client.playChannel("foyer", "Канал", {"/video/channel.mp4"}, 45); }},
             {"play", {}, [&] { return client.play("foyer"); }},
             {"pause", {}, [&] { return client.pause("foyer"); }},
             {"stop", {}, [&] { return client.stop("foyer"); }},
@@ -185,6 +192,38 @@ private slots:
         QTest::qWait(100);
         QCOMPARE(peer.connections, 1);
         QCOMPARE(peer.requests.size(), 1);
+    }
+
+    void scheduleStatusIsDecodedIndependentlyForEachWindow()
+    {
+        Peer peer;
+        QVERIFY(peer.listening);
+        Client client;
+        configureTiming(&client);
+        client.connectToPlayer(settingsFor(peer.port()));
+        QTRY_COMPARE(peer.requests.size(), 1);
+        auto status = snapshot();
+        auto windows = status.value("windows").toArray();
+        auto window = windows.first().toObject();
+        auto state = window.value("playback").toObject();
+        state.insert("playbackMode", "schedule");
+        state.insert("channelName", "Дневной канал");
+        state.insert("scheduleAvailable", true);
+        state.insert("scheduleError", "");
+        window.insert("playback", state);
+        windows[0] = window;
+        status.insert("windows", windows);
+        peer.answer(0, status);
+        QTRY_VERIFY(client.isReady());
+        const auto &first = client.videoStatus().windows.at(0).playback;
+        QCOMPARE(first.playbackMode, QStringLiteral("schedule"));
+        QCOMPARE(first.channelName, QStringLiteral("Дневной канал"));
+        QVERIFY(first.scheduleAvailable);
+        QVERIFY(first.scheduleError.isEmpty());
+        const auto &second = client.videoStatus().windows.at(1).playback;
+        QCOMPARE(second.playbackMode, QStringLiteral("manual"));
+        QVERIFY(second.channelName.isEmpty());
+        QVERIFY(!second.scheduleAvailable);
     }
 
     void malformedVideoStatus_data()
@@ -317,7 +356,12 @@ private slots:
         QVERIFY(client.seek("hall", -1).isEmpty());
         QVERIFY(client.setVolume("hall", 101).isEmpty());
         QVERIFY(client.setRepeat("hall", "random").isEmpty());
-        QCOMPARE(failed.size(), 8);
+        QVERIFY(client.setSchedule("hall", {{"channels", QJsonArray{}}}).isEmpty());
+        QVERIFY(client.startSchedule("hall", {{"adverts", QJsonArray{}}}).isEmpty());
+        QVERIFY(client.playChannel("hall", " ", {"/video/a.mp4"}, 100).isEmpty());
+        QVERIFY(client.playChannel("hall", "Канал", {"relative.mp4"}, 100).isEmpty());
+        QVERIFY(client.playChannel("hall", "Канал", {"/video/a.mp4"}, -1).isEmpty());
+        QCOMPARE(failed.size(), 13);
         QTest::qWait(30);
         QCOMPARE(peer.requests.size(), 1);
     }

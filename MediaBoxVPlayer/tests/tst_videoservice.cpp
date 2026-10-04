@@ -94,6 +94,95 @@ private:
     }
 
 private slots:
+    void channelAndScheduleModesTargetOneWindowAndRestartStopped()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString leftVideo = createVideo(directory, "left.mp4");
+        const QString rightVideo = createVideo(directory, "right.mp4");
+        QVERIFY(!leftVideo.isEmpty() && !rightVideo.isEmpty());
+        const QJsonObject schedule{{"channels", QJsonArray{}}, {"adverts", QJsonArray{}}};
+        {
+            VideoService service(directory.path(), createBackend);
+            QVERIFY(service.execute(configureRequest("left")).value("ok").toBool());
+            QVERIFY(service.execute(configureRequest("right")).value("ok").toBool());
+            QVERIFY(command(service, "playChannel", "right", {{"name", "Правый"},
+                {"paths", QJsonArray{rightVideo}}, {"volume", 71}}).value("ok").toBool());
+            const auto rightBefore = playback(service, "right");
+            QVERIFY(command(service, "setSchedule", "left", {{"schedule", schedule}}).value("ok").toBool());
+            QCOMPARE(playback(service, "left").value("playbackMode").toString(), QStringLiteral("manual"));
+            QVERIFY(playback(service, "left").value("scheduleAvailable").toBool());
+            QVERIFY(command(service, "schedule", "left", {{"schedule", schedule}}).value("ok").toBool());
+            QCOMPARE(playback(service, "left").value("playbackMode").toString(), QStringLiteral("schedule"));
+            QCOMPARE(playback(service, "right"), rightBefore);
+            QVERIFY(command(service, "playChannel", "left", {{"name", "Левый"},
+                {"paths", QJsonArray{leftVideo}}, {"volume", 32}}).value("ok").toBool());
+            QCOMPARE(playback(service, "left").value("playbackMode").toString(), QStringLiteral("manual"));
+            QCOMPARE(playback(service, "left").value("channelName").toString(), QStringLiteral("Левый"));
+            QCOMPARE(playback(service, "left").value("state").toString(), QStringLiteral("playing"));
+            QCOMPARE(playback(service, "left").value("repeat").toString(), QStringLiteral("all"));
+            QCOMPARE(playback(service, "left").value("volumePercent").toInt(), 32);
+            QCOMPARE(playback(service, "right"), rightBefore);
+        }
+        QList<QPointer<FakeVideoBackend>> backends;
+        VideoService restored(directory.path(), [&backends](QVideoWidget *, QObject *parent) {
+            auto *backend = new FakeVideoBackend(parent);
+            backends.append(backend);
+            return backend;
+        });
+        QString error;
+        QVERIFY2(restored.restore(&error), qPrintable(error));
+        QCOMPARE(playback(restored, "left").value("queue").toArray(), QJsonArray{leftVideo});
+        QCOMPARE(playback(restored, "right").value("queue").toArray(), QJsonArray{rightVideo});
+        for (const QString &id : {QStringLiteral("left"), QStringLiteral("right")}) {
+            QCOMPARE(playback(restored, id).value("playbackMode").toString(), QStringLiteral("manual"));
+            QCOMPARE(playback(restored, id).value("state").toString(), QStringLiteral("stopped"));
+            QVERIFY(!playback(restored, id).value("scheduleAvailable").toBool());
+            QCOMPARE(command(restored, "schedule", id).value("error").toObject().value("code").toString(),
+                     QStringLiteral("schedule_unavailable"));
+        }
+        for (const auto &backend : backends) QCOMPARE(backend->playCalls, 0);
+    }
+
+    void unavailableSavedDisplayRejectsScheduledAndChannelPlayback()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString video = createVideo(directory, "video.mp4");
+        auto definition = configureRequest("detached", "Detached", "missing-test-display");
+        definition.remove("command");
+        definition.insert("paths", QJsonArray{video});
+        definition.insert("currentIndex", 0);
+        definition.insert("volumePercent", 100);
+        definition.insert("muted", false);
+        definition.insert("repeat", "off");
+        QFile file(directory.filePath("windows.json"));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        const auto data = QJsonDocument(QJsonObject{{"version", 1}, {"windows", QJsonArray{definition}}}).toJson();
+        QCOMPARE(file.write(data), data.size());
+        file.close();
+        QPointer<FakeVideoBackend> backend;
+        VideoService service(directory.path(), [&backend](QVideoWidget *, QObject *parent) {
+            backend = new FakeVideoBackend(parent);
+            return backend.data();
+        });
+        QString error;
+        QVERIFY2(service.restore(&error), qPrintable(error));
+        QVERIFY(service.window("detached"));
+        QVERIFY(!service.window("detached")->isVisible());
+        const QJsonObject schedule{{"channels", QJsonArray{}}, {"adverts", QJsonArray{}}};
+        QVERIFY(command(service, "setSchedule", "detached", {{"schedule", schedule}}).value("ok").toBool());
+        for (const auto &reply : {
+                command(service, "schedule", "detached", {{"schedule", schedule}}),
+                command(service, "playChannel", "detached", {{"name", "Канал"},
+                    {"paths", QJsonArray{video}}, {"volume", 100}})}) {
+            QVERIFY(!reply.value("ok").toBool());
+            QCOMPARE(reply.value("error").toObject().value("code").toString(), QStringLiteral("unknown_screen"));
+        }
+        QCOMPARE(backend->playCalls, 0);
+        QCOMPARE(playback(service, "detached").value("state").toString(), QStringLiteral("stopped"));
+    }
+
     void windowsHaveIndependentPlaybackAndQueues()
     {
         QTemporaryDir directory;

@@ -90,7 +90,7 @@ body[data-design][data-palette] .palette-control {
   font-size:11px; white-space:nowrap; flex:none;
 }
 body[data-design][data-palette] .palette-picker {
-  font:600 11px/1.35 "Lamp Sans","Segoe UI",sans-serif;
+  font:600 11px/1.35 "MediaBoxManager Sans","Segoe UI",sans-serif;
   min-height:34px; max-width:150px; padding:7px 28px 7px 11px;
   color:var(--ink); background:var(--surface); border:1px solid var(--line);
   border-radius:10px; cursor:pointer; box-shadow:0 2px 7px rgb(var(--shadow-rgb) / .025);

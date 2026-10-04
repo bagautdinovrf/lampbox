@@ -1,7 +1,6 @@
 
-/// LampBox
 #include "mediamanager.h"
-#include "lampdata.h"
+#include "mediaboxmanagerdata.h"
 #include "mediamodel.h"
 #include "mediaimportservice.h"
 #include "settings.h"

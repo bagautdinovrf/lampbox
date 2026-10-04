@@ -9,7 +9,7 @@ set(_player_test_source "${CMAKE_SOURCE_DIR}/MediaBoxPlayer/tests")
 set(_vplayer_test_source "${CMAKE_SOURCE_DIR}/MediaBoxVPlayer/tests")
 
 qt_add_executable(MediaBoxManagerTests "${_manager_test_source}/tst_migration.cpp")
-target_link_libraries(MediaBoxManagerTests PRIVATE MediaBoxManagerUi LampBox::TagLib Qt6::Test)
+target_link_libraries(MediaBoxManagerTests PRIVATE MediaBoxManagerUi MediaBoxManager::TagLib Qt6::Test)
 set_target_properties(MediaBoxManagerTests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
 add_test(NAME MediaBoxManager_migration COMMAND "${CMAKE_COMMAND}"
@@ -51,7 +51,7 @@ if(WIN32)
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${_qt_bin}")
 endif()
 
-foreach(_suite IN ITEMS restyle schedulepreview ruleeditors secondary)
+foreach(_suite IN ITEMS restyle schedulepreview ruleeditors secondary playbackui)
     qt_add_executable(MediaBoxManager_${_suite}Tests "${_manager_test_source}/tst_${_suite}.cpp")
     target_link_libraries(MediaBoxManager_${_suite}Tests PRIVATE MediaBoxManagerUi Qt6::Test)
     add_test(NAME MediaBoxManager_${_suite} COMMAND "${CMAKE_COMMAND}"
@@ -211,11 +211,11 @@ endif()
 # Test executables belong to an explicit script-driven build, never to ALL.
 get_property(_test_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
 list(REMOVE_ITEM _test_targets ${_application_targets})
-add_custom_target(lampbox_tests)
+add_custom_target(mediaboxmanager_tests)
 foreach(_target IN LISTS _test_targets)
     get_target_property(_target_type ${_target} TYPE)
     if(_target_type STREQUAL "EXECUTABLE")
         set_target_properties(${_target} PROPERTIES EXCLUDE_FROM_ALL TRUE)
-        add_dependencies(lampbox_tests ${_target})
+        add_dependencies(mediaboxmanager_tests ${_target})
     endif()
 endforeach()

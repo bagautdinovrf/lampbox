@@ -1,7 +1,7 @@
-(function registerLampBoxLayouts() {
+(function registerMediaBoxManagerLayouts() {
   "use strict";
 
-  const layouts = window.LampBoxLayouts = window.LampBoxLayouts || {};
+  const layouts = window.MediaBoxManagerLayouts = window.MediaBoxManagerLayouts || {};
 
   layouts.library = function libraryLayout(ui) {
     return `

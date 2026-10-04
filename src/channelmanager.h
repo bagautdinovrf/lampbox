@@ -3,7 +3,7 @@
 #include "projectrepository.h"
 #include <QVariant>
 
-using namespace LampBox;
+using namespace MediaBoxManager;
 class ChannelModel;
 
 class ChannelManager
@@ -13,6 +13,7 @@ public:
     ~ChannelManager();
     bool collectChannels();
     QString lastError() const { return mLastError; }
+    bool scheduleLoaded() const { return !mLoadFailed; }
     bool setRule(int row, const QVariantList &fields);
     bool createChannel(const QVariantList &fields);
     ChannelData &channel(int num);

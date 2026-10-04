@@ -2,7 +2,7 @@
 #include "stationmanager.h"
 #include <QString>
 
-namespace LampBox {
+namespace MediaBoxManager {
     enum CHANNEL_TYPE { NO_TYPE, MUSIC, VIDEO, ADVERT };
 }
 

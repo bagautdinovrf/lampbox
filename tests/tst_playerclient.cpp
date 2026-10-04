@@ -159,7 +159,7 @@ class PlayerClientTests final : public QObject
 {
     Q_OBJECT
 private slots:
-    void handshakeAndAllThirteenCommandEnvelopes()
+    void handshakeAndAllCommandEnvelopes()
     {
         ControlledPeer peer;
         QVERIFY(peer.listening);
@@ -178,6 +178,12 @@ private slots:
 
         const QStringList paths{QStringLiteral("/srv/Музыка/Первый.wav"),
                                 QStringLiteral("C:/Media/Второй.wav")};
+        const QJsonObject schedule{
+            {"schemaVersion", 1},
+            {"channels", QJsonArray{QJsonObject{{"name", "Утро"},
+                                                {"paths", QJsonArray::fromStringList(paths)}}}},
+            {"adverts", QJsonArray{}}
+        };
         struct Command {
             QString name;
             QJsonObject fields;
@@ -197,7 +203,12 @@ private slots:
             {"volume", {{"value", 37}}, [&] { return client.setVolume(37); }},
             {"mute", {{"value", true}}, [&] { return client.setMuted(true); }},
             {"repeat", {{"mode", "all"}}, [&] { return client.setRepeat("all"); }},
-            {"clear", {}, [&] { return client.clear(); }}
+            {"clear", {}, [&] { return client.clear(); }},
+            {"setSchedule", {{"schedule", schedule}}, [&] { return client.setSchedule(schedule); }},
+            {"schedule", {}, [&] { return client.startSchedule(); }},
+            {"schedule", {{"schedule", schedule}}, [&] { return client.startSchedule(schedule); }},
+            {"playChannel", {{"name", "Утро"}, {"paths", QJsonArray::fromStringList(paths)}, {"volume", 63}},
+             [&] { return client.playChannel(QStringLiteral("Утро"), paths, 63); }}
         };
         QSet<QString> ids{peer.requests.at(0).object.value("id").toString()};
         QVERIFY(!ids.contains(QString()));
@@ -432,7 +443,9 @@ private slots:
     void malformedResponses_data()
     {
         QTest::addColumn<QString>("kind");
-        for (const char *kind : {"json", "array", "id", "missing-status", "missing-field", "enum", "type", "index", "track"})
+        for (const char *kind : {"json", "array", "id", "missing-status", "missing-field", "enum", "type", "index", "track",
+                                 "playback-mode-type", "playback-mode-enum", "playback-mode-null",
+                                 "channel-name-type", "schedule-available-type", "schedule-error-type"})
             QTest::newRow(kind) << QString::fromLatin1(kind);
     }
 
@@ -463,6 +476,12 @@ private slots:
                 if (kind == "type") status.insert("volumePercent", "70");
                 if (kind == "index") status.insert("currentIndex", 0);
                 if (kind == "track") status.insert("currentTrack", "/srv/ghost.wav");
+                if (kind == "playback-mode-type") status.insert("playbackMode", false);
+                if (kind == "playback-mode-enum") status.insert("playbackMode", "automatic");
+                if (kind == "playback-mode-null") status.insert("playbackMode", QJsonValue::Null);
+                if (kind == "channel-name-type") status.insert("channelName", 12);
+                if (kind == "schedule-available-type") status.insert("scheduleAvailable", "true");
+                if (kind == "schedule-error-type") status.insert("scheduleError", QJsonArray{});
                 reply.insert("status", status);
             }
             peer.write(0, frame(reply));
@@ -470,6 +489,56 @@ private slots:
         QTRY_COMPARE(client.connectionState(), State::Reconnecting);
         QVERIFY(!client.isReady());
         QCOMPARE(changed.size(), 0);
+    }
+
+    void optionalScheduleStatusIsBackwardCompatible_data()
+    {
+        QTest::addColumn<QString>("mode");
+        QTest::newRow("manual-channel") << QStringLiteral("manual");
+        QTest::newRow("schedule") << QStringLiteral("schedule");
+    }
+
+    void optionalScheduleStatusIsBackwardCompatible()
+    {
+        QFETCH(QString, mode);
+        ControlledPeer peer;
+        QVERIFY(peer.listening);
+        Client client;
+        client.setTiming(testTiming());
+        QSignalSpy succeeded(&client, &Client::commandSucceeded);
+        client.connectToPlayer(settingsFor(peer.port()));
+        QTRY_COMPARE(peer.requests.size(), 1);
+        peer.answer(0);
+        QTRY_VERIFY(client.isReady());
+        QCOMPARE(client.status().playbackMode, QStringLiteral("manual"));
+        QVERIFY(client.status().channelName.isEmpty());
+        QVERIFY(!client.status().scheduleAvailable);
+        QVERIFY(client.status().scheduleError.isEmpty());
+
+        const QString id = client.requestStatus();
+        QVERIFY(!id.isEmpty());
+        QTRY_COMPARE(peer.requests.size(), 2);
+        QJsonObject scheduled = snapshot({"/srv/Музыка/Утро.wav"}, 0, "playing");
+        scheduled.insert("playbackMode", mode);
+        scheduled.insert("channelName", "Утро");
+        scheduled.insert("scheduleAvailable", true);
+        scheduled.insert("scheduleError", "Не найден файл рекламы");
+        peer.answer(1, scheduled);
+        QTRY_VERIFY(containsResult(succeeded, id));
+        QCOMPARE(client.status().playbackMode, mode);
+        QCOMPARE(client.status().channelName, QStringLiteral("Утро"));
+        QVERIFY(client.status().scheduleAvailable);
+        QCOMPARE(client.status().scheduleError, QStringLiteral("Не найден файл рекламы"));
+
+        const QString legacy = client.requestStatus();
+        QVERIFY(!legacy.isEmpty());
+        QTRY_COMPARE(peer.requests.size(), 3);
+        peer.answer(2);
+        QTRY_VERIFY(containsResult(succeeded, legacy));
+        QCOMPARE(client.status().playbackMode, QStringLiteral("manual"));
+        QVERIFY(client.status().channelName.isEmpty());
+        QVERIFY(!client.status().scheduleAvailable);
+        QVERIFY(client.status().scheduleError.isEmpty());
     }
 
     void statusLargerThanRequestLimit()
@@ -705,7 +774,14 @@ private slots:
         const QString path = "/srv/" + QString(3000, QLatin1Char('x')) + ".wav";
         for (int i = 0; i < 1000; ++i) paths.append(path);
         QVERIFY(client.load(paths).isEmpty());
-        QCOMPARE(failed.size(), 7);
+        QVERIFY(client.setSchedule({}).isEmpty());
+        QVERIFY(client.setSchedule({{"channels", QJsonArray{}}, {"adverts", "invalid"}}).isEmpty());
+        QVERIFY(client.playChannel("   ", {"/srv/track.wav"}, 100).isEmpty());
+        QVERIFY(client.playChannel("Утро", {}, 100).isEmpty());
+        QVERIFY(client.playChannel("Утро", {"relative.wav"}, 100).isEmpty());
+        QVERIFY(client.playChannel("Утро", {"/srv/track.wav"}, 101).isEmpty());
+        QVERIFY(client.playChannel("Утро", {"/srv/track.wav"}, -1).isEmpty());
+        QCOMPARE(failed.size(), 14);
         for (const QList<QVariant> &result : failed) {
             QVERIFY(result.at(0).toString().isEmpty());
             QVERIFY(!result.at(2).toString().isEmpty());

@@ -5,7 +5,7 @@
 #ifndef MEDIAMODEL_H
 #define MEDIAMODEL_H
 
-#include "lampdata.h"
+#include "mediaboxmanagerdata.h"
 
 #include <QAbstractTableModel>
 
@@ -13,10 +13,9 @@
 //Qt
 class QMimeData;
 
-//LampBox
 class MediaManager;
 
-using namespace LampBox;
+using namespace MediaBoxManager;
 
 class MediaModel : public QAbstractTableModel
 {

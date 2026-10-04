@@ -15,7 +15,7 @@ const browser=await chromium.launch({headless:true,channel:'msedge'});
 const page=await browser.newPage({viewport:{width:1440,height:900},deviceScaleFactor:1});
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
 const result={date:'2026-10-03',fonts:fontResults,designs:[],errors};
-for(const design of designs){await page.goto('http://127.0.0.1:4176/'+design+'.html');await page.evaluate(()=>{localStorage.clear();});await page.reload();await page.evaluate(()=>document.fonts.ready);const loaded=await page.evaluate(async()=>{await document.fonts.load('14px "Lamp Sans"','Музыка Ёж');return document.fonts.check('14px "Lamp Sans"','Музыка Ёж')});if(!loaded)throw Error('Font failed '+design);
+for(const design of designs){await page.goto('http://127.0.0.1:4176/'+design+'.html');await page.evaluate(()=>{localStorage.clear();});await page.reload();await page.evaluate(()=>document.fonts.ready);const loaded=await page.evaluate(async()=>{await document.fonts.load('14px "MediaBoxManager Sans"','Музыка Ёж');return document.fonts.check('14px "MediaBoxManager Sans"','Музыка Ёж')});if(!loaded)throw Error('Font failed '+design);
 const sizes=await page.evaluate(()=>({viewport:innerWidth,scroll:document.documentElement.scrollWidth,height:document.documentElement.scrollHeight,variant:document.body.dataset.variant}));
 if(sizes.variant!==design)throw Error('Wrong variant: '+sizes.variant+' expected '+design);
 await page.screenshot({path:path.join(dir,'previews',design+'.png'),fullPage:true});

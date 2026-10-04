@@ -20,7 +20,7 @@
 namespace {
 QString fileIcon(const QModelIndex &index)
 {
-    const bool video = index.data(MediaModel::MediaTypeRole).toInt() == LampBox::VIDEO
+    const bool video = index.data(MediaModel::MediaTypeRole).toInt() == MediaBoxManager::VIDEO
         || Settings::allVideoFormats().contains(
             QStringLiteral("*.") + index.data(MediaModel::FormatRole).toString(), Qt::CaseInsensitive);
     return video ? QStringLiteral("video") : QStringLiteral("music");

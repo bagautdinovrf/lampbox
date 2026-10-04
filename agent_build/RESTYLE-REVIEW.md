@@ -71,13 +71,13 @@ Preview-тест включает `QStandardPaths::setTestModeEnabled`, выде
 agent_build/build/bin/MediaBoxManager_restyleTests --preview
 ```
 
-Повторить текущий безопасный offscreen-захват в этом окружении:
+Повторить текущий безопасный offscreen-захват из корня репозитория:
 
 ```sh
 QT_QPA_FONTDIR=/usr/share/fonts/truetype/dejavu \
-QT_QPA_PLATFORM=offscreen:configfile=/workspace/lampbox/agent_build/restyle-screen-reference.json \
-/workspace/lampbox/agent_build/build/bin/MediaBoxManager_restyleTests \
-  --capture /workspace/lampbox/agent_build/restyle-review
+QT_QPA_PLATFORM=offscreen:configfile=agent_build/restyle-screen-reference.json \
+agent_build/build/bin/MediaBoxManager_restyleTests \
+  --capture agent_build/restyle-review
 python agent_build/compare-restyle.py agent_build/restyle-review
 ```
 

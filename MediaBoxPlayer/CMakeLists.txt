@@ -20,15 +20,27 @@ if(NOT TARGET MediaBoxPaths)
     add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../common" "${CMAKE_CURRENT_BINARY_DIR}/common")
 endif()
 
+if(NOT TARGET MediaBoxScheduleCore)
+    add_library(MediaBoxScheduleCore STATIC
+        ../src/schedulecore/schedulecore.cpp ../src/schedulecore/schedulecore.h)
+    target_include_directories(MediaBoxScheduleCore PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../src")
+    target_link_libraries(MediaBoxScheduleCore PUBLIC Qt6::Core)
+    target_compile_features(MediaBoxScheduleCore PUBLIC cxx_std_23)
+    if(MSVC)
+        target_compile_options(MediaBoxScheduleCore PRIVATE /utf-8)
+    endif()
+endif()
+
 add_library(MediaBoxPlayerCore STATIC
     src/audiobackend.cpp src/audiobackend.h
     src/playerengine.cpp src/playerengine.h
+    src/playbackschedule.cpp src/playbackschedule.h
     src/controlserver.cpp src/controlserver.h
     src/desktopservice.cpp src/desktopservice.h
 )
 target_include_directories(MediaBoxPlayerCore PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_compile_features(MediaBoxPlayerCore PUBLIC cxx_std_23)
-target_link_libraries(MediaBoxPlayerCore PUBLIC Qt6::Core Qt6::Network)
+target_link_libraries(MediaBoxPlayerCore PUBLIC MediaBoxScheduleCore Qt6::Core Qt6::Network)
 if(WIN32)
     target_link_libraries(MediaBoxPlayerCore PRIVATE advapi32)
 endif()

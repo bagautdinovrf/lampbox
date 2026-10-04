@@ -51,7 +51,7 @@ try {
     const nav = destination => page.locator(`[data-page="${destination}"]`).click();
     const action = name => page.locator(`[data-action="${name}"]`).first().click();
     const close = async () => { await page.keyboard.press('Escape'); await page.locator('dialog[open]').waitFor({ state: 'detached' }); };
-    const readyFonts = async () => { const loaded = await page.evaluate(async sample => { await document.fonts.ready; for (const weight of [400, 600, 700]) await document.fonts.load(`${weight} 14px "Lamp Sans"`, sample); return [400, 600, 700].every(weight => document.fonts.check(`${weight} 14px "Lamp Sans"`, sample)); }, sample); assert(loaded); };
+    const readyFonts = async () => { const loaded = await page.evaluate(async sample => { await document.fonts.ready; for (const weight of [400, 600, 700]) await document.fonts.load(`${weight} 14px "MediaBoxManager Sans"`, sample); return [400, 600, 700].every(weight => document.fonts.check(`${weight} 14px "MediaBoxManager Sans"`, sample)); }, sample); assert(loaded); };
     const edit = async () => { await page.locator('.inspector-rule [data-action="edit-channel"]').click(); await page.locator('#channel-form').waitFor(); };
     const changeChannel = async () => {
       await page.locator('#channel-form [name="start"]').fill('08:30');

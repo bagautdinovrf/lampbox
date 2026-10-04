@@ -8,7 +8,7 @@ powershell -ExecutionPolicy Bypass -File .\agent_build\build.ps1
 
 Скрипт выбирает последнюю установленную числовую версию Qt 6 в `C:\Qt` и её комплект MSVC x64, настраивает окружение Visual Studio через `vswhere` и `VsDevCmd`, затем запускает CMake и Ninja. По умолчанию собирается `Release` без тестовых целей, параллелизм ограничен восемью процессами. Параметр `-WithTests` явно включает сборку тестов и их запуск через CTest. Проект использует C++23; нужны Qt 6.12 или новее с модулями Multimedia и MultimediaWidgets, Visual Studio 2022 или новее, инструменты MSVC x64 и Windows SDK. CMake 3.28 или новее и Ninja берутся из `C:\Qt\Tools`. Окружение вызывающей PowerShell-сессии восстанавливается после выполнения, включая ошибки.
 
-Корневой CMake и CMake подпроектов создают только приложения и библиотеки. С `-WithTests` скрипт подключает `cmake/enable-tests.cmake` через `CMAKE_PROJECT_TOP_LEVEL_INCLUDES`; определения тестов находятся в модуле `cmake/tests.cmake`. Каждая тестовая цель исключена из обычной сборки (`EXCLUDE_FROM_ALL`): после сборки приложений отдельный этап `build-tests` собирает цель `lampbox_tests`, затем запускается CTest. Отчёты QtTest сохраняются в `build/tests`.
+Корневой CMake и CMake подпроектов создают только приложения и библиотеки. С `-WithTests` скрипт подключает `cmake/enable-tests.cmake` через `CMAKE_PROJECT_TOP_LEVEL_INCLUDES`; определения тестов находятся в модуле `cmake/tests.cmake`. Каждая тестовая цель исключена из обычной сборки (`EXCLUDE_FROM_ALL`): после сборки приложений отдельный этап `build-tests` собирает цель `mediaboxmanager_tests`, затем запускается CTest. Отчёты QtTest сохраняются в `build/tests`.
 
 ```powershell
 # Сборка Debug с удалением предыдущих результатов сборки
@@ -56,7 +56,7 @@ powershell -ExecutionPolicy Bypass -File .\agent_build\build.ps1
 
 Настройки Manager всегда хранятся в `%ProgramData%\MediaBox\MediaBoxManager\MediaBoxManager.conf`, журналы — в том же каталоге. Путь не зависит от установки в Program Files или запуска EXE из другой папки. Установщик предоставляет обычным пользователям изменение каталога Manager и общего каталога `media`. В корне `%ProgramData%\MediaBox` разрешены чтение и создание файлов/каталогов без наследования этих прав на плееры. Каталоги плееров установщик не создаёт: [скрипт службы](../MediaBoxPlayer/deploy/windows/README.md) создаёт `%ProgramData%\MediaBox\MediaBoxPlayer` с закрытым ACL; MediaBoxVPlayer создаёт `%ProgramData%\MediaBox\MediaBoxVPlayer` при первом запуске в пользовательской графической сессии и закрывает доступ к своему `control.token`. `--data-dir` позволяет выбрать другой каталог данных видеоплеера.
 
-Прежние настройки копируются при первом запуске только при отсутствии нового конфига: сначала `%ProgramData%\MediaBox\MediaBoxManager.conf`, затем файл из прежнего `QStandardPaths::AppConfigLocation`, после него `MediaBoxManager.conf` и `lampbox.conf` рядом с приложением. Исходный файл сохраняется. Хранение настроек рядом с EXE больше не выбирается автоматически.
+Прежние настройки копируются при первом запуске только при отсутствии нового конфига: сначала `%ProgramData%\MediaBox\MediaBoxManager.conf`, затем файл из прежнего `QStandardPaths::AppConfigLocation`, после него `MediaBoxManager.conf` рядом с приложением. Исходный файл сохраняется. Хранение настроек рядом с EXE больше не выбирается автоматически.
 
 Эмблема `Installer/assets/emblem.png` общая для установщика и приложения. Команда `python Installer/prepare-artwork.py` (нужен Pillow) экспортирует изображения мастера и `src/icons/app.ico`, используемый Windows EXE и Qt. После изменения значка для включения его в приложение требуется пересборка EXE; отдельная компиляция установщика использует существующий deploy.
 
@@ -93,5 +93,5 @@ MediaBoxVPlayer дополнительно использует Gui, Widgets и 
 после закрытия Manager. У аудиоплеера этот режим не требует Qt Widgets и не
 открывает окно; видеоплееру по-прежнему нужна графическая сессия, а сохранённые
 видеоокна восстанавливаются без autoplay.
-Исторический ключ
-`HKLM\SOFTWARE\LampBox\Station` используется только для поиска данных редактора.
+Ключ станции
+`HKLM\SOFTWARE\MediaBox\Station` используется только для поиска данных редактора.

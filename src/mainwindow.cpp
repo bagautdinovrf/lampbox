@@ -1,5 +1,5 @@
 #include "mainwindow.h"
-#include "aboutlampbox.h"
+#include "aboutmediaboxmanager.h"
 #include "advertmanager.h"
 #include "advertmodel.h"
 #include "channelmanager.h"
@@ -27,11 +27,13 @@
 #include <QComboBox>
 #include <QCloseEvent>
 #include <QDateTimeEdit>
+#include <QDesktopServices>
 #include <QDialogButtonBox>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QGridLayout>
 #include <QHeaderView>
+#include <QJsonArray>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
@@ -48,6 +50,8 @@
 #include <QTableView>
 #include <QTimeEdit>
 #include <QTreeView>
+#include <QTimer>
+#include <QUrl>
 #include <algorithm>
 
 namespace {
@@ -154,10 +158,21 @@ class ChannelDelegate final : public QStyledItemDelegate {
 QString known(const QString &s) {
     return s.trimmed().isEmpty() ? QStringLiteral("Не указано") : s;
 }
+QStringList channelFiles(MediaManager &media) {
+    QStringList paths;
+    const QDir directory = media.getDirMediaFiles();
+    for (const auto &file : directory.entryInfoList(media.libraryFormats(), QDir::Files, QDir::Name))
+        paths.append(file.absoluteFilePath());
+    return paths;
+}
 } // namespace
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     setWindowTitle(QStringLiteral("MediaBoxManager %1").arg(VERSION));
+    mScheduleUpdateTimer = new QTimer(this);
+    mScheduleUpdateTimer->setSingleShot(true);
+    mScheduleUpdateTimer->setInterval(250);
+    connect(mScheduleUpdateTimer, &QTimer::timeout, this, &MainWindow::refreshPlaybackSchedules);
     for (int i = 0; i < 2; ++i) {
         mChannelManagers[i] = new ChannelManager(i == 0 ? MUSIC : VIDEO);
         mChannelManagers[i]->collectChannels();
@@ -178,23 +193,50 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     connect(settings, &SettingsDialog::doneRequested, this, [this] { changePage(mPage); });
     connect(settings, &SettingsDialog::videoScreensRequested, this, &MainWindow::showVideoControls);
     mStack->addWidget(settings);
-    auto *about = new AboutLampbox(mStack, Qt::Widget);
+    auto *about = new AboutMediaBoxManager(mStack, Qt::Widget);
     about->setWindowFlags(Qt::Widget);
     mStack->addWidget(about);
-    connect(about, &AboutLampbox::doneRequested, this, [this] { changePage(mPage); });
+    connect(about, &AboutMediaBoxManager::doneRequested, this, [this] { changePage(mPage); });
     for (int i = 0; i < 2; ++i) {
-        connect(mChannelModels[i], &QAbstractItemModel::dataChanged, this, [this, i] { updatePage(i); });
-        connect(mChannelModels[i], &QAbstractItemModel::modelReset, this, [this, i] { updatePage(i); });
+        connect(mChannelModels[i], &QAbstractItemModel::dataChanged, this, [this, i] {
+            updatePage(i); mScheduleUpdateTimer->start();
+        });
+        connect(mChannelModels[i], &QAbstractItemModel::modelReset, this, [this, i] {
+            updatePage(i); mScheduleUpdateTimer->start();
+        });
         if (mChannelModels[i]->rowCount())
             mPages[i].channels->selectRow(0);
         updatePage(i);
     }
-    connect(mAdvertModel, &QAbstractItemModel::dataChanged, this, [this] { updatePage(2); });
-    connect(mAdvertModel, &QAbstractItemModel::modelReset, this, [this] { updatePage(2); });
+    connect(mAdvertModel, &QAbstractItemModel::dataChanged, this, [this] {
+        updatePage(2); mScheduleUpdateTimer->start();
+    });
+    connect(mAdvertModel, &QAbstractItemModel::modelReset, this, [this] {
+        updatePage(2); mScheduleUpdateTimer->start();
+    });
     updatePage(2);
     if (qApp->property("restylePreviewStation").toString().isEmpty()) {
         mMediaController = new MediaController(this);
         mVideoController = new VideoController(this);
+        connect(mVideoController, &MediaBoxVPlayerClient::videoStatusChanged,
+                this, [this] { updatePlaybackActions(); });
+        connect(mVideoController, &MediaBoxPlayerClient::connectionStateChanged,
+                this, [this] { updatePlaybackActions(); });
+        connect(mVideoController, &MediaBoxPlayerClient::commandFailed, this,
+                [](const QString &, const QString &command, const QString &code, const QString &message) {
+            Informer::Instance().infoEvent(QStringLiteral("MediaBoxVPlayer: команда %1 — %2 (%3)")
+                                          .arg(command, message, code), Informer::ERROR);
+        });
+        connect(mVideoController, &MediaBoxPlayerClient::commandOutcomeUnknown, this,
+                [](const QString &, const QString &command) {
+            Informer::Instance().infoEvent(QStringLiteral("MediaBoxVPlayer: результат команды %1 неизвестен. "
+                                          "Проверьте состояние перед повторным действием.").arg(command), Informer::ERROR);
+        });
+        connect(mVideoController, &MediaBoxPlayerClient::commandCancelled, this,
+                [](const QString &, const QString &command) {
+            if (command != "status")
+                Informer::Instance().infoEvent(QStringLiteral("MediaBoxVPlayer: команда %1 не отправлена.").arg(command), Informer::ERROR);
+        });
         connect(settings, &SettingsDialog::playerConnectionChanged,
                 mMediaController, &MediaController::reloadConnection);
         connect(settings, &SettingsDialog::videoPlayerConnectionChanged,
@@ -216,6 +258,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
                 mOperationState->setToolTip(text);
             }
             mVideoConnectionMessage.clear();
+            mScheduleUpdateTimer->start();
         });
         connect(mMediaController, &MediaBoxPlayerClient::connectionStateChanged,
                 this, &MainWindow::updatePlayerState);
@@ -242,6 +285,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
                 mOperationState->setToolTip(text);
             }
             mAudioConnectionMessage.clear();
+            mScheduleUpdateTimer->start();
         });
         connect(mMediaController, &MediaBoxPlayerClient::commandFailed, this,
                 [report](const QString &, const QString &command, const QString &code, const QString &message) {
@@ -282,6 +326,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     QSize available = screen()->availableGeometry().size();
     adaptLayout(available.width() - 24);
     resize(QSize(1440, 900).boundedTo(available - QSize(24, 48)));
+    if (qApp->property("restylePreviewStation").toString().isEmpty())
+        restoreGeometry(Settings().mainWindowGeometry());
+    adaptLayout(width());
 }
 MainWindow::~MainWindow() {
     if (mMediaImport)
@@ -310,6 +357,8 @@ void MainWindow::closeEvent(QCloseEvent *event) {
         return;
     }
     QMainWindow::closeEvent(event);
+    if (event->isAccepted() && qApp->property("restylePreviewStation").toString().isEmpty())
+        Settings().setMainWindowGeometry(saveGeometry());
 }
 
 void MainWindow::buildShell() {
@@ -499,6 +548,13 @@ QWidget *MainWindow::buildMediaPage(int page) {
     headingText->addWidget(p.subtitle);
     h->addLayout(headingText);
     h->addStretch();
+    if (!ads) {
+        p.schedulePlayback = button("По расписанию", "calendar", "primary");
+        p.schedulePlayback->setObjectName(page == PAGE_MUSIC ? "audioScheduleButton" : "videoScheduleButton");
+        p.schedulePlayback->setToolTip("Передать актуальные правила плееру и включить автоматическое воспроизведение");
+        h->addWidget(p.schedulePlayback);
+        connect(p.schedulePlayback, &QPushButton::clicked, this, [this, page] { startScheduledPlayback(page); });
+    }
     if (page == PAGE_VIDEO) {
         auto *screens = button("Видеоэкраны", "video");
         screens->setObjectName("videoScreensButton");
@@ -578,7 +634,7 @@ QWidget *MainWindow::buildMediaPage(int page) {
     auto *leftLayout = column(left, 0, 12);
     auto *card = new RestylePanel(left, "selection");
     card->setObjectName("selectedChannel" + suffix);
-    card->setFixedHeight(85);
+    card->setFixedHeight(ads ? 85 : 122);
     auto *c = column(card, 11, 3);
     auto *ct = new QHBoxLayout;
     ct->setSpacing(2);
@@ -593,6 +649,13 @@ QWidget *MainWindow::buildMediaPage(int page) {
     c->addWidget(p.channelConditions);
     p.channelDetail = label("Нет выбранного канала", 9);
     c->addWidget(p.channelDetail);
+    if (!ads) {
+        p.playChannel = button("Играть канал", "play");
+        p.playChannel->setObjectName(page == PAGE_MUSIC ? "playChannelButton" : "playVideoChannelButton");
+        p.playChannel->setToolTip("Воспроизводить все файлы выбранного канала с повтором, независимо от расписания");
+        c->addWidget(p.playChannel);
+        connect(p.playChannel, &QPushButton::clicked, this, [this, page] { playSelectedChannel(page); });
+    }
     leftLayout->addWidget(card);
     connect(p.editChannel, &QPushButton::clicked, this,
             ads ? &MainWindow::openAdvertEditor : &MainWindow::openChannelEditor);
@@ -704,6 +767,23 @@ QWidget *MainWindow::buildMediaPage(int page) {
     p.addFiles->setObjectName("addFilesButton" + suffix);
     lh->addWidget(p.addFiles);
     connect(p.addFiles, &QPushButton::clicked, this, &MainWindow::slot_addMediaFiles);
+    if (!ads) {
+        p.openFolder = button("Открыть папку", "folder", "quiet");
+        p.openFolder->setObjectName("openMediaFolderButton" + suffix);
+        p.openFolder->setToolTip("Открыть папку с файлами выбранного канала");
+        lh->addWidget(p.openFolder);
+        connect(p.openFolder, &QPushButton::clicked, this, [this, page] {
+            auto *media = mediaManager(page);
+            if (!media) return;
+            const QString directory = media->getDirMediaFiles().absolutePath();
+            if (!QDir(directory).exists()) {
+                showError("Папка выбранного канала не найдена: " + directory);
+                return;
+            }
+            if (!QDesktopServices::openUrl(QUrl::fromLocalFile(directory)))
+                showError("Не удалось открыть папку: " + directory);
+        });
+    }
     auto *folder = iconButton("folder", "Добавить файлы из папки");
     folder->setObjectName("addFolderButton" + suffix);
     lh->addWidget(folder);
@@ -917,6 +997,7 @@ void MainWindow::selectChannel(int page, int row) {
     mPages[page].source->setMediaManager(&media);
     mPages[page].schedule->setSelectedRow(row);
     updatePage(page);
+    if (page == PAGE_VIDEO) updateVideoPlaybackContext();
 }
 MediaManager *MainWindow::mediaManager(int page) const {
     if (page == 2)
@@ -982,6 +1063,7 @@ void MainWindow::updatePage(int page) {
     }
     updateFileInfo(page);
     updateSummary(page);
+    updatePlaybackActions();
 }
 void MainWindow::updateSummary(int page) {
     auto &p = mPages[page];
@@ -1087,23 +1169,28 @@ void MainWindow::updatePlayerState() {
             else state = snapshot.playbackRequested ? "Переход к следующему файлу…" : "Остановлено";
             if (snapshot.muted) state += " · звук выключен";
             else state += QStringLiteral(" · %1 %").arg(snapshot.volumePercent);
+            state += snapshot.playbackMode == "schedule" ? " · По расписанию" : " · Вручную";
             break;
         }
     }
     mPlayerState->setText(state);
-    mPlayerState->setToolTip(ready && !snapshot.error.isEmpty() ? snapshot.error : state);
+    mPlayerState->setToolTip(ready && !snapshot.scheduleError.isEmpty() ? snapshot.scheduleError
+                           : ready && !snapshot.error.isEmpty() ? snapshot.error : state);
     QString track = snapshot.currentTrack;
     if (track.isEmpty())
         track = ready ? "Очередь пуста · загрузите файлы в управлении плеером" : "Настройте подключение в разделе «Настройки»";
     else if (!ready)
         track.prepend("Последние данные, связь потеряна: ");
+    if (ready && !snapshot.channelName.isEmpty()) track.prepend(snapshot.channelName + " · ");
+    if (ready && !snapshot.scheduleError.isEmpty()) track = snapshot.scheduleError;
     mPlayerDetail->setText(track);
     mPlayerDetail->setToolTip(track);
     mPlay->setEnabled(ready && !snapshot.queue.isEmpty() && !snapshot.playbackRequested);
-    mStop->setEnabled(ready && (!snapshot.queue.isEmpty() || snapshot.state == "error"));
+    mStop->setEnabled(ready && (!snapshot.queue.isEmpty() || snapshot.state == "error" || snapshot.playbackMode == "schedule"));
     findChild<QPushButton *>("refreshPlayerButton")->setEnabled(ready);
     for (int page = 0; page < 3; ++page)
         updateFileInfo(page);
+    updatePlaybackActions();
 }
 void MainWindow::slot_addMediaFiles() {
     if (mMediaImport || (mPage == 2 && !advertWritable()))
@@ -1187,6 +1274,7 @@ void MainWindow::copyFiles(const QStringList &paths) {
         service->deleteLater();
         for (int page = 0; page < 3; ++page)
             updatePage(page);
+        mScheduleUpdateTimer->start();
         mOperationState->setText(QStringLiteral("%1 · добавлено файлов: %2")
                                     .arg(result.cancelled ? "Импорт отменён" : "Импорт завершён")
                                     .arg(result.imported));
@@ -1242,6 +1330,7 @@ void MainWindow::slot_removeMediaFiles() {
             failed << name;
     manager->collectMediaFiles();
     updatePage(mPage);
+    mScheduleUpdateTimer->start();
     if (!failed.isEmpty())
         showError("Не удалось удалить файлы:\n" + failed.join('\n'));
 }
@@ -1391,6 +1480,109 @@ void MainWindow::slot_playTrack(QModelIndex index) {
         return;
     mMediaController->playTrack(path);
 }
+QJsonObject MainWindow::playbackSchedule(int page, QString *error) const {
+    error->clear();
+    auto *manager = mChannelManagers[page];
+    if (!manager->scheduleLoaded() || !mAdvertManager->scheduleLoaded()) {
+        *error = !manager->scheduleLoaded() ? manager->lastError() : mAdvertManager->lastError();
+        return {};
+    }
+    QJsonArray channels, adverts;
+    for (int row = 0; row < manager->channelCount(); ++row) {
+        auto &channel = manager->channel(row);
+        channels.append(QJsonObject{{"id", channel.ruleId()}, {"name", channel.channelName()},
+            {"start", channel.startTime().toString("HH:mm")}, {"end", channel.endTime().toString("HH:mm")},
+            {"weekdays", channel.daysOfWeek()}, {"days", channel.days()}, {"months", channel.months()},
+            {"volume", channel.volume()}, {"paths", QJsonArray::fromStringList(channelFiles(channel.mediaManager()))}});
+    }
+    const QDir advertDirectory = mMediaAdvertManager->getDirMediaFiles();
+    for (int row = 0; row < mAdvertManager->count(); ++row) {
+        const auto &advert = mAdvertManager->advert(row);
+        QJsonArray minutes, paths;
+        for (int minute : mAdvertManager->compiledMinutes(row)) minutes.append(minute);
+        const QString path = advertDirectory.absoluteFilePath(advert.name());
+        if (QFileInfo::exists(path)) paths.append(path);
+        adverts.append(QJsonObject{{"id", mAdvertManager->ruleId(row)}, {"name", advert.name()},
+            {"hours", advert.hours()}, {"weekdays", advert.days()}, {"from", advert.startDate().toString(Qt::ISODate)},
+            {"until", advert.endDate().toString(Qt::ISODate)}, {"timing", advert.minuts()},
+            {"compiledMinutes", minutes}, {"volume", advert.volume()}, {"paths", paths}});
+    }
+    return {{"channels", channels}, {"adverts", adverts}};
+}
+
+void MainWindow::updatePlaybackActions() {
+    const bool preview = !qApp->property("restylePreviewStation").toString().isEmpty();
+    for (int page = PAGE_MUSIC; page <= PAGE_VIDEO; ++page) {
+        auto &p = mPages[page];
+        if (!p.playChannel) continue;
+        auto *media = mediaManager(page);
+        const bool ready = page == PAGE_MUSIC ? playerAvailable()
+            : mVideoController && mVideoController->isReady();
+        p.playChannel->setEnabled(!preview && ready && media && media->mediaCount() > 0);
+        p.schedulePlayback->setEnabled(!preview && ready);
+        p.openFolder->setEnabled(!preview && media && media->getDirMediaFiles().exists());
+    }
+}
+
+void MainWindow::playSelectedChannel(int page) {
+    auto *media = mediaManager(page);
+    if (!media) return;
+    auto &channel = mChannelManagers[page]->currentChannel();
+    const QStringList paths = channelFiles(*media);
+    if (paths.isEmpty()) { showError("В выбранном канале нет файлов для воспроизведения."); return; }
+    if (page == PAGE_VIDEO) {
+        showVideoControls();
+        if (auto *controls = findChild<VideoControlWidget *>()) controls->playSelectedChannel();
+    } else if (playerAvailable()) {
+        mMediaController->playChannel(channel.channelName(), paths, channel.volume());
+    }
+}
+
+void MainWindow::startScheduledPlayback(int page) {
+    if (page == PAGE_VIDEO) {
+        showVideoControls();
+        if (auto *controls = findChild<VideoControlWidget *>()) controls->startSelectedSchedule();
+        return;
+    }
+    if (!playerAvailable()) return;
+    QString error;
+    const auto schedule = playbackSchedule(page, &error);
+    if (!error.isEmpty()) { showError(error); return; }
+    mMediaController->playSchedule(schedule);
+}
+
+void MainWindow::updateVideoPlaybackContext() {
+    auto *controls = findChild<VideoControlWidget *>();
+    if (!controls) return;
+    QString error;
+    const auto schedule = playbackSchedule(PAGE_VIDEO, &error);
+    controls->setScheduleSnapshot(error.isEmpty() ? schedule : QJsonObject{});
+    if (auto *media = mediaManager(PAGE_VIDEO)) {
+        auto &channel = mChannelManagers[PAGE_VIDEO]->currentChannel();
+        controls->setSelectedChannel(channel.channelName(), channelFiles(*media), channel.volume());
+    } else {
+        controls->setSelectedChannel({}, {}, 100);
+    }
+}
+
+void MainWindow::refreshPlaybackSchedules() {
+    updateVideoPlaybackContext();
+    QString error;
+    if (playerAvailable() && mMediaController->status().playbackMode == "schedule") {
+        const auto schedule = playbackSchedule(PAGE_MUSIC, &error);
+        if (error.isEmpty()) mMediaController->setSchedule(schedule);
+        else Informer::Instance().infoEvent(error, Informer::ERROR);
+    }
+    if (mVideoController && mVideoController->isReady()) {
+        const auto schedule = playbackSchedule(PAGE_VIDEO, &error);
+        if (error.isEmpty()) {
+            for (const auto &window : mVideoController->videoStatus().windows)
+                if (window.playback.playbackMode == "schedule")
+                    mVideoController->setSchedule(window.id, schedule);
+        } else Informer::Instance().infoEvent(error, Informer::ERROR);
+    }
+}
+
 void MainWindow::showPlayerControls() {
     if (!mMediaController)
         return;
@@ -1428,6 +1620,7 @@ void MainWindow::showVideoControls() {
         });
         dialog->resize(QSize(1100, 780).boundedTo(screen()->availableGeometry().size() - QSize(40, 60)));
     }
+    updateVideoPlaybackContext();
     dialog->show();
     dialog->raise();
     dialog->activateWindow();

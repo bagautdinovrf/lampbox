@@ -5,7 +5,7 @@ include_guard(GLOBAL)
 # Keep this in root scope so child directories also refresh their CTest files.
 enable_testing()
 
-function(lampbox_configure_agent_tests)
+function(mediaboxmanager_configure_agent_tests)
     if(ANDROID)
         message(FATAL_ERROR "agent_build tests require a desktop build")
     endif()
@@ -14,4 +14,4 @@ function(lampbox_configure_agent_tests)
     include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/tests.cmake")
 endfunction()
 
-cmake_language(DEFER CALL lampbox_configure_agent_tests)
+cmake_language(DEFER CALL mediaboxmanager_configure_agent_tests)

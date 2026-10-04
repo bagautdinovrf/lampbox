@@ -8,7 +8,7 @@ body[data-design][data-palette] {
   --status-ok:#236747; --status-ok-bg:#edf6f0;
   --status-warning:#885816; --status-warning-bg:#fff5e3;
   --status-error:#ad3740; --status-error-bg:#fff0f0;
-  font:13px/1.45 "Lamp Sans","Segoe UI",sans-serif;
+  font:13px/1.45 "MediaBoxManager Sans","Segoe UI",sans-serif;
   background:var(--bg); color:var(--ink); color-scheme:light;
 }
 body[data-design][data-palette] .app-shell {
@@ -54,8 +54,8 @@ body[data-design][data-palette] .workspace {
   padding:20px 22px 24px; overflow:auto; scrollbar-width:thin; background:var(--bg);
 }
 body[data-design][data-palette] .page-heading {display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0;margin:0 0 15px;border:0}
-body[data-design][data-palette] h1 {font-family:"Lamp Sans","Segoe UI",sans-serif;font-size:28px;line-height:1.15;letter-spacing:-.75px;font-weight:600;margin:0}
-body[data-design][data-palette] .page-heading h1 {font-family:"Lamp Sans","Segoe UI",sans-serif;font-size:28px;font-weight:600;letter-spacing:-.75px}
+body[data-design][data-palette] h1 {font-family:"MediaBoxManager Sans","Segoe UI",sans-serif;font-size:28px;line-height:1.15;letter-spacing:-.75px;font-weight:600;margin:0}
+body[data-design][data-palette] .page-heading h1 {font-family:"MediaBoxManager Sans","Segoe UI",sans-serif;font-size:28px;font-weight:600;letter-spacing:-.75px}
 body[data-design][data-palette] .eyebrow {font-size:10px;line-height:1.3;letter-spacing:.7px;color:var(--muted);font-weight:600;text-transform:uppercase}
 body[data-design][data-palette] .heading-copy .eyebrow {margin:0 0 5px}
 body[data-design][data-palette] .heading-copy p {font-size:12px;margin-top:5px;color:var(--muted)}
@@ -106,7 +106,7 @@ body[data-design][data-palette] .channel-panel-footer p {margin-bottom:7px}
 body[data-design][data-palette] .channel-panel-footer .button {font-size:10px;padding:6px 0;white-space:normal;text-align:left;justify-content:flex-start}
 body[data-design][data-palette] .feature,body[data-design][data-palette] .feature:has(.feature-action) {grid-column:2;grid-row:1;display:flex;flex-direction:row;align-items:center;position:relative;min-height:0;padding:13px 47px 13px 15px;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:9px;background:#fff;box-shadow:none;overflow:hidden}
 body[data-design][data-palette] .feature-copy {width:auto;max-width:none;min-width:0;position:relative}
-body[data-design][data-palette] .feature h2 {font-family:"Lamp Sans","Segoe UI",sans-serif;font-size:18px;font-weight:600;line-height:1.3;letter-spacing:-.3px;max-width:none;margin:3px 0 4px}
+body[data-design][data-palette] .feature h2 {font-family:"MediaBoxManager Sans","Segoe UI",sans-serif;font-size:18px;font-weight:600;line-height:1.3;letter-spacing:-.3px;max-width:none;margin:3px 0 4px}
 body[data-design][data-palette] .feature p,body[data-design][data-palette] .feature-copy > p {font-size:11px;line-height:1.5;max-width:none;color:var(--muted)}
 body[data-design][data-palette] .feature .eyebrow {font-size:9px;color:var(--muted);letter-spacing:.5px}
 body[data-design][data-palette] .feature-meta {position:static;gap:10px;margin:6px 0 0;padding:0;border:0;font-size:10px}
@@ -206,7 +206,7 @@ body[data-design][data-palette] .transport-actions .button {font-size:10px;min-h
 body[data-design][data-palette] .status-dot {background:#358557;width:6px;height:6px}
 body[data-design][data-palette] .service-view {max-width:1080px;margin:0}
 body[data-design][data-palette] .service-card {padding:20px;margin-bottom:16px}
-body[data-design][data-palette] .service-card h2 {font-family:"Lamp Sans","Segoe UI",sans-serif;font-size:20px;font-weight:600;letter-spacing:-.4px}
+body[data-design][data-palette] .service-card h2 {font-family:"MediaBoxManager Sans","Segoe UI",sans-serif;font-size:20px;font-weight:600;letter-spacing:-.4px}
 body[data-design][data-palette] .service-card p {font-size:12px;line-height:1.6}
 body[data-design][data-palette] .about-brand {font-size:32px;letter-spacing:-1px}
 body[data-design][data-palette] .notice {background:#f1f5fa;border:1px solid #dce5ef;border-radius:7px;padding:10px 13px;font-size:11px;color:#44617e}

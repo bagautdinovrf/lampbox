@@ -1,11 +1,10 @@
-lampbox.pro.user
-MediaBoxManager.pro.user*
-MediaBoxPlayer.pro.user*
-MediaBoxVPlayer.pro.user*
+*.pro.user
+*.pro.user.*
 *.exe
 *.stackdump
+*.rej
 *.2-pre1
-build-lampbox*
+build-mediaboxmanager*
 build-MediaBoxManager*
 build-MediaBoxPlayer*
 build-MediaBoxVPlayer*
@@ -22,5 +21,3 @@ Installer/bin/
 /CMakeUserPresets.json
 /.qtcreator/
 /CMakeLists.txt.user
-src/lampbox.pro.user.3.3-pre1
-src/lampbox.pro.user.cac5ded.4.8-pre1

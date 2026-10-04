@@ -125,6 +125,21 @@ bool parseStatus(const QJsonObject &object, PlayerStatus *status)
     status->muted = muted.toBool();
     status->repeat = repeat.toString();
     status->error = error.toString();
+    // Older v1 players omit these fields; accept their manual playback status.
+    const auto mode = object.value(QStringLiteral("playbackMode"));
+    const auto channel = object.value(QStringLiteral("channelName"));
+    const auto available = object.value(QStringLiteral("scheduleAvailable"));
+    const auto scheduleError = object.value(QStringLiteral("scheduleError"));
+    if ((!mode.isUndefined() && (!mode.isString()
+            || (mode.toString() != QStringLiteral("manual") && mode.toString() != QStringLiteral("schedule"))))
+        || (!channel.isUndefined() && !channel.isString())
+        || (!available.isUndefined() && !available.isBool())
+        || (!scheduleError.isUndefined() && !scheduleError.isString()))
+        return false;
+    status->playbackMode = mode.toString(QStringLiteral("manual"));
+    status->channelName = channel.toString();
+    status->scheduleAvailable = available.toBool();
+    status->scheduleError = scheduleError.toString();
     return true;
 }
 
@@ -624,6 +639,36 @@ QString MediaBoxPlayerClient::stop() { return submit(QStringLiteral("stop")); }
 QString MediaBoxPlayerClient::next() { return submit(QStringLiteral("next")); }
 QString MediaBoxPlayerClient::previous() { return submit(QStringLiteral("previous")); }
 QString MediaBoxPlayerClient::clear() { return submit(QStringLiteral("clear")); }
+
+QString MediaBoxPlayerClient::setSchedule(const QJsonObject &schedule)
+{
+    if (!schedule.value(QStringLiteral("channels")).isArray()
+        || !schedule.value(QStringLiteral("adverts")).isArray())
+        return reject(QStringLiteral("setSchedule"), QStringLiteral("invalid_arguments"),
+                      tr("Расписание должно содержать массивы каналов и рекламы."));
+    return submit(QStringLiteral("setSchedule"), {{QStringLiteral("schedule"), schedule}});
+}
+
+QString MediaBoxPlayerClient::startSchedule(const QJsonObject &schedule)
+{
+    if (schedule.isEmpty()) return submit(QStringLiteral("schedule"));
+    if (!schedule.value(QStringLiteral("channels")).isArray()
+        || !schedule.value(QStringLiteral("adverts")).isArray())
+        return reject(QStringLiteral("schedule"), QStringLiteral("invalid_arguments"),
+                      tr("Расписание должно содержать массивы каналов и рекламы."));
+    return submit(QStringLiteral("schedule"), {{QStringLiteral("schedule"), schedule}});
+}
+
+QString MediaBoxPlayerClient::playChannel(const QString &name, const QStringList &paths, int volume)
+{
+    if (name.trimmed().isEmpty() || name.size() > 256 || name.contains(QChar::Null)
+        || !validPaths(paths) || volume < 0 || volume > 100)
+        return reject(QStringLiteral("playChannel"), QStringLiteral("invalid_arguments"),
+                      tr("Выберите непустой канал с абсолютными путями и громкостью от 0 до 100."));
+    return submit(QStringLiteral("playChannel"), {{QStringLiteral("name"), name},
+                  {QStringLiteral("paths"), QJsonArray::fromStringList(paths)},
+                  {QStringLiteral("volume"), volume}});
+}
 
 QString MediaBoxPlayerClient::seek(qint64 positionMs)
 {

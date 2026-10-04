@@ -176,6 +176,18 @@ VideoControlWidget::VideoControlWidget(QWidget *parent, MediaBoxVPlayerClient *c
     mConfirmed = label({}, playback, "videoConfirmedStatus");
     mConfirmed->setMinimumHeight(45);
     playbackLayout->addWidget(mConfirmed);
+    mSelectedChannel = label({}, playback, "videoSelectedChannel");
+    mSelectedChannel->setColorRole(QStringLiteral("muted"));
+    playbackLayout->addWidget(mSelectedChannel);
+    auto *modeActions = new QHBoxLayout;
+    mSchedule = button(tr("По расписанию"), "videoSchedule", playback, true);
+    mPlayChannel = button(tr("Играть канал"), "videoPlayChannel", playback);
+    mSchedule->setToolTip(tr("Запустить расписание видеоканалов в выбранном видеоэкране."));
+    mPlayChannel->setToolTip(tr("Воспроизводить выбранный видеоканал с повтором всех файлов."));
+    modeActions->addWidget(mSchedule);
+    modeActions->addWidget(mPlayChannel);
+    modeActions->addStretch();
+    playbackLayout->addLayout(modeActions);
     auto *transport = new QHBoxLayout;
     auto *previous = button(tr("Пред."), "videoPrevious", playback);
     auto *play = button(tr("Пуск"), "videoPlay", playback, true);
@@ -238,6 +250,8 @@ VideoControlWidget::VideoControlWidget(QWidget *parent, MediaBoxVPlayerClient *c
         if (profile && playlist)
             submit(mClient->load(profile->id, playlist->paths, 0, false), tr("Загрузка плейлиста"));
     });
+    connect(mSchedule, &QPushButton::clicked, this, [this] { startSelectedSchedule(); });
+    connect(mPlayChannel, &QPushButton::clicked, this, [this] { playSelectedChannel(); });
     connect(play, &QPushButton::clicked, this, [this] {
         if (auto *profile = selectedWindow()) submit(mClient->play(profile->id), tr("Пуск"));
     });
@@ -303,6 +317,7 @@ VideoControlWidget::VideoControlWidget(QWidget *parent, MediaBoxVPlayerClient *c
         if (mPending.remove(id)) message(tr("Команда отменена при изменении подключения."));
         updateActions();
     });
+    setSelectedChannel({}, {}, 100);
     restoreProfiles();
     refreshWindows();
     if (!client)
@@ -337,6 +352,67 @@ void VideoControlWidget::addPlaylistPaths(const QStringList &paths)
         return;
     }
     addPaths(paths);
+}
+
+void VideoControlWidget::setScheduleSnapshot(const QJsonObject &schedule)
+{
+    mScheduleSnapshot = schedule;
+    updateActions();
+}
+
+void VideoControlWidget::setSelectedChannel(const QString &name, const QStringList &paths, int volume)
+{
+    mSelectedChannelName = name;
+    mSelectedChannelPaths = paths;
+    mSelectedChannelVolume = volume;
+    mSelectedChannel->setText(name.isEmpty()
+        ? tr("Выберите видеоканал в основном окне менеджера.")
+        : tr("Выбран канал: %1 · файлов: %2").arg(name).arg(paths.size()));
+    updateActions();
+}
+
+bool VideoControlWidget::playbackTargetAvailable() const
+{
+    const auto *confirmed = confirmedWindow();
+    if (!confirmed || !mPending.isEmpty()) return false;
+    const auto &displays = mClient->videoStatus().displays;
+    if (confirmed->screen.isEmpty()) return !displays.isEmpty();
+    for (const auto &display : displays)
+        if (display.id == confirmed->screen) return true;
+    return false;
+}
+
+bool VideoControlWidget::playSelectedChannel()
+{
+    if (!playbackTargetAvailable()) {
+        message(tr("Выберите видеоэкран, назначьте доступный монитор и нажмите «Применить окно»."));
+        return false;
+    }
+    if (mSelectedChannelName.isEmpty() || mSelectedChannelPaths.isEmpty()) {
+        message(tr("Выберите видеоканал с файлами в основном окне менеджера."));
+        return false;
+    }
+    const QString id = mClient->playChannel(confirmedWindow()->id, mSelectedChannelName,
+                                           mSelectedChannelPaths, mSelectedChannelVolume);
+    submit(id, tr("Запуск канала «%1»").arg(mSelectedChannelName));
+    return !id.isEmpty();
+}
+
+bool VideoControlWidget::startSelectedSchedule()
+{
+    if (!playbackTargetAvailable()) {
+        message(tr("Выберите видеоэкран, назначьте доступный монитор и нажмите «Применить окно»."));
+        return false;
+    }
+    if (!mScheduleSnapshot.value(QStringLiteral("channels")).isArray()
+        || !mScheduleSnapshot.value(QStringLiteral("adverts")).isArray()) {
+        message(tr("Расписание видеоканалов ещё не подготовлено."));
+        return false;
+    }
+    const QString windowId = confirmedWindow()->id;
+    const QString id = mClient->startSchedule(windowId, mScheduleSnapshot);
+    submit(id, tr("Запуск по расписанию"));
+    return !id.isEmpty();
 }
 
 VideoControlWidget::WindowProfile *VideoControlWidget::selectedWindow()
@@ -521,7 +597,11 @@ void VideoControlWidget::refreshStatus()
         mConfirmed->setText(tr("Плеер: %1 · монитор %2 · %3\n%4")
                 .arg(playbackState, monitor, confirmed->fullscreen ? tr("полный экран") : tr("в окне"),
                      playback.currentTrack.isEmpty() ? tr("Видео не выбрано") : playback.currentTrack)
+                + tr("\nРежим: %1%2").arg(playback.playbackMode == QStringLiteral("schedule")
+                    ? tr("по расписанию") : tr("ручной"),
+                    playback.channelName.isEmpty() ? QString() : tr(" · канал «%1»").arg(playback.channelName))
                 + (playback.error.isEmpty() ? QString() : tr("\nОшибка: %1").arg(playback.error))
+                + (playback.scheduleError.isEmpty() ? QString() : tr("\nРасписание: %1").arg(playback.scheduleError))
                 + (confirmed->restoreError.isEmpty() ? QString() : tr("\nВосстановление: %1").arg(confirmed->restoreError)));
     }
 }
@@ -538,6 +618,12 @@ void VideoControlWidget::updateActions()
     mApply->setEnabled(profile && ready && idle);
     mLoad->setEnabled(playlist && confirmed && idle && !selectedPlaylist()->paths.isEmpty());
     mToggleFullscreen->setEnabled(confirmed && idle);
+    const bool playbackAvailable = playbackTargetAvailable();
+    mSchedule->setEnabled(playbackAvailable
+        && mScheduleSnapshot.value(QStringLiteral("channels")).isArray()
+        && mScheduleSnapshot.value(QStringLiteral("adverts")).isArray());
+    mPlayChannel->setEnabled(playbackAvailable && !mSelectedChannelName.isEmpty()
+                            && !mSelectedChannelPaths.isEmpty());
     for (auto *action : mTransportButtons) action->setEnabled(confirmed && idle);
     for (auto *action : mPlaylistButtons) action->setEnabled(playlist);
 }
