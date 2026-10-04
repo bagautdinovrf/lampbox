@@ -140,8 +140,15 @@ private slots:
         QCOMPARE(port->maximum(), 65535);
 
         save->click();
-        QCOMPARE(changed.size(), 0);
+        QCOMPARE(changed.size(), 1);
+        QVERIFY(Settings().playerConnection().token.isEmpty());
+        changed.clear();
         QVERIFY(!message->text().isEmpty());
+        host->setText("player.example.test");
+        save->click();
+        QCOMPARE(changed.size(), 0);
+        QCOMPARE(Settings().playerConnection().host, QString("127.0.0.1"));
+        host->setText("127.0.0.1");
         secret->setText(QString(64, QLatin1Char('A')));
         save->click();
         QCOMPARE(changed.size(), 0);

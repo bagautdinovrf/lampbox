@@ -1,6 +1,7 @@
 #include "settingsdialog.h"
 #include "ui_settingsdialog.h"
 #include "settings.h"
+#include "mediacontroller.h"
 #include "restylewidgets.h"
 
 #include <QApplication>
@@ -189,8 +190,12 @@ SettingsDialog::SettingsDialog(QWidget *parent, Qt::WindowFlags f) :
     playerLayout->setContentsMargins(21, 20, 21, 21);
     playerLayout->setSpacing(12);
     playerLayout->addWidget(new RestyleLabel(tr("MediaBoxPlayer"), 20, QFont::DemiBold, player));
-    playerLayout->addWidget(caption(tr("MediaBoxPlayer должен быть запущен на указанной машине. "
-                                       "Пути медиафайлов относятся к машине плеера."), player));
+    playerLayout->addWidget(caption(MediaController::supportsLocalStart()
+                                    ? tr("На этом компьютере Manager сам запустит MediaBoxPlayer, если нет подключения. "
+                                       "На удалённой машине плеер нужно запустить заранее. "
+                                       "Пути медиафайлов относятся к машине плеера.")
+                                    : tr("MediaBoxPlayer должен быть запущен на указанной машине. "
+                                         "Пути медиафайлов относятся к машине плеера."), player));
 
     auto *fields = new QGridLayout;
     fields->setHorizontalSpacing(12);
@@ -211,7 +216,9 @@ SettingsDialog::SettingsDialog(QWidget *parent, Qt::WindowFlags f) :
     mPlayerToken->setObjectName(QStringLiteral("playerToken"));
     mPlayerToken->setAccessibleName(tr("Токен доступа к плееру"));
     mPlayerToken->setEchoMode(QLineEdit::Password);
-    mPlayerToken->setPlaceholderText(tr("Токен из control.token"));
+    mPlayerToken->setPlaceholderText(MediaController::supportsLocalStart()
+                                   ? tr("Для локального плеера можно оставить пустым")
+                                   : tr("Токен из control.token"));
     mPlayerToken->setMinimumHeight(32);
     auto *hostLabel = caption(tr("Адрес / DNS-имя"), player);
     hostLabel->setBuddy(mPlayerHost);
@@ -226,7 +233,10 @@ SettingsDialog::SettingsDialog(QWidget *parent, Qt::WindowFlags f) :
     fields->addWidget(tokenLabel, 2, 0, 1, 2);
     fields->addWidget(mPlayerToken, 3, 0, 1, 2);
     playerLayout->addLayout(fields);
-    playerLayout->addWidget(caption(tr("Скопируйте 64 символа из файла control.token в каталоге данных плеера."), player));
+    playerLayout->addWidget(caption(MediaController::supportsLocalStart()
+                                    ? tr("Для localhost, 127.0.0.1 или ::1 токен определяется автоматически. "
+                                         "Для удалённого плеера скопируйте 64 символа из его файла control.token.")
+                                    : tr("Скопируйте 64 символа из файла control.token в каталоге данных плеера."), player));
     mPlayerConnectionMessage = caption({}, player);
     mPlayerConnectionMessage->setObjectName(QStringLiteral("playerConnectionMessage"));
     mPlayerConnectionMessage->setTextFormat(Qt::PlainText);
@@ -248,8 +258,12 @@ SettingsDialog::SettingsDialog(QWidget *parent, Qt::WindowFlags f) :
     videoPlayerLayout->setContentsMargins(21, 20, 21, 21);
     videoPlayerLayout->setSpacing(12);
     videoPlayerLayout->addWidget(new RestyleLabel(tr("MediaBoxVPlayer"), 20, QFont::DemiBold, videoPlayer));
-    videoPlayerLayout->addWidget(caption(tr("MediaBoxVPlayer должен быть запущен на указанной машине. "
-                                       "Пути медиафайлов относятся к машине плеера."), videoPlayer));
+    videoPlayerLayout->addWidget(caption(MediaController::supportsLocalStart()
+                                    ? tr("На этом компьютере Manager сам запустит MediaBoxVPlayer, если нет подключения. "
+                                         "На удалённой машине видеоплеер нужно запустить заранее. "
+                                         "Пути медиафайлов относятся к машине плеера.")
+                                    : tr("MediaBoxVPlayer должен быть запущен на указанной машине. "
+                                         "Пути медиафайлов относятся к машине плеера."), videoPlayer));
 
     auto *videoFields = new QGridLayout;
     videoFields->setHorizontalSpacing(12);
@@ -270,7 +284,9 @@ SettingsDialog::SettingsDialog(QWidget *parent, Qt::WindowFlags f) :
     mVideoPlayerToken->setObjectName(QStringLiteral("videoPlayerToken"));
     mVideoPlayerToken->setAccessibleName(tr("Токен доступа к плееру"));
     mVideoPlayerToken->setEchoMode(QLineEdit::Password);
-    mVideoPlayerToken->setPlaceholderText(tr("Токен из control.token"));
+    mVideoPlayerToken->setPlaceholderText(MediaController::supportsLocalStart()
+                                       ? tr("Для локального видеоплеера можно оставить пустым")
+                                       : tr("Токен из control.token"));
     mVideoPlayerToken->setMinimumHeight(32);
     auto *videoHostLabel = caption(tr("Адрес / DNS-имя"), videoPlayer);
     videoHostLabel->setBuddy(mVideoPlayerHost);
@@ -285,7 +301,10 @@ SettingsDialog::SettingsDialog(QWidget *parent, Qt::WindowFlags f) :
     videoFields->addWidget(videoTokenLabel, 2, 0, 1, 2);
     videoFields->addWidget(mVideoPlayerToken, 3, 0, 1, 2);
     videoPlayerLayout->addLayout(videoFields);
-    videoPlayerLayout->addWidget(caption(tr("Скопируйте 64 символа из файла control.token видеоплеера в каталоге данных плеера."), videoPlayer));
+    videoPlayerLayout->addWidget(caption(MediaController::supportsLocalStart()
+                                    ? tr("Для localhost, 127.0.0.1 или ::1 токен определяется автоматически. "
+                                         "Для удалённого видеоплеера скопируйте 64 символа из его файла control.token.")
+                                    : tr("Скопируйте 64 символа из файла control.token видеоплеера в каталоге данных плеера."), videoPlayer));
     mVideoPlayerConnectionMessage = caption({}, videoPlayer);
     mVideoPlayerConnectionMessage->setObjectName(QStringLiteral("videoPlayerConnectionMessage"));
     mVideoPlayerConnectionMessage->setTextFormat(Qt::PlainText);
@@ -455,7 +474,7 @@ void SettingsDialog::savePlayerConnection()
     PlayerConnectionSettings connection;
     connection.host = mPlayerHost->text().trimmed();
     if (connection.host.isEmpty()) {
-        showError(tr("Укажите адрес машины, на которой запущен MediaBoxPlayer."), mPlayerHost);
+        showError(tr("Укажите адрес машины плеера. Для этого компьютера — 127.0.0.1."), mPlayerHost);
         return;
     }
     if (!mPlayerPort->hasAcceptableInput()) {
@@ -465,7 +484,9 @@ void SettingsDialog::savePlayerConnection()
     connection.port = static_cast<quint16>(mPlayerPort->value());
     connection.token = mPlayerToken->text().trimmed();
     static const QRegularExpression tokenPattern(QStringLiteral("\\A[0-9a-f]{64}\\z"));
-    if (!tokenPattern.match(connection.token).hasMatch()) {
+    const bool automaticLocalToken = MediaController::supportsLocalStart()
+                                     && connection.token.isEmpty() && MediaController::isLocalHost(connection.host);
+    if (!automaticLocalToken && !tokenPattern.match(connection.token).hasMatch()) {
         showError(tr("Токен должен содержать 64 символа: цифры 0–9 и строчные буквы a–f."), mPlayerToken);
         return;
     }
@@ -493,7 +514,7 @@ void SettingsDialog::saveVideoPlayerConnection()
     PlayerConnectionSettings connection;
     connection.host = mVideoPlayerHost->text().trimmed();
     if (connection.host.isEmpty()) {
-        showError(tr("Укажите адрес машины, на которой запущен MediaBoxVPlayer."), mVideoPlayerHost);
+        showError(tr("Укажите адрес машины видеоплеера. Для этого компьютера — 127.0.0.1."), mVideoPlayerHost);
         return;
     }
     if (!mVideoPlayerPort->hasAcceptableInput()) {
@@ -503,7 +524,9 @@ void SettingsDialog::saveVideoPlayerConnection()
     connection.port = static_cast<quint16>(mVideoPlayerPort->value());
     connection.token = mVideoPlayerToken->text().trimmed();
     static const QRegularExpression tokenPattern(QStringLiteral("\\A[0-9a-f]{64}\\z"));
-    if (!tokenPattern.match(connection.token).hasMatch()) {
+    const bool automaticLocalToken = MediaController::supportsLocalStart()
+                                     && connection.token.isEmpty() && MediaController::isLocalHost(connection.host);
+    if (!automaticLocalToken && !tokenPattern.match(connection.token).hasMatch()) {
         showError(tr("Токен должен содержать 64 символа: цифры 0–9 и строчные буквы a–f."), mVideoPlayerToken);
         return;
     }

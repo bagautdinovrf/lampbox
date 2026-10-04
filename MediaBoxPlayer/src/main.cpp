@@ -19,6 +19,23 @@
 #endif
 
 namespace {
+#ifdef Q_OS_WIN
+bool hasStartupFlag(int argc, char *argv[], const QByteArray &flag)
+{
+    for (int i = 1; i < argc; ++i) {
+        const QByteArray argument(argv[i]);
+        if (argument == "--")
+            break;
+        if (argument == flag)
+            return true;
+        // Values belong to the preceding option, even if they look like flags.
+        if (argument == "--data-dir" || argument == "--listen" || argument == "--port")
+            ++i;
+    }
+    return false;
+}
+#endif
+
 QStringList legacyControlTokens()
 {
     QStringList paths;
@@ -58,6 +75,10 @@ int runPlayer(int argc, char *argv[])
                       QStringLiteral("address"), QStringLiteral("127.0.0.1")});
     parser.addOption({QStringLiteral("port"), QStringLiteral("TCP-порт API управления."),
                       QStringLiteral("port"), QStringLiteral("17655")});
+#ifndef Q_OS_ANDROID
+    parser.addOption({QStringLiteral("managed"),
+                      QStringLiteral("Фоновый запуск из Manager: явный --data-dir, loopback API и токен из MEDIABOXPLAYER_CONTROL_TOKEN.")});
+#endif
 #ifdef Q_OS_WIN
     parser.addOption({QStringLiteral("service"), QStringLiteral("Запуск службой Windows через SCM.")});
 #endif
@@ -74,6 +95,26 @@ int runPlayer(int argc, char *argv[])
         return 2;
     }
 
+    QByteArray token;
+#ifndef Q_OS_ANDROID
+    const bool managed = parser.isSet(QStringLiteral("managed"));
+    if (managed) {
+        token = qgetenv("MEDIABOXPLAYER_CONTROL_TOKEN");
+        qunsetenv("MEDIABOXPLAYER_CONTROL_TOKEN");
+        if (!parser.isSet(QStringLiteral("data-dir")) || !address.isLoopback()) {
+            qCritical() << "Managed mode requires an explicit --data-dir and a loopback --listen address.";
+            return 2;
+        }
+        bool validToken = token.size() == 64;
+        for (const char byte : token)
+            validToken = validToken && ((byte >= '0' && byte <= '9') || (byte >= 'a' && byte <= 'f'));
+        if (!validToken) {
+            qCritical() << "Managed mode requires MEDIABOXPLAYER_CONTROL_TOKEN with 64 lowercase hexadecimal characters.";
+            return 2;
+        }
+    }
+#endif
+
     const QString dataDirectory = QDir(parser.value(QStringLiteral("data-dir"))).absolutePath();
     if (parser.value(QStringLiteral("data-dir")).isEmpty() || !QDir().mkpath(dataDirectory)) {
         qCritical() << "Cannot create player data directory:" << dataDirectory;
@@ -87,10 +128,11 @@ int runPlayer(int argc, char *argv[])
     }
 
     QString error;
-    QByteArray token;
     const QStringList legacyTokens = parser.isSet(QStringLiteral("data-dir"))
         ? QStringList() : legacyControlTokens();
-    if (!MediaBox::loadControlToken(dataDirectory, &token, &error, legacyTokens)) {
+    // A managed token belongs to the launching Manager. Do not replace or create
+    // the standalone/service token, which can have a different lifetime.
+    if (token.isEmpty() && !MediaBox::loadControlToken(dataDirectory, &token, &error, legacyTokens)) {
         qCritical().noquote() << error;
         return 1;
     }
@@ -143,9 +185,12 @@ int runPlayer(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
 #ifdef Q_OS_WIN
-    for (int i = 1; i < argc; ++i) {
-        if (QByteArray(argv[i]) == "--service")
-            return MediaBox::runWindowsService(argc, argv, runPlayer);
+    if (hasStartupFlag(argc, argv, "--service")) {
+        if (hasStartupFlag(argc, argv, "--managed")) {
+            qCritical() << "--managed and --service cannot be used together.";
+            return 2;
+        }
+        return MediaBox::runWindowsService(argc, argv, runPlayer);
     }
 #endif
     return runPlayer(argc, argv);

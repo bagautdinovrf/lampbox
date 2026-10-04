@@ -7,6 +7,7 @@
 #include <QUuid>
 
 #include <limits>
+#include <memory>
 #include <utility>
 
 namespace {
@@ -144,7 +145,7 @@ MediaBoxPlayerClient::MediaBoxPlayerClient(QObject *parent)
     m_reconnectTimer.setSingleShot(true);
     connect(&m_connectTimer, &QTimer::timeout, this, [this] {
         if (m_socket)
-            failConnection(tr("Истекло время подключения к плееру."));
+            failConnectionAttempt(tr("Истекло время подключения к плееру."));
     });
     connect(&m_responseTimer, &QTimer::timeout, this, [this] {
         if (m_current)
@@ -263,14 +264,16 @@ void MediaBoxPlayerClient::beginConnection()
     const quint64 generation = m_generation;
     auto *socket = new QTcpSocket(this);
     m_socket = socket;
+    auto connected = std::make_shared<bool>(false);
     socket->setReadBufferSize(MaxResponseBytes + 1);
     const auto current = [this, socket, generation] {
         return m_socket == socket && m_generation == generation;
     };
 
-    connect(socket, &QTcpSocket::connected, this, [this, current] {
+    connect(socket, &QTcpSocket::connected, this, [this, current, connected] {
         if (!current())
             return;
+        *connected = true;
         m_connectTimer.stop();
         setState(ConnectionState::Synchronizing);
         if (current()) {
@@ -289,14 +292,19 @@ void MediaBoxPlayerClient::beginConnection()
             failConnection(tr("Соединение с плеером закрыто."));
     });
     connect(socket, &QTcpSocket::errorOccurred, this,
-            [this, socket, current](QAbstractSocket::SocketError) {
+            [this, socket, current, connected](QAbstractSocket::SocketError) {
         if (!current())
             return;
         // A peer may close immediately after its complete reply.
         if (socket->bytesAvailable() > 0)
             readAvailable();
-        if (current())
-            failConnection(tr("Ошибка соединения с плеером: %1").arg(socket->errorString()));
+        if (current()) {
+            const QString message = tr("Ошибка соединения с плеером: %1").arg(socket->errorString());
+            if (*connected)
+                failConnection(message);
+            else
+                failConnectionAttempt(message);
+        }
     });
 
     if (m_state != ConnectionState::Reconnecting)
@@ -364,6 +372,17 @@ void MediaBoxPlayerClient::failConnection(const QString &message, ConnectionStat
     m_reconnectTimer.start(m_reconnectDelayMs);
     m_reconnectDelayMs = static_cast<int>(qMin<qint64>(
         qint64(m_reconnectDelayMs) * 2, m_timing.reconnectMaximumMs));
+}
+
+void MediaBoxPlayerClient::failConnectionAttempt(const QString &message)
+{
+    const quint64 generation = m_generation;
+    const PlayerConnectionSettings settings = m_settings;
+    failConnection(message);
+    // A direct UI receiver may have disconnected or selected another player.
+    if (m_generation == generation + 1 && m_wantsConnection
+        && m_state == ConnectionState::Reconnecting)
+        emit connectionAttemptFailed(settings);
 }
 
 QString MediaBoxPlayerClient::reject(const QString &command, const QString &code,

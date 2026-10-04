@@ -1,21 +1,35 @@
 #include "mediacontroller.h"
-#include "settings.h"
+#include "localplayerlauncher.h"
 
-#include <QTimer>
-
-MediaController::MediaController(QObject *parent) : MediaBoxPlayerClient(parent)
+MediaController::MediaController(QObject *parent)
+    : MediaBoxPlayerClient(parent), mLocalPlayer(new LocalPlayerLauncher(this, LocalPlayerLauncher::Kind::Audio))
 {
-    // Let the window subscribe to errors and state changes before connecting.
-    QTimer::singleShot(0, this, &MediaController::reloadConnection);
+    connect(mLocalPlayer, &LocalPlayerLauncher::localPlayerStarted, this, &MediaController::localPlayerStarted);
+}
+
+bool MediaController::isLocalHost(const QString &host)
+{
+    return LocalPlayerLauncher::isLocalHost(host);
+}
+
+bool MediaController::supportsLocalStart()
+{
+    return LocalPlayerLauncher::supportsLocalStart();
+}
+
+void MediaController::connectToPlayer(const PlayerConnectionSettings &settings)
+{
+    mLocalPlayer->connectToPlayer(settings);
+}
+
+void MediaController::disconnectFromPlayer()
+{
+    mLocalPlayer->disconnectFromPlayer();
 }
 
 void MediaController::reloadConnection()
 {
-    const auto connection = Settings().playerConnection();
-    if (connection.token.isEmpty())
-        disconnectFromPlayer();
-    else
-        connectToPlayer(connection);
+    mLocalPlayer->reloadConnection();
 }
 
 bool MediaController::isPlaying() const

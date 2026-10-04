@@ -2,6 +2,7 @@
 
 #include "restylewidgets.h"
 #include "settings.h"
+#include "videocontroller.h"
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -54,7 +55,7 @@ bool absoluteMediaPath(const QString &path)
 }
 }
 
-VideoControlWidget::VideoControlWidget(QWidget *parent) : QWidget(parent)
+VideoControlWidget::VideoControlWidget(QWidget *parent, MediaBoxVPlayerClient *client) : QWidget(parent)
 {
     setObjectName(QStringLiteral("videoControlWidget"));
     setFont(Restyle::font());
@@ -201,8 +202,9 @@ VideoControlWidget::VideoControlWidget(QWidget *parent) : QWidget(parent)
     mProfileError->hide();
     outer->addWidget(mProfileError);
 
-    mClient = new MediaBoxVPlayerClient(this);
-    mClient->setObjectName(QStringLiteral("videoPlayerClient"));
+    mClient = client ? client : new VideoController(this);
+    if (!client)
+        mClient->setObjectName(QStringLiteral("videoPlayerClient"));
     connect(settings, &QPushButton::clicked, this, &VideoControlWidget::settingsRequested);
     connect(mAddWindow, &QPushButton::clicked, this, &VideoControlWidget::addWindow);
     connect(mRemoveWindow, &QPushButton::clicked, this, &VideoControlWidget::removeWindow);
@@ -257,11 +259,17 @@ VideoControlWidget::VideoControlWidget(QWidget *parent) : QWidget(parent)
     });
     connect(mClient, &MediaBoxVPlayerClient::videoStatusChanged, this, &VideoControlWidget::receiveStatus);
     connect(mClient, &MediaBoxPlayerClient::connectionStateChanged, this, [this] {
+        if (mClient->isReady()) {
+            if (!mConnectionErrorMessage.isEmpty() && mMessage->text() == mConnectionErrorMessage)
+                message(tr("Подключение к MediaBoxVPlayer установлено."), QStringLiteral("success"));
+            mConnectionErrorMessage.clear();
+        }
         refreshDisplays();
         refreshStatus();
         updateActions();
     });
     connect(mClient, &MediaBoxPlayerClient::connectionError, this, [this](const QString &text) {
+        mConnectionErrorMessage = text;
         message(text, QStringLiteral("error"));
     });
     connect(mClient, &MediaBoxPlayerClient::commandSucceeded, this, [this](const QString &id) {
@@ -297,7 +305,14 @@ VideoControlWidget::VideoControlWidget(QWidget *parent) : QWidget(parent)
     });
     restoreProfiles();
     refreshWindows();
-    reloadConnection();
+    if (!client)
+        reloadConnection();
+    else if (mClient->isReady())
+        receiveStatus(mClient->videoStatus());
+    else {
+        refreshStatus();
+        updateActions();
+    }
 }
 
 void VideoControlWidget::reloadConnection()
@@ -305,7 +320,8 @@ void VideoControlWidget::reloadConnection()
     mClient->disconnectFromPlayer();
     mPending.clear();
     const auto connection = Settings().videoPlayerConnection();
-    if (connection.token.isEmpty()) {
+    if (connection.token.isEmpty()
+        && (!VideoController::supportsLocalStart() || !VideoController::isLocalHost(connection.host))) {
         message(tr("Укажите адрес и токен MediaBoxVPlayer в настройках подключения."));
         refreshStatus();
         updateActions();

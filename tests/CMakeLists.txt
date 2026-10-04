@@ -65,7 +65,7 @@ foreach(_suite IN ITEMS restyle schedulepreview ruleeditors secondary)
     endif()
 endforeach()
 
-foreach(_suite IN ITEMS playerclient playerui)
+foreach(_suite IN ITEMS playerclient playerui playerautostart)
     qt_add_executable(MediaBoxManager_${_suite}Tests tst_${_suite}.cpp)
     target_link_libraries(MediaBoxManager_${_suite}Tests PRIVATE MediaBoxManagerCore MediaBoxPlayerCore Qt6::Test)
     add_test(NAME MediaBoxManager_${_suite} COMMAND "${CMAKE_COMMAND}"
@@ -83,6 +83,7 @@ endforeach()
 target_compile_definitions(MediaBoxManager_playerclientTests PRIVATE
     PLAYER_EXECUTABLE="$<TARGET_FILE:MediaBoxPlayer>")
 add_dependencies(MediaBoxManager_playerclientTests MediaBoxPlayer)
+add_dependencies(MediaBoxManager_playerautostartTests MediaBoxPlayer)
 
 qt_add_executable(MediaBoxVPlayerProcessTests tst_vplayerprocess.cpp)
 target_link_libraries(MediaBoxVPlayerProcessTests PRIVATE Qt6::Core Qt6::Network Qt6::Test)
@@ -98,7 +99,7 @@ if(WIN32)
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${_qt_bin}")
 endif()
 
-foreach(_suite IN ITEMS vplayerclient videocontrols)
+foreach(_suite IN ITEMS vplayerclient videocontrols vplayerautostart)
     qt_add_executable(MediaBoxManager_${_suite}Tests tst_${_suite}.cpp)
     target_link_libraries(MediaBoxManager_${_suite}Tests PRIVATE MediaBoxManagerCore Qt6::Test)
     add_test(NAME MediaBoxManager_${_suite} COMMAND "${CMAKE_COMMAND}"
@@ -112,3 +113,5 @@ foreach(_suite IN ITEMS vplayerclient videocontrols)
             ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${_qt_bin}")
     endif()
 endforeach()
+
+add_dependencies(MediaBoxManager_vplayerautostartTests MediaBoxVPlayer)

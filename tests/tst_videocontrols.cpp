@@ -131,6 +131,12 @@ private slots:
         QSignalSpy changed(&dialog, &SettingsDialog::videoPlayerConnectionChanged);
         QSignalSpy audioChanged(&dialog, &SettingsDialog::playerConnectionChanged);
         save->click();
+        QCOMPARE(changed.size(), 1);
+        QVERIFY(Settings().videoPlayerConnection().token.isEmpty());
+        QCOMPARE(Settings().playerConnection().token, audio.token);
+        changed.clear();
+        host->setText("video.local");
+        save->click();
         QCOMPARE(changed.size(), 0);
         host->setText(" video.local ");
         port->setValue(17660);
@@ -152,6 +158,7 @@ private slots:
 
     void profilesAndPlaylistsPersistSeparately()
     {
+        QVERIFY(Settings().setVideoPlayerConnection({"video.invalid", 17656, {}}));
         QString firstWindowId;
         {
             VideoControlWidget widget;
@@ -209,6 +216,31 @@ private slots:
         QCOMPARE(paths->count(), 0);
         windows->setCurrentRow(0);
         QCOMPARE(paths->count(), 2);
+    }
+
+    void sharedConnectionSurvivesPanelReopening()
+    {
+        Peer peer;
+        QVERIFY(peer.server.isListening());
+        QVERIFY(Settings().setVideoPlayerConnection(peer.settings()));
+        MediaBoxVPlayerClient client;
+        client.setTiming({60000, 2000, 5000, 60000, 60000});
+        client.connectToPlayer(peer.settings());
+        QTRY_COMPARE(peer.requests.size(), 1);
+        peer.answer(0, snapshot());
+        QTRY_VERIFY(client.isReady());
+        for (int attempt = 0; attempt < 2; ++attempt) {
+            VideoControlWidget widget(nullptr, &client);
+            auto *windows = widget.findChild<QListWidget *>("videoWindows");
+            auto *status = widget.findChild<QLabel *>("videoConfirmedStatus");
+            QCOMPARE(windows->count(), 1);
+            QVERIFY(status->text().contains("остановлено"));
+            QVERIFY(client.isReady());
+            QVERIFY(widget.findChild<QPushButton *>("videoPlay")->isEnabled());
+            QCOMPARE(peer.requests.size(), 1);
+        }
+        QVERIFY(client.isReady());
+        QCOMPARE(peer.requests.size(), 1);
     }
 
     void remoteStatusAndExplicitCommands()

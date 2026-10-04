@@ -68,7 +68,7 @@ $outputDirectory = Join-Path (Get-Location).Path 'Installer\bin'
 if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
 ```
 
-В установщик входит весь готовый каталог deploy: MediaBoxManager, MediaBoxPlayer, MediaBoxVPlayer, библиотеки и плагины Qt, включая MultimediaWidgets и мультимедийный backend. Конфигурации, токены и `windows.json` в пакет не включаются. Для видеоплеера создаются отдельные ярлыки; его автоматический запуск и установка в качестве службы не выполняются. Подробнее об установщике — в [Installer/README.md](../Installer/README.md).
+В установщик входит весь готовый каталог deploy: MediaBoxManager, MediaBoxPlayer, MediaBoxVPlayer, библиотеки и плагины Qt, включая MultimediaWidgets и мультимедийный backend. Конфигурации, токены и `windows.json` в пакет не включаются. Для видеоплеера создаются отдельные ярлыки; установщик не регистрирует его как службу или в автозагрузке ОС. При запуске Manager недоступный локальный видеоплеер запускается автоматически. Подробнее об установщике — в [Installer/README.md](../Installer/README.md).
 
 `-Clean` удаляет только проверенный каталог `agent_build/build`. Если в нём есть символьная ссылка или junction, удаление блокируется. Журналы и папка установки сохраняются. Ошибка любого этапа прерывает выполнение с ненулевым кодом; отсутствие зарегистрированных тестов также считается ошибкой. `-SkipTests` пропускает только запуск CTest, сохраняя сборку тестов. Для отключения самих тестовых целей передайте `-SkipTests -CMakeArguments '-DBUILD_TESTING=OFF'`.
 
@@ -80,5 +80,11 @@ MediaBoxVPlayer дополнительно использует Gui, Widgets и 
 [TCP API v1](../MediaBoxPlayer/TCP_API.md); настройка подключения описана в
 [README](../README.md#подключение-mediaboxplayer). У видеоплеера отдельный
 [TCP API](../MediaBoxVPlayer/TCP_API.md), порт `17656` и токен.
+Для автоматического запуска локальных плееров Manager ищет `MediaBoxPlayer`
+и `MediaBoxVPlayer` рядом со своим исполняемым файлом. Обычная сборка и deploy
+уже размещают их вместе. Оба поддерживают `--managed` и продолжают работать
+после закрытия Manager. У аудиоплеера этот режим не требует Qt Widgets и не
+открывает окно; видеоплееру по-прежнему нужна графическая сессия, а сохранённые
+видеоокна восстанавливаются без autoplay.
 Исторический ключ
 `HKLM\SOFTWARE\LampBox\Station` используется только для поиска данных редактора.

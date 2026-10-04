@@ -6,6 +6,7 @@
 #include "channelmodel.h"
 #include "informer.h"
 #include "mediacontroller.h"
+#include "videocontroller.h"
 #include "playercontrolwidget.h"
 #include "videocontrolwidget.h"
 #include "medialibrarydelegate.h"
@@ -191,8 +192,29 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     updatePage(2);
     if (qApp->property("restylePreviewStation").toString().isEmpty()) {
         mMediaController = new MediaController(this);
+        mVideoController = new VideoController(this);
         connect(settings, &SettingsDialog::playerConnectionChanged,
                 mMediaController, &MediaController::reloadConnection);
+        connect(settings, &SettingsDialog::videoPlayerConnectionChanged,
+                mVideoController, &VideoController::reloadConnection);
+        connect(mVideoController, &MediaBoxPlayerClient::connectionError, this,
+                [this](const QString &message) {
+            const QString text = QStringLiteral("MediaBoxVPlayer: %1").arg(message);
+            mVideoConnectionMessage = text;
+            mOperationState->setText(text);
+            mOperationState->setToolTip(text);
+        });
+        connect(mVideoController, &MediaBoxPlayerClient::connectionStateChanged, this,
+                [this](MediaBoxPlayerClient::ConnectionState state) {
+            if (state != MediaBoxPlayerClient::ConnectionState::Ready)
+                return;
+            if (!mVideoConnectionMessage.isEmpty() && mOperationState->text() == mVideoConnectionMessage) {
+                const QString text = QStringLiteral("MediaBoxVPlayer подключён.");
+                mOperationState->setText(text);
+                mOperationState->setToolTip(text);
+            }
+            mVideoConnectionMessage.clear();
+        });
         connect(mMediaController, &MediaBoxPlayerClient::connectionStateChanged,
                 this, &MainWindow::updatePlayerState);
         connect(mMediaController, &MediaBoxPlayerClient::statusChanged,
@@ -203,7 +225,22 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
             mOperationState->setText(text);
             mOperationState->setToolTip(text);
         };
-        connect(mMediaController, &MediaBoxPlayerClient::connectionError, this, report);
+        connect(mMediaController, &MediaBoxPlayerClient::connectionError, this,
+                [this, report](const QString &message) {
+            report(message);
+            mAudioConnectionMessage = mUnknownPlayerCommand.isEmpty() ? message : QString();
+        });
+        connect(mMediaController, &MediaBoxPlayerClient::connectionStateChanged, this,
+                [this](MediaBoxPlayerClient::ConnectionState state) {
+            if (state != MediaBoxPlayerClient::ConnectionState::Ready)
+                return;
+            if (!mAudioConnectionMessage.isEmpty() && mOperationState->text() == mAudioConnectionMessage) {
+                const QString text = QStringLiteral("MediaBoxPlayer подключён.");
+                mOperationState->setText(text);
+                mOperationState->setToolTip(text);
+            }
+            mAudioConnectionMessage.clear();
+        });
         connect(mMediaController, &MediaBoxPlayerClient::commandFailed, this,
                 [report](const QString &, const QString &command, const QString &code, const QString &message) {
             report(QStringLiteral("Команда %1: %2 (%3)").arg(command, message, code));
@@ -1322,11 +1359,11 @@ void MainWindow::showVideoControls() {
         dialog->setAttribute(Qt::WA_DeleteOnClose);
         auto *layout = new QVBoxLayout(dialog);
         layout->setContentsMargins(0, 0, 0, 0);
-        auto *controls = new VideoControlWidget(dialog);
+        MediaBoxVPlayerClient *client = mVideoController;
+        if (!client)
+            client = new MediaBoxVPlayerClient(dialog);
+        auto *controls = new VideoControlWidget(dialog, client);
         layout->addWidget(controls);
-        if (auto *settings = findChild<SettingsDialog *>())
-            connect(settings, &SettingsDialog::videoPlayerConnectionChanged,
-                    controls, &VideoControlWidget::reloadConnection);
         connect(controls, &VideoControlWidget::settingsRequested, dialog, [this, dialog] {
             dialog->hide();
             changePage(4);

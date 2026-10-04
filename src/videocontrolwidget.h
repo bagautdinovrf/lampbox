@@ -19,7 +19,7 @@ class VideoControlWidget final : public QWidget
 {
     Q_OBJECT
 public:
-    explicit VideoControlWidget(QWidget *parent = nullptr);
+    explicit VideoControlWidget(QWidget *parent = nullptr, MediaBoxVPlayerClient *client = nullptr);
     void reloadConnection();
     void addPlaylistPaths(const QStringList &paths);
 signals:
@@ -66,6 +66,7 @@ private:
     MediaBoxVPlayerClient *mClient = nullptr;
     QList<WindowProfile> mProfiles;
     QHash<QString, Pending> mPending;
+    QString mConnectionErrorMessage;
     bool mUpdating = false;
     QListWidget *mWindows = nullptr;
     QLineEdit *mName = nullptr;

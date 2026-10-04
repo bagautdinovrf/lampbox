@@ -1,6 +1,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QProcess>
@@ -14,6 +15,67 @@ class ProcessTests final : public QObject
 {
     Q_OBJECT
 private slots:
+    void initTestCase()
+    {
+        // Windows may route Qt diagnostics to the debugger; child-process
+        // assertions need the same captured stderr as other platforms.
+        qputenv("QT_FORCE_STDERR_LOGGING", "1");
+    }
+
+    void managedRejectsInvalidLaunch_data()
+    {
+        QTest::addColumn<QStringList>("arguments");
+        QTest::addColumn<QByteArray>("token");
+        QTest::newRow("missing-token") << QStringList{} << QByteArray{};
+        QTest::newRow("short-token") << QStringList{} << QByteArray(63, 'a');
+        QTest::newRow("uppercase-token") << QStringList{} << QByteArray(64, 'A');
+        QTest::newRow("non-hex-token") << QStringList{} << QByteArray(64, 'z');
+        QTest::newRow("whitespace-token") << QStringList{} << (QByteArray(64, 'a') + '\n');
+        QTest::newRow("public-listen") << QStringList{"--listen", "0.0.0.0"} << QByteArray(64, 'a');
+        QTest::newRow("public-ipv6-listen") << QStringList{"--listen", "::"} << QByteArray(64, 'a');
+        QTest::newRow("remote-listen") << QStringList{"--listen", "192.0.2.1"} << QByteArray(64, 'a');
+#ifdef Q_OS_WIN
+        QTest::newRow("windows-service-conflict") << QStringList{"--service"} << QByteArray(64, 'a');
+#endif
+    }
+
+    void managedRejectsInvalidLaunch()
+    {
+        QFETCH(QStringList, arguments);
+        QFETCH(QByteArray, token);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+        environment.insert("MEDIABOXPLAYER_CONTROL_TOKEN", QString::fromLatin1(token));
+        QProcess process;
+        process.setProcessEnvironment(environment);
+        arguments.prepend(directory.filePath("uncreated"));
+        arguments.prepend("--data-dir");
+        arguments.prepend("--managed");
+        process.start(QStringLiteral(PLAYER_EXECUTABLE), arguments);
+        QVERIFY(process.waitForFinished(5000));
+        QCOMPARE(process.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(process.exitCode(), 2);
+        QVERIFY(!QFile::exists(directory.filePath("uncreated")));
+        const QByteArray error = process.readAllStandardError();
+        QVERIFY(!error.contains("Cannot connect MediaBoxPlayer to Windows Service Control Manager"));
+        if (!token.isEmpty())
+            QVERIFY(!error.contains(token));
+    }
+
+    void managedRequiresExplicitDirectory()
+    {
+        QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+        environment.insert("MEDIABOXPLAYER_CONTROL_TOKEN", QString(64, 'a'));
+        QProcess process;
+        process.setProcessEnvironment(environment);
+        process.start(QStringLiteral(PLAYER_EXECUTABLE), {"--managed"});
+        QVERIFY(process.waitForFinished(5000));
+        QCOMPARE(process.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(process.exitCode(), 2);
+        QVERIFY(process.readAllStandardError().contains("explicit --data-dir"));
+    }
+
     void rejectsInvalidPort()
     {
         QProcess process;
@@ -132,17 +194,41 @@ private slots:
     }
 #endif
 
+    void serviceAcceptsCommandsAndStopsCleanly_data()
+    {
+        QTest::addColumn<bool>("managed");
+        QTest::addColumn<bool>("existingTokenFile");
+        QTest::newRow("background") << false << false;
+        QTest::newRow("managed") << true << false;
+        QTest::newRow("managed-preserves-standalone-token") << true << true;
+    }
+
     void serviceAcceptsCommandsAndStopsCleanly()
     {
+        QFETCH(bool, managed);
+        QFETCH(bool, existingTokenFile);
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
+        const QByteArray managedToken(64, 'c');
+        const QByteArray standaloneToken(64, 'd');
+        if (existingTokenFile) {
+            QFile tokenFile(directory.filePath("control.token"));
+            QVERIFY(tokenFile.open(QIODevice::WriteOnly));
+            QCOMPARE(tokenFile.write(standaloneToken + '\n'), 65);
+        }
         QTcpServer reservation;
         QVERIFY(reservation.listen(QHostAddress::LocalHost, 0));
         const auto port = reservation.serverPort();
         reservation.close();
         QProcess process;
-        process.start(QStringLiteral(PLAYER_EXECUTABLE),
-                      {"--data-dir", directory.path(), "--port", QString::number(port)});
+        QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+        // An inherited env token must never override a standalone token.
+        environment.insert("MEDIABOXPLAYER_CONTROL_TOKEN", QString::fromLatin1(managedToken));
+        process.setProcessEnvironment(environment);
+        QStringList arguments{"--data-dir", directory.path(), "--port", QString::number(port)};
+        if (managed)
+            arguments.prepend("--managed");
+        process.start(QStringLiteral(PLAYER_EXECUTABLE), arguments);
         QVERIFY(process.waitForStarted(5000));
         QTcpSocket socket;
         const auto connected = [&] {
@@ -153,10 +239,21 @@ private slots:
             return socket.waitForConnected(50);
         };
         QTRY_VERIFY_WITH_TIMEOUT(connected(), 5000);
-        QFile token(directory.filePath("control.token"));
-        QVERIFY(token.open(QIODevice::ReadOnly));
-        const QByteArray controlToken = token.readAll().trimmed();
-        token.close();
+        QByteArray controlToken = managedToken;
+        if (!managed || existingTokenFile) {
+            QFile token(directory.filePath("control.token"));
+            QVERIFY(token.open(QIODevice::ReadOnly));
+            const QByteArray fileToken = token.readAll().trimmed();
+            if (managed) {
+                QCOMPARE(fileToken, standaloneToken);
+            } else {
+                QCOMPARE(fileToken.size(), 64);
+                QVERIFY(fileToken != managedToken);
+                controlToken = fileToken;
+            }
+        } else {
+            QVERIFY(!QFile::exists(directory.filePath("control.token")));
+        }
         const QJsonObject command{{"protocolVersion", 1}, {"token", QString::fromLatin1(controlToken)},
                                   {"command", "status"}, {"id", "service-test"}};
         socket.write(QJsonDocument(command).toJson(QJsonDocument::Compact) + '\n');
@@ -166,6 +263,29 @@ private slots:
         QVERIFY(response.value("ok").toBool());
         QCOMPARE(response.value("id").toString(), QStringLiteral("service-test"));
         QCOMPARE(response.value("status").toObject().value("state").toString(), QStringLiteral("stopped"));
+        QVERIFY(!response.value("status").toObject().value("playbackRequested").toBool());
+        QVERIFY(response.value("status").toObject().value("queue").toArray().isEmpty());
+
+        if (managed && existingTokenFile) {
+            QJsonObject wrongToken = command;
+            wrongToken.insert("token", QString::fromLatin1(standaloneToken));
+            socket.write(QJsonDocument(wrongToken).toJson(QJsonDocument::Compact) + '\n');
+            QVERIFY(socket.waitForReadyRead(5000));
+            QTRY_VERIFY(socket.canReadLine());
+            const auto rejected = QJsonDocument::fromJson(socket.readLine()).object();
+            QVERIFY(!rejected.value("ok").toBool());
+            QCOMPARE(rejected.value("error").toObject().value("code").toString(), QStringLiteral("unauthorized"));
+        }
+
+        QJsonObject volumeCommand = command;
+        volumeCommand.insert("command", "volume");
+        volumeCommand.insert("value", 37);
+        socket.write(QJsonDocument(volumeCommand).toJson(QJsonDocument::Compact) + '\n');
+        QVERIFY(socket.waitForReadyRead(5000));
+        QTRY_VERIFY(socket.canReadLine());
+        const auto volumeResponse = QJsonDocument::fromJson(socket.readLine()).object();
+        QVERIFY(volumeResponse.value("ok").toBool());
+        QCOMPARE(volumeResponse.value("status").toObject().value("volumePercent").toInt(), 37);
 
         // The data-directory lock applies even when a second process chooses another port.
         QProcess duplicate;

@@ -73,8 +73,8 @@ public:
     bool isReady() const { return m_state == ConnectionState::Ready; }
     void setTiming(const Timing &timing);
 
-    void connectToPlayer(const PlayerConnectionSettings &settings);
-    void disconnectFromPlayer();
+    virtual void connectToPlayer(const PlayerConnectionSettings &settings);
+    virtual void disconnectFromPlayer();
 
     // An empty return value means local rejection (commandFailed has an empty
     // id). Commands are accepted only after the initial status synchronization.
@@ -100,6 +100,8 @@ signals:
     void commandOutcomeUnknown(QString id, QString command);
     void commandCancelled(QString id, QString command);
     void connectionError(QString message);
+    // TCP establishment failed; never emitted for authentication or replies.
+    void connectionAttemptFailed(const PlayerConnectionSettings &settings);
 
 protected:
     // Reuse the bounded, authenticated transport for players with a different
@@ -127,6 +129,7 @@ private:
     void closeTransport(ConnectionState state, const QString &reason);
     void failConnection(const QString &message,
                         ConnectionState state = ConnectionState::Reconnecting);
+    void failConnectionAttempt(const QString &message);
     void readAvailable();
     bool processReply(const QByteArray &line);
     void sendNext();

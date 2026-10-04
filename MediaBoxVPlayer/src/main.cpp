@@ -30,6 +30,8 @@ int main(int argc, char *argv[])
         MediaBox::StoragePaths::Application::VideoPlayer);
     parser.addOption({QStringLiteral("data-dir"), QStringLiteral("Каталог настроек, токена и блокировки процесса."),
                       QStringLiteral("path"), defaultDirectory});
+    parser.addOption({QStringLiteral("managed"),
+                      QStringLiteral("Запуск из Manager: явный --data-dir, loopback API и токен из MEDIABOXVPLAYER_CONTROL_TOKEN.")});
     parser.process(application);
     if (!parser.positionalArguments().isEmpty())
         parser.showHelp(2);
@@ -39,6 +41,22 @@ int main(int argc, char *argv[])
     if (!validPort || port == 0 || port > 65535 || !address.setAddress(parser.value(QStringLiteral("host")))) {
         qCritical() << "Invalid --host IP address or --port (1..65535).";
         return 2;
+    }
+    QByteArray token;
+    if (parser.isSet(QStringLiteral("managed"))) {
+        token = qgetenv("MEDIABOXVPLAYER_CONTROL_TOKEN");
+        qunsetenv("MEDIABOXVPLAYER_CONTROL_TOKEN");
+        if (!parser.isSet(QStringLiteral("data-dir")) || !address.isLoopback()) {
+            qCritical() << "Managed mode requires an explicit --data-dir and a loopback --host address.";
+            return 2;
+        }
+        bool validToken = token.size() == 64;
+        for (const char byte : token)
+            validToken = validToken && ((byte >= '0' && byte <= '9') || (byte >= 'a' && byte <= 'f'));
+        if (!validToken) {
+            qCritical() << "Managed mode requires MEDIABOXVPLAYER_CONTROL_TOKEN with 64 lowercase hexadecimal characters.";
+            return 2;
+        }
     }
     const QString dataDirectory = QDir(parser.value(QStringLiteral("data-dir"))).absolutePath();
     if (parser.value(QStringLiteral("data-dir")).isEmpty() || !QDir().mkpath(dataDirectory)) {
@@ -52,8 +70,9 @@ int main(int argc, char *argv[])
         return 1;
     }
     QString error;
-    QByteArray token;
-    if (!MediaBox::loadControlToken(dataDirectory, &token, &error)) {
+    // The launching Manager owns a managed token. Preserve any standalone token
+    // in the same directory, and keep the managed credential only in memory.
+    if (token.isEmpty() && !MediaBox::loadControlToken(dataDirectory, &token, &error)) {
         qCritical().noquote() << error;
         return 1;
     }

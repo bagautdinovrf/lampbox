@@ -12,6 +12,7 @@ class AdvertModel;
 class MediaManager;
 class MediaModel;
 class MediaController;
+class VideoController;
 class QStackedWidget;
 class QComboBox;
 class QPushButton;
@@ -107,6 +108,7 @@ class MainWindow : public QMainWindow {
     std::unique_ptr<AdvertManager> mAdvertManager;
     AdvertModel *mAdvertModel = nullptr;
     MediaController *mMediaController = nullptr;
+    VideoController *mVideoController = nullptr;
     QStackedWidget *mStack = nullptr;
     QComboBox *mAppearance = nullptr;
     QComboBox *mTheme = nullptr;
@@ -117,6 +119,8 @@ class MainWindow : public QMainWindow {
     QLabel *mPlayerDetail = nullptr;
     QLabel *mOperationState = nullptr;
     QString mUnknownPlayerCommand;
+    QString mAudioConnectionMessage;
+    QString mVideoConnectionMessage;
     int mPage = PAGE_MUSIC;
 };
 #endif

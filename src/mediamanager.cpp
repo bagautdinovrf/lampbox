@@ -259,7 +259,7 @@ void MediaManager::createTagFile( const QString &fileName )
     }
     if( !mediaTag.audioProperties() )
         return;
-    tag.setValue( "length",     mediaTag.audioProperties()->length() );
+    tag.setValue( "length",     mediaTag.audioProperties()->lengthInSeconds() );
 }
 
 bool MediaManager::delFile(int num)

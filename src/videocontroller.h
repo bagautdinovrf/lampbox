@@ -1,26 +1,24 @@
-#ifndef MEDIACONTROLLER_H
-#define MEDIACONTROLLER_H
+#ifndef VIDEOCONTROLLER_H
+#define VIDEOCONTROLLER_H
 
-#include "mediaboxplayerclient.h"
+#include "mediaboxvplayerclient.h"
 
 class LocalPlayerLauncher;
 
-// Application-level entry point. All commands and telemetry use the TCP client.
-class MediaController : public MediaBoxPlayerClient
+// Persistent application-level video connection, including local startup.
+// All playback commands continue to use the authenticated TCP client.
+class VideoController final : public MediaBoxVPlayerClient
 {
     Q_OBJECT
 public:
-    explicit MediaController(QObject *parent = nullptr);
+    explicit VideoController(QObject *parent = nullptr);
     static bool isLocalHost(const QString &host);
     static bool supportsLocalStart();
     void connectToPlayer(const PlayerConnectionSettings &settings) override;
     void disconnectFromPlayer() override;
-    bool isPlaying() const;
-    QString playTrack(const QString &track);
 
 public slots:
     void reloadConnection();
-    void refreshPlayer();
 
 signals:
     void localPlayerStarted(qint64 processId);

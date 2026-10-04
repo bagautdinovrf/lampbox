@@ -37,7 +37,7 @@ Q_DECLARE_METATYPE(VideoPlayerStatus)
 // Each instance owns its connection and each command explicitly targets a
 // window. Screen identifiers come from the remote player's display snapshot;
 // an empty configured screen selects its primary display.
-class MediaBoxVPlayerClient final : public MediaBoxPlayerClient
+class MediaBoxVPlayerClient : public MediaBoxPlayerClient
 {
     Q_OBJECT
 
