@@ -56,6 +56,15 @@ void writeFile(const QString &path, const QByteArray &contents)
 
 void resetStation()
 {
+    const QString project = fixtureRoot + "/project.json";
+    if (QFileInfo::exists(project) && !QFile::remove(project))
+        qFatal("Cannot reset isolated project fixture");
+    // Each test owns these channels; preserve only the shared advert fixtures.
+    for (const QString &kind : {QStringLiteral("music"), QStringLiteral("video")}) {
+        QDir channels(fixtureRoot + "/media/" + kind);
+        if (channels.exists() && !channels.removeRecursively())
+            qFatal("Cannot reset isolated media fixture");
+    }
     for (const QString &folder : {"timetable", "media/music", "media/video", "media/ads", "cron"})
         QDir().mkpath(fixtureRoot + '/' + folder);
     writeFile(fixtureRoot + "/timetable/timetable", {});
@@ -163,16 +172,13 @@ void seedRestyleWindow(MainWindow &window)
         const QStringList names = type == 0 ? musicNames : videoNames;
         for (int row = 0; row < names.size(); ++row) {
             window.mPages[type].source->setMediaManager(nullptr);
-            if (!manager->createChannel())
+            const QTime start = type == 0 ? QTime(row == 0 ? 8 : row == 1 ? 12 : 17, 0)
+                                          : QTime(row == 0 ? 8 : 18, 0);
+            const QTime end = type == 0 ? QTime(row == 0 ? 12 : row == 1 ? 17 : 22, 0)
+                                        : QTime(row == 0 ? 18 : 22, 0);
+            if (!manager->createChannel({names[row], start, end, "*", "*", "*", 65}))
                 qFatal("Cannot create isolated channel");
             auto &channel = manager->channel(row);
-            channel.mediaManager().renameChannelDir(names[row]);
-            channel.setChannelName(names[row]);
-            channel.setStartTime(type == 0 ? QTime(row == 0 ? 8 : row == 1 ? 12 : 17, 0)
-                                          : QTime(row == 0 ? 8 : 18, 0));
-            channel.setEndTime(type == 0 ? QTime(row == 0 ? 12 : row == 1 ? 17 : 22, 0)
-                                        : QTime(row == 0 ? 18 : 22, 0));
-            channel.setVolume(65);
             const QString folder = fixtureRoot + "/media/" + (type == 0 ? "music/" : "video/") + names[row];
             if (type == 0) {
                 for (int track = row; track < (row == 0 ? 6 : 5); ++track)
@@ -185,7 +191,6 @@ void seedRestyleWindow(MainWindow &window)
             }
             channel.mediaManager().collectMediaFiles();
         }
-        manager->saveChannels();
     }
     window.updatePage(0);
     window.updatePage(1);
@@ -212,8 +217,8 @@ private slots:
         QVERIFY(QStandardPaths::isTestModeEnabled());
         QCOMPARE(StationManager::Instance().get(), fixtureRoot);
         const SPathData paths;
-        QVERIFY(paths.cronPath.startsWith(fixtureRoot + '/'));
-        QVERIFY(paths.advertTask.startsWith(fixtureRoot + '/'));
+        QCOMPARE(paths.projectFile, fixtureRoot + "/project.json");
+        QVERIFY(paths.advertDir.startsWith(fixtureRoot + '/'));
         QVERIFY(qApp->property("restylePreviewSettings").toString().startsWith(fixtureRoot + '/'));
     }
 
@@ -555,7 +560,7 @@ private slots:
         QVERIFY(!QFileInfo::exists(destination));
         QVERIFY(QMetaObject::invokeMethod(&window, "copyFiles", Qt::DirectConnection,
                                           Q_ARG(QStringList, QStringList{source})));
-        QCOMPARE(files->model()->rowCount(), originalFileCount + 1);
+        QTRY_COMPARE(files->model()->rowCount(), originalFileCount + 1);
         QVERIFY(QFileInfo::exists(source));
         QVERIFY(QFileInfo::exists(destination));
         QVERIFY(!QFileInfo::exists(otherDestination));

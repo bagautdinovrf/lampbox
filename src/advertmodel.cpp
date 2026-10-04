@@ -1,5 +1,6 @@
 
 #include "advertmodel.h"
+#include "stationmanager.h"
 
 
 AdvertModel::AdvertModel(AdvertManager *advertManager, QObject *parent) :
@@ -45,9 +46,14 @@ QVariant AdvertModel::headerData(int section, Qt::Orientation orientation, int n
 QVariant AdvertModel::data(const QModelIndex &index, int nRole) const
 {
 //    qDebug() << Q_FUNC_INFO;
-    if( !index.isValid() )
+    if (!index.isValid() || index.row() < 0 || index.row() >= rowCount() || index.column() >= columnCount())
         return QVariant();
 
+    if (nRole == CompiledMinutesRole) {
+        QVariantList minutes;
+        for (int minute : mAdvertManager->compiledMinutes(index.row())) minutes.append(minute);
+        return minutes;
+    }
     if( nRole == Qt::DisplayRole || nRole == Qt::EditRole)
     {
         int row = index.row();
@@ -76,43 +82,24 @@ QVariant AdvertModel::data(const QModelIndex &index, int nRole) const
 
 bool AdvertModel::setData(const QModelIndex &index, const QVariant &value, int role)
 {
-    bool res = true;
-    if( index.isValid() && role == Qt::EditRole ) {
-        int row = index.row();
-        switch( index.column() )
-        {
-            case 1:
-                mAdvertManager->advert(row).setHours( value.toString() );
-                break;
-            case 2:
-                mAdvertManager->advert(row).setMinuts( value.toString() );
-                break;
-            case 3:
-                mAdvertManager->advert(row).setDays( value.toString() );
-                break;
-            case 4:
-                mAdvertManager->advert(row).setStartDate( value.toDate() );
-                break;
-            case 5:
-                mAdvertManager->advert(row).setEndDate( value.toDate() );
-                break;
-            case 6:
-                mAdvertManager->advert(row).setVolume( value.toInt() );
-                break;
-
-            default:
-                res = false;
-        }
-    }
-
-    if( res ) {
-        mAdvertManager->saveAdvert();
-        emit dataChanged(index, index);
-    }
-
-    return res;
+    if (!index.isValid() || index.model() != this || role != Qt::EditRole
+            || index.row() >= rowCount() || index.column() <= 0 || index.column() >= 7
+            || !(flags(index) & Qt::ItemIsEditable)) return false;
+    QVariantList fields;
+    for (int column = 0; column < 7; ++column)
+        fields.append(data(this->index(index.row(), column), Qt::EditRole));
+    fields[index.column()] = value;
+    return setRule(index.row(), fields);
 }
 
+bool AdvertModel::setRule(int row, const QVariantList &fields)
+{
+    if (!mAdvertManager->setRule(row, fields)) return false;
+    emit dataChanged(index(row, 0), index(row, 6), {Qt::DisplayRole, Qt::EditRole});
+    return true;
+}
+
+QString AdvertModel::lastError() const { return mAdvertManager->lastError(); }
 /**
   */
 int AdvertModel::rowCount(const QModelIndex &mi) const
@@ -143,7 +130,7 @@ Qt::ItemFlags AdvertModel::flags(const QModelIndex &index) const
         flags |= Qt::ItemIsEditable;
 
     if( STATION_NETWORK == StationManager::Instance().type() )
-        flags ^= Qt::ItemIsEditable;
+        flags &= ~Qt::ItemIsEditable;
 
     return flags;
 }

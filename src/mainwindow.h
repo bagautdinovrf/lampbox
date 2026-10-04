@@ -1,3 +1,4 @@
+#pragma once
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 #include <QMainWindow>
@@ -12,6 +13,7 @@ class AdvertModel;
 class MediaManager;
 class MediaModel;
 class MediaController;
+class MediaImportService;
 class VideoController;
 class QStackedWidget;
 class QComboBox;
@@ -41,6 +43,7 @@ class MainWindow : public QMainWindow {
 
   protected:
     void resizeEvent(QResizeEvent *event) override;
+    void closeEvent(QCloseEvent *event) override;
   private slots:
     void slot_addMediaFiles();
     void slot_removeMediaFiles();
@@ -109,6 +112,9 @@ class MainWindow : public QMainWindow {
     AdvertModel *mAdvertModel = nullptr;
     MediaController *mMediaController = nullptr;
     VideoController *mVideoController = nullptr;
+    MediaImportService *mMediaImport = nullptr;
+    QString mImportTargetDirectory;
+    bool mCloseAfterImport = false;
     QStackedWidget *mStack = nullptr;
     QComboBox *mAppearance = nullptr;
     QComboBox *mTheme = nullptr;

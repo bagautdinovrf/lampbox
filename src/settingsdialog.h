@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef SETTINGSDIALOG_H
 #define SETTINGSDIALOG_H
 
@@ -8,10 +10,6 @@ class QListWidgetItem;
 class QLineEdit;
 class QSpinBox;
 class RestyleLabel;
-
-namespace Ui {
-    class SettingsDialog;
-}
 
 class SettingsDialog : public QDialog
 {
@@ -78,7 +76,6 @@ signals:
     void fileFormatsVideo();
 
 private:
-    Ui::SettingsDialog *ui;
     class QListWidget *mAudioFormats = nullptr;
     class QListWidget *mVideoFormats = nullptr;
     QLineEdit *mPlayerHost = nullptr;

@@ -50,7 +50,7 @@ QVariant ChannelModel::headerData(int section, Qt::Orientation orientation, int 
 QVariant ChannelModel::data(const QModelIndex &index, int nRole) const
 {
 //    qDebug() << Q_FUNC_INFO;
-    if( !index.isValid() )
+    if (!index.isValid() || index.row() < 0 || index.row() >= rowCount() || index.column() >= columnCount())
         return QVariant();
 
     if( nRole == Qt::DisplayRole || nRole == Qt::EditRole)
@@ -81,52 +81,24 @@ QVariant ChannelModel::data(const QModelIndex &index, int nRole) const
 
 bool ChannelModel::setData(const QModelIndex &index, const QVariant &value, int role)
 {
-    bool res = true;
-    if( index.isValid() && role == Qt::EditRole ) {
-        int row = index.row();
-        switch( index.column() )
-        {
-        case 0:
-            if ( mChannelManager_->containsChannel( value.toString() ) ) {
-                res = false;
-            } else {
-                if( mChannelManager_->channel(row).mediaManager().renameChannelDir(value.toString()) )
-                    mChannelManager_->channel(row).setChannelName(value.toString());
-                else
-                    res = false;
-            }
-            break;
-        case 1:
-            mChannelManager_->channel(row).setStartTime(value.toTime());
-            break;
-        case 2:
-            mChannelManager_->channel(row).setEndTime(value.toTime());
-            break;
-        case 3:
-            mChannelManager_->channel(row).setDaysOfWeek(value.toString());
-            break;
-        case 4:
-            mChannelManager_->channel(row).setDays(value.toString());
-            break;
-        case 5:
-            mChannelManager_->channel(row).setMonths(value.toString());
-            break;
-        case 6:
-            mChannelManager_->channel(row).setVolume(value.toInt());
-            break;
-        default:
-            res = false;
-        }
-    }
-
-    if( res ) {
-        mChannelManager_->saveChannels();
-        emit dataChanged(index, index);
-    }
-
-    return res;
+    if (!index.isValid() || index.model() != this || role != Qt::EditRole
+            || index.row() >= rowCount() || index.column() < 0 || index.column() >= 7)
+        return false;
+    QVariantList fields;
+    for (int column = 0; column < 7; ++column)
+        fields.append(data(this->index(index.row(), column), Qt::EditRole));
+    fields[index.column()] = value;
+    return setRule(index.row(), fields);
 }
 
+bool ChannelModel::setRule(int row, const QVariantList &fields)
+{
+    if (!mChannelManager_->setRule(row, fields)) return false;
+    emit dataChanged(index(row, 0), index(row, 6), {Qt::DisplayRole, Qt::EditRole});
+    return true;
+}
+
+QString ChannelModel::lastError() const { return mChannelManager_->lastError(); }
 int ChannelModel::rowCount(const QModelIndex &mi) const
 {
 //    qDebug() << Q_FUNC_INFO;

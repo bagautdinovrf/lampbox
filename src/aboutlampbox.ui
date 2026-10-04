@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<ui version="4.0">
- <class>AboutLampbox</class>
- <widget class="QDialog" name="AboutLampbox">
-  <property name="windowTitle"><string>О MediaBoxManager</string></property>
- </widget>
- <resources/>
- <connections/>
-</ui>

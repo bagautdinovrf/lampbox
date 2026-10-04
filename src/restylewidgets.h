@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef RESTYLEWIDGETS_H
 #define RESTYLEWIDGETS_H
 

@@ -6,7 +6,7 @@
 #include "storagepaths.h"
 
 #include <QSettings>
-#include <QApplication>
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>

@@ -1,77 +1,38 @@
-#ifndef ADVERTMANAGER_H
-#define ADVERTMANAGER_H
-
-
+#pragma once
 #include "advertdata.h"
-#include "lampdata.h"
-
-
+#include "projectrepository.h"
 #include <QObject>
+#include <QVariant>
 
 class AdvertModel;
-
 class AdvertManager : public QObject
 {
     Q_OBJECT
 public:
-    AdvertManager(QObject *parent = nullptr);
-
-    /// Возвращает число стоблцов для модели
+    explicit AdvertManager(QObject *parent = nullptr);
     int column();
-
-    /// Количество записей
     int count();
-
-    /// Возвращает запрашиваемы данные по рекламе
     AdvertData &advert(int num);
-
-    /// Возвращает список рекламных треков
-    const QList<AdvertData>& advertDataList();
-
-    /// Добавить рекламу
-    bool addAdvert(const QString &name);
-
-    /// Удалить рекламу
+    bool addAdvert(const QVariantList &fields);
     bool delAdvert(int num);
-
-private:
-    ///
-    bool saveAdvert();
-
-    /// Формирование списка рекламы
-    void collectAdvert();
-
-    /// Парсинг рекламы
-    AdvertData parseAdvert( const QString &line );
-
-    bool generateAdvert();
+    bool setRule(int row, const QVariantList &fields);
+    bool collectAdvert();
+    QString lastError() const { return mLastError; }
+    QList<int> compiledMinutes(int row) const;
 
 signals:
-    /// Начало изменения списка
     void beginCollect();
-
-    /// Конец изменения списка
     void endCollect();
 
 private:
-    /// Формат даты
-    const QString                               mDateFormat;
-
-    /// Директории
-    SPathData                                   mPathData;
-
-    /// Cron файл с расписанием рекламы
-    QString                                     mFileAdvertTask;
-
-    /// Файл с расписанием рекламы для таблицы с рекламой
-    QString                                     mFileAdverTable;
-    QString                                     mFileAdvertView;
-
-    /// Список рекламных роликов
-    QList<AdvertData>                           mAdvertDataList;
-
-    /// Ддобавим модель в друзья
-    friend class AdvertModel;
+    QList<ScheduleCore::AdvertRule> rules() const;
+    bool decodeRule(const QVariantList &fields, ScheduleCore::AdvertRule *rule);
+    bool persist(const QList<ScheduleCore::AdvertRule> &rules);
+    bool fail(const QString &error);
+    ProjectRepository::Paths mProjectPaths;
+    QList<AdvertData> mAdvertDataList;
+    QList<QList<int>> mCompiledMinutes;
+    QStringList mRuleIds;
+    QString mLastError;
+    bool mLoadFailed = true;
 };
-
-#endif // ADVERTMANAGER_H

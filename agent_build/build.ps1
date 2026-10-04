@@ -1,11 +1,13 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-Configure, build and test MediaBoxManager, MediaBoxPlayer and MediaBoxVPlayer with the newest installed Qt 6 MSVC kit.
+Configure and build MediaBoxManager, MediaBoxPlayer and MediaBoxVPlayer with the newest installed Qt 6 MSVC kit. Tests require -WithTests.
 .EXAMPLE
 powershell -ExecutionPolicy Bypass -File .\agent_build\build.ps1
 .EXAMPLE
 .\agent_build\build.ps1 -Configuration Debug -Clean -Jobs 4
+.EXAMPLE
+.\agent_build\build.ps1 -WithTests
 .EXAMPLE
 .\agent_build\build.ps1 -Deploy
 .EXAMPLE
@@ -30,7 +32,7 @@ param(
     [string[]]$CMakeArguments = @(),
 
     [switch]$ConfigureOnly,
-    [switch]$SkipTests,
+    [switch]$WithTests,
     [switch]$Clean,
     [switch]$Deploy,
     [switch]$Installer,
@@ -51,6 +53,7 @@ $originalEnvironment = [Environment]::GetEnvironmentVariables('Process')
 $runInformation = [ordered]@{
     Started = (Get-Date).ToString('o')
     Configuration = $Configuration
+    WithTests = [bool]$WithTests
     SourceDirectory = $sourceDirectory
     BuildDirectory = $buildDirectory
     LogDirectory = $logDirectory
@@ -319,7 +322,10 @@ try {
     }
     $qt = Get-QtInstallation
     $cmake = Assert-File (Join-Path $qt.ToolsPath 'CMake_64\bin\cmake.exe') 'Qt Tools CMake'
-    $ctest = Assert-File (Join-Path $qt.ToolsPath 'CMake_64\bin\ctest.exe') 'Qt Tools CTest'
+    $ctest = $null
+    if ($WithTests -and -not $ConfigureOnly) {
+        $ctest = Assert-File (Join-Path $qt.ToolsPath 'CMake_64\bin\ctest.exe') 'Qt Tools CTest'
+    }
     $ninja = Assert-File (Join-Path $qt.ToolsPath 'Ninja\ninja.exe') 'Qt Tools Ninja'
     $msvc = Import-MsvcEnvironment
     $env:Path = (Join-Path $qt.Path 'bin') + ';' + (Split-Path -Parent $cmake) + ';' + (Split-Path -Parent $ninja) + ';' + $env:Path
@@ -331,13 +337,14 @@ try {
     $runInformation.Compiler = $msvc.Compiler
     Write-Host "Qt: $($qt.Version) / $($qt.Kit)"
     Write-Host "MSVC: $($msvc.Compiler)"
-    Write-Host "Configuration: $Configuration; parallel jobs: $Jobs"
+    Write-Host "Configuration: $Configuration; parallel jobs: $Jobs; with tests: $([bool]$WithTests)"
 
     if ($Clean) {
         Remove-BuildDirectory
     }
     # Preserve generated files during ordinary incremental builds. Refresh the
     # cache only when it would pin a different Qt installation, compiler or generator.
+    $testingMode = if ($WithTests) { 'ON' } else { 'OFF' }
     $configureArguments = @(
         '-S', $sourceDirectory, '-B', $buildDirectory, '-G', 'Ninja',
         "-DCMAKE_BUILD_TYPE=$Configuration",
@@ -346,9 +353,10 @@ try {
         "-DCMAKE_CXX_COMPILER=$($msvc.Compiler)",
         "-DCMAKE_PREFIX_PATH=$($qt.Path)",
         "-DQt6_ROOT=$($qt.Path)",
-        "-DQt6_DIR=$(Join-Path $qt.Path 'lib\cmake\Qt6')",
-        '-DBUILD_TESTING=ON'
-    ) + $CMakeArguments
+        "-DQt6_DIR=$(Join-Path $qt.Path 'lib\cmake\Qt6')"
+    ) + $CMakeArguments + @("-DBUILD_TESTING:BOOL=$testingMode")
+    # Managed option goes last, so an old cache or CMakeArguments cannot silently
+    # disagree with -WithTests. Ordinary builds never build or run test targets.
     if (Test-ConfigureRefreshRequired (Join-Path $buildDirectory 'CMakeCache.txt') $qt.Path $msvc.Compiler) {
         $configureArguments = @('--fresh') + $configureArguments
         Write-Host 'Qt, MSVC or the CMake generator changed; refreshing the CMake cache.'
@@ -356,7 +364,7 @@ try {
     Invoke-LoggedCommand 'configure' $cmake $configureArguments
     if (-not $ConfigureOnly) {
         Invoke-LoggedCommand 'build' $cmake @('--build', $buildDirectory, '--config', $Configuration, '--parallel', "$Jobs")
-        if (-not $SkipTests) {
+        if ($WithTests) {
             Invoke-LoggedCommand 'test' $ctest @('--test-dir', $buildDirectory, '-C', $Configuration,
                 '--output-on-failure', '--no-tests=error', '--parallel', "$Jobs")
         }

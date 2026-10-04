@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef COMPOSITION_H
 #define COMPOSITION_H
 #include <QString>

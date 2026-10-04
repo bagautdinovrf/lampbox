@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef RESTYLETHEME_H
 #define RESTYLETHEME_H
 

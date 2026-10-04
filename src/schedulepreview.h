@@ -1,5 +1,6 @@
-#ifndef SCHEDULEPREVIEW_H
-#define SCHEDULEPREVIEW_H
+#pragma once
+
+#include "schedulecore/schedulecore.h"
 
 #include <QDateTime>
 #include <QList>
@@ -11,28 +12,8 @@ class QAbstractItemModel;
 // A read-only interpretation of the existing ChannelModel / AdvertModel
 // columns. These results describe a plan, never player telemetry.
 namespace SchedulePreview {
-struct Channel {
-    int sourceRow = -1;
-    QString name, weekdays, days, months, reason, status;
-    QTime start, end;
-    int volume = 0;
-    bool valid = false;
-    bool calendarMatches = false;
-    bool active = false;
-};
-
-struct Snapshot {
-    QDateTime at;
-    int horizonDays = 0;
-    QList<Channel> channels;
-    QList<int> activeRows;
-    QStringList issues;
-    QDateTime nextChannelTime, nextAdvertTime;
-    QStringList nextChannelNames, nextAdvertNames;
-    QStringList exactAdvertsNow, frequencyAdvertsNow;
-    QString currentSummary, nextChannelSummary, nextAdvertSummary;
-    bool hasUnresolvedRules = false;
-};
+using Channel = ScheduleCore::Channel;
+using Snapshot = ScheduleCore::Snapshot;
 
 // Searches at most 366 calendar days, including the preview date. Invalid,
 // overnight and equal-time windows are explained, not assigned invented meaning.
@@ -70,5 +51,3 @@ private:
     struct Private;
     Private *d;
 };
-
-#endif

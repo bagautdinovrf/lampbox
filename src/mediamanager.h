@@ -1,5 +1,6 @@
 
 
+#pragma once
 #ifndef MEDIAMANAGER_H
 #define MEDIAMANAGER_H
 
@@ -8,8 +9,6 @@
 #include "lampdata.h"
 
 
-#include <QModelIndex>
-#include <QScopedPointer>
 #include <QDir>
 
 
@@ -31,7 +30,11 @@ public:
      */
     void collectMediaFiles();
 
-    void setDirName( const QString &name );
+    void bindDirectory(const QString &name);
+    void applySnapshot(QList<MediaData> snapshot);
+    const QList<MediaData> &snapshot() const { return mMediaList; }
+    QStringList libraryFormats() const;
+    QStringList importFormats() const;
 
     /**
      * @brief count         - Количество файлов
@@ -42,12 +45,6 @@ public:
 public:
 
     void setMediaModel(MediaModel *model);
-
-    bool renameChannelDir( const QString &name );
-
-    bool deleteChannel();
-
-    bool createChannelDir( const QString &name );
 
     /**
      * @brief getMusicData
@@ -89,13 +86,6 @@ public:
     bool delFile(int num);
 
     /**
-     * @brief addFile
-     * @param fileName
-     * @return
-     */
-    bool addFile( const QString &fileName );
-
-    /**
      * @brief totalLength
      * @return
      */
@@ -103,14 +93,6 @@ public:
     QString calculateLength( uint length );
 
 private:
-    /**
-     * @brief setDirMediaFiles
-     * @param name
-     */
-    void setDirMediaFiles(const QString &name);
-
-    void createTagFile( const QString &fileName );
-
     /**
      * @brief calculateTotalLength
      * @param list
@@ -121,16 +103,12 @@ private:
 private:
     /// /
     QList<MediaData>                mMediaList;
-    /// Имя канала
-    QString                         mDirName;
-    ///
-    QDir                            mDir;
     /// Путь к файлам канала
     QDir                            mDirMediaFiles;
     /// Модель
     MediaModel                      *mMediaModel;
     /// Общая длина всех треков
-    uint                            mTotalLength;
+    uint                            mTotalLength = 0;
 
     CHANNEL_TYPE              mType;
 

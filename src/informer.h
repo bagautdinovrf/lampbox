@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef INFORMER_H
 #define INFORMER_H
 

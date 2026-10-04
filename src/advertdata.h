@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef ADVERTDATA_H
 #define ADVERTDATA_H
 
@@ -74,10 +76,8 @@ private:
     QDate                                   mEndDate;
 
     /// Громкость
-    int                                     mVolume;
+    int                                     mVolume = 100;
 
-    /// В формате cron
-    QString                                 mCronString;
 };
 
 #endif // ADVERTDATA_H

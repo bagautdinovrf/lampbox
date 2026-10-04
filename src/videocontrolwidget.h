@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef VIDEOCONTROLWIDGET_H
 #define VIDEOCONTROLWIDGET_H
 

@@ -3,22 +3,9 @@
 #include "mediamanager.h"
 #include "lampdata.h"
 #include "mediamodel.h"
+#include "mediaimportservice.h"
 #include "settings.h"
 #include "boxlog.h"
-#include "informer.h"
-#include "trialmessagebox.h"
-
-/// Taglib
-#include "tag.h"
-#include "fileref.h"
-#include "audioproperties.h"
-
-/// Qt
-#include <QFileInfoList>
-#include <QApplication>
-#include <QProgressDialog>
-#include <QSettings>
-#include <QDebug>
 
 
 MediaManager::MediaManager(CHANNEL_TYPE type) :
@@ -32,7 +19,6 @@ MediaManager::MediaManager(CHANNEL_TYPE type) :
         mChannelDir = path.channelDirVideo;
     }
 
-    mDir.setPath( mChannelDir );
 }
 
 MediaManager::MediaManager(QString pathDir, CHANNEL_TYPE type) :
@@ -41,8 +27,6 @@ MediaManager::MediaManager(QString pathDir, CHANNEL_TYPE type) :
 {
     if( pathDir.right(1) != "/" )
         pathDir += "/";
-    mDirName = pathDir;
-    mDir.setPath(pathDir);
     mDirMediaFiles.setPath(pathDir);
     collectMediaFiles();
 }
@@ -70,196 +54,41 @@ void MediaManager::setMediaModel(MediaModel *model)
  */
 void MediaManager::collectMediaFiles()
 {
-    mTotalLength = 0;
-    if(mMediaModel)
+    applySnapshot(MediaImportService::scanDirectory(mDirMediaFiles.absolutePath(), libraryFormats()));
+}
+
+void MediaManager::applySnapshot(QList<MediaData> snapshot)
+{
+    if (mMediaModel)
         mMediaModel->beginCollect();
-
-    mMediaList.clear();
-
-    QStringList fileFormats;
-    if( mType == MUSIC )
-        fileFormats = Settings::allAudioFormats();
-    else if( mType == VIDEO )
-        fileFormats = Settings::allVideoFormats();
-    else if( mType == ADVERT )
-        fileFormats = Settings::allFormats();
-    else
-        fileFormats << "*.*";
-
-    QFileInfoList infoList = mDirMediaFiles.entryInfoList( fileFormats, QDir::Files, QDir::Name);
-    for( int i = 0; i < infoList.size(); ++i ) {
-        QString fileName = infoList.at(i).absoluteFilePath();
-        QString tagFileName = fileName + ".tag";
-        QSettings tag( tagFileName, QSettings::IniFormat );
-        if( !QFileInfo::exists(tagFileName) ) {
-            createTagFile(fileName);
-        }
-        MediaData media;
-        media.setFileName( infoList.at(i).fileName() );
-        media.setFileSize( infoList.at(i).size() );
-        media.setAlbum( tag.value("album").toString() );
-        media.setArtist( tag.value("artist").toString() );
-        media.setTitle( tag.value("title").toString() );
-        media.setGenre( tag.value("genre").toString() );
-        media.setYear( tag.value("year").toInt() );
-        media.setLength( tag.value("length").toUInt() );
-
-        if(StationManager::Instance().trial() ) {
-            /// Ограничение файла в 5 минут
-            if( media.length() > 300 ) {
-                qDebug() << media.length();
-                delFile(fileName);
-                TrialMessageBox("Длительность композиции должна быть не более 5 минут");
-                continue;
-            }
-        }
-
-        mTotalLength += media.length();
-        mMediaList.append( media );
-    }
-
-    if( StationManager::Instance().trial() ) {
-        if( mMediaList.size() > 9 ) {
-            mMediaList = mMediaList.mid(0, 10);
-        }
-
-        calculateTotalLength(mMediaList);
-    }
-
-
-    if(mMediaModel)
+    mMediaList = std::move(snapshot);
+    calculateTotalLength(mMediaList);
+    if (mMediaModel)
         mMediaModel->endCollect();
 }
 
-/**
- * @brief MediaManager::setChannelName
- * @param name
- */
-void MediaManager::setDirName(const QString &name)
+QStringList MediaManager::libraryFormats() const
 {
-    setDirMediaFiles(name);
-    collectMediaFiles();
+    if (mType == MUSIC)
+        return Settings::allAudioFormats();
+    if (mType == VIDEO)
+        return Settings::allVideoFormats();
+    return Settings::allFormats();
 }
 
-void MediaManager::setDirMediaFiles(const QString &name)
+QStringList MediaManager::importFormats() const
 {
-    mDirName = name;
-    SPathData path;
-    mDirMediaFiles.setPath( mChannelDir + mDirName);
-}
-
-bool MediaManager::renameChannelDir( const QString &name )
-{
-    if( name == mDirName || name.isEmpty() )
-        return false;
-
-    if( mDir.exists(name) ) {
-        setDirMediaFiles(name);
-        return true;
-    } else if( !mDir.rename(mDirName, name) )
-        return false;
-//        return createChannelDir( name );
-
-    setDirMediaFiles(name);
-    return true;
-}
-
-bool MediaManager::createChannelDir(const QString &name)
-{
-    if( name == mDirName || name.isEmpty() )
-        return false;
-
-    if(!mDir.mkdir(name)) {
-        BoxLog() << "Dir" << name << "cannot create!";
-        return false;
-    }
-
-    setDirMediaFiles(name);
-    return true;
-}
-
-bool MediaManager::deleteChannel()
-{
-    if( !mDirMediaFiles.removeRecursively() ) {
-        BoxLog() << "Cannot delete channel!" << mDirMediaFiles.path();
-        return false;
-    }
-
-    if(mMediaModel)
-        mMediaModel->beginCollect();
-    mMediaList.clear();
-    if(mMediaModel)
-        mMediaModel->endCollect();
-
-    return true;
-}
-
-bool MediaManager::addFile(const QString &fileName)
-{
-    if( mDirName.isEmpty() )
-        return false;
-
-    if( !mDir.exists(mDirName) )
-        if(!mDirMediaFiles.mkpath( mDirMediaFiles.path() ) )
-            return false;
-
-    // Проверка форматов файлов
     Settings settings;
-    QStringList fileFormats;
-    if( mType == MUSIC )
-        fileFormats = settings.availablelAudioFileFormats();
-    else if( mType == VIDEO )
-        fileFormats = settings.availablelVideoFileFormats();
-    else if( mType == ADVERT )
-        fileFormats = settings.availablelAllFileFormats();
-
-    if( !fileFormats.isEmpty() ) {
-        QString ext  = "*." + fileName.section('.', -1 );
-        if( !fileFormats.contains(ext, Qt::CaseInsensitive ) )
-            return false;
-    }
-
-    qApp->processEvents();
-    QFile file(fileName);
-    QString name = fileName.section('/', -1);
-
-    name.remove('}').remove('{');
-    QString mediaFileName =  mDirMediaFiles.path() + '/' + name;
-    if( !file.copy( mediaFileName ) ) {
-        // TODO: такой файл уже существует, переписать?
-        BoxLog() << file.errorString();
-        BoxLog() << "Copy error:" << fileName << "!";
-        return false;
-    }
-
-    createTagFile(mediaFileName);
-    qApp->processEvents();
-    return true;
+    if (mType == MUSIC)
+        return settings.availablelAudioFileFormats();
+    if (mType == VIDEO)
+        return settings.availablelVideoFileFormats();
+    return settings.availablelAllFileFormats();
 }
 
-
-void MediaManager::createTagFile( const QString &fileName )
+void MediaManager::bindDirectory(const QString &name)
 {
-    QString tagFileName = fileName + ".tag";
-    QSettings tag( tagFileName, QSettings::IniFormat);
-#ifdef Q_OS_WIN
-    const auto tagFileNameNative = fileName.toStdWString();
-#else
-    const auto tagFileNameNative = QFile::encodeName(fileName);
-#endif
-    TagLib::FileRef mediaTag(tagFileNameNative.data());
-    if( mediaTag.isNull() )
-        return;
-    if( !mediaTag.tag()->isEmpty() ) {
-        tag.setValue( "album",      QString::fromStdWString( mediaTag.tag()->album().toWString()   ) );
-        tag.setValue( "artist",     QString::fromStdWString( mediaTag.tag()->artist().toWString()  ) );
-        tag.setValue( "title",      QString::fromStdWString( mediaTag.tag()->title().toWString()   ) );
-        tag.setValue( "genre",      QString::fromStdWString( mediaTag.tag()->genre().toWString()   ) );
-        tag.setValue( "year",       mediaTag.tag()->year() );
-    }
-    if( !mediaTag.audioProperties() )
-        return;
-    tag.setValue( "length",     mediaTag.audioProperties()->lengthInSeconds() );
+    mDirMediaFiles.setPath(QDir(mChannelDir).filePath(name));
 }
 
 bool MediaManager::delFile(int num)

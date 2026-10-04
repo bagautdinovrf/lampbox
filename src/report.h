@@ -1,12 +1,10 @@
+#pragma once
+
 #ifndef REPORT_H
 #define REPORT_H
 #include <QMessageBox>
 #include <QWidget>
 #include "compositionslist.h"
-#include "parser.h"
-namespace Ui {
-class Report;
-}
 class QComboBox;
 class QDateEdit;
 class QLabel;
@@ -25,7 +23,6 @@ public:
 public slots:
 	void Generate();
 private:
-    Ui::Report *ui;
     QComboBox *mMonth = nullptr;
     QDateEdit *mYear = nullptr;
     QTableView *mTable = nullptr;

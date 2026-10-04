@@ -77,7 +77,6 @@ private slots:
                  qPrintable(station.lastError()));
         QCOMPARE(station.get(), destination.path());
         QCOMPARE(station.id(), 42);
-        QVERIFY(station.isAlter());
         for (const QString &path : publicFiles) {
             QCOMPARE(readFile(destination.absoluteFilePath(path)), path.toUtf8());
             QCOMPARE(readFile(source.absoluteFilePath(path)), path.toUtf8());
@@ -90,6 +89,49 @@ private slots:
         QVERIFY(QFile::remove(destination.absoluteFilePath("timetable/1.xml")));
         QVERIFY(station.initializeStandaloneConfiguration(destination.path(), {source.path()}));
         QVERIFY(!QFileInfo::exists(destination.absoluteFilePath("timetable/1.xml")));
+    }
+
+    void projectLocationMigrationPreservesSnapshotsAndPendingRename()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QDir source(directory.filePath("old"));
+        const QDir destination(directory.filePath("shared"));
+        const QDir existing(directory.filePath("existing"));
+        const QByteArray project = QByteArrayLiteral(
+                "{\"format\":\"mediabox.manager-project\",\"schemaVersion\":1,"
+                "\"music\":[],\"video\":[],\"advert\":[]}\n");
+        const QByteArray pending = QByteArrayLiteral(
+                "{\"version\":1,\"section\":\"music\",\"from\":\"Old\",\"to\":\"New\",\"before\":\"")
+                + project.toBase64() + QByteArrayLiteral("\",\"after\":\"")
+                + project.toBase64() + QByteArrayLiteral("\"}\n");
+        // A station containing only the new project is a migration candidate.
+        QVERIFY(writeFile(source.absoluteFilePath("project.json"), project));
+        QVERIFY(writeFile(source.absoluteFilePath("project.json.pending"), pending));
+        QVERIFY(writeFile(source.absoluteFilePath("project.json.lock"), QByteArrayLiteral("process lock")));
+
+        StationManager station;
+        QVERIFY2(station.initializeStandaloneConfiguration(destination.path(), {source.path()}),
+                 qPrintable(station.lastError()));
+        for (const QDir &location : {source, destination}) {
+            QCOMPARE(readFile(location.absoluteFilePath("project.json")), project);
+            QCOMPARE(readFile(location.absoluteFilePath("project.json.pending")), pending);
+        }
+        QVERIFY(!QFileInfo::exists(destination.absoluteFilePath("project.json.lock")));
+
+        const QByteArray current = project + QByteArrayLiteral(" ");
+        QVERIFY(writeFile(destination.absoluteFilePath("project.json"), current));
+        QVERIFY(QFile::remove(destination.absoluteFilePath("project.json.pending")));
+        QVERIFY(station.initializeStandaloneConfiguration(destination.path(), {source.path()}));
+        QCOMPARE(readFile(destination.absoluteFilePath("project.json")), current);
+        QVERIFY(!QFileInfo::exists(destination.absoluteFilePath("project.json.pending")));
+
+        // An unmarked destination with its own project is already a station.
+        QVERIFY(writeFile(existing.absoluteFilePath("project.json"), current));
+        QVERIFY(station.initializeStandaloneConfiguration(existing.path(), {source.path()}));
+        QCOMPARE(readFile(existing.absoluteFilePath("project.json")), current);
+        QVERIFY(!QFileInfo::exists(existing.absoluteFilePath("project.json.pending")));
+        QCOMPARE(readFile(source.absoluteFilePath("project.json")), project);
     }
 
     void existingStationAndInitializedEmptyStationAreNotReimported()
@@ -117,9 +159,9 @@ private slots:
         const QDir source(directory.filePath("old"));
         const QDir destination(directory.filePath("shared"));
         QVERIFY(writeFile(source.absoluteFilePath("timetable/1.xml"), QByteArrayLiteral("schedule")));
-        // A file where nncronlt must be a directory makes initialization fail
+        // A file where media must be a directory makes initialization fail
         // after the first schedule has already been copied.
-        QVERIFY(writeFile(source.absoluteFilePath("nncronlt"), QByteArrayLiteral("invalid directory")));
+        QVERIFY(writeFile(source.absoluteFilePath("media"), QByteArrayLiteral("invalid directory")));
         StationManager station;
         QVERIFY(!station.initializeStandaloneConfiguration(destination.path(), {source.path()}));
         QVERIFY(!station.lastError().isEmpty());
@@ -127,12 +169,12 @@ private slots:
         QVERIFY(!QFileInfo::exists(destination.absoluteFilePath(".station-storage-initialized")));
         QCOMPARE(readFile(destination.absoluteFilePath("timetable/1.xml")), QByteArrayLiteral("schedule"));
 
-        QVERIFY(QFile::remove(source.absoluteFilePath("nncronlt")));
-        QVERIFY(QFile::remove(destination.absoluteFilePath("nncronlt")));
-        QVERIFY(writeFile(source.absoluteFilePath("nncronlt/jobs.tab"), QByteArrayLiteral("jobs")));
+        QVERIFY(QFile::remove(source.absoluteFilePath("media")));
+        QVERIFY(QFile::remove(destination.absoluteFilePath("media")));
+        QVERIFY(writeFile(source.absoluteFilePath("media/music/song.mp3"), QByteArrayLiteral("song")));
         QVERIFY2(station.initializeStandaloneConfiguration(destination.path(), {}),
                  qPrintable(station.lastError()));
-        QCOMPARE(readFile(destination.absoluteFilePath("nncronlt/jobs.tab")), QByteArrayLiteral("jobs"));
+        QCOMPARE(readFile(destination.absoluteFilePath("media/music/song.mp3")), QByteArrayLiteral("song"));
         QVERIFY(!QFileInfo::exists(destination.absoluteFilePath(".station-storage-migration")));
     }
 
@@ -155,7 +197,8 @@ private slots:
         QVERIFY2(station.initializeStandaloneConfiguration(destination.path(), {source.path()}),
                  qPrintable(station.lastError()));
         QCOMPARE(station.media("music/song.mp3"), destination.absoluteFilePath("media/music/song.mp3"));
-        QCOMPARE(station.getCronDir(), source.absoluteFilePath("custom_cron"));
+        QSettings migrated(destination.absoluteFilePath("mediabox.conf"), QSettings::IniFormat);
+        QCOMPARE(migrated.value("mediastation/crondir").toString(), source.absoluteFilePath("custom_cron"));
         QSettings original(source.absoluteFilePath("mediabox.conf"), QSettings::IniFormat);
         QCOMPARE(original.value("mediastation/crondir").toString(), QStringLiteral("custom_cron"));
     }
@@ -202,17 +245,16 @@ private slots:
         const QString home = station.get();
         const QString media = station.media("");
         const QString config = station.configFile();
-        const QString cron = station.getCronDir();
         QCOMPARE(home, QDir::cleanPath(mStandalonePath));
         QVERIFY(QDir::isAbsolutePath(home));
         QVERIFY(QDir::isAbsolutePath(media));
         QVERIFY(QDir::isAbsolutePath(config));
-        QVERIFY(QDir::isAbsolutePath(cron));
 
-        const QStringList directories = {"timetable", "media/music", "media/video",
-                                         "media/ads", "nncronlt", "cron"};
+        const QStringList directories = {"media/music", "media/video", "media/ads"};
         for (const QString &directory : directories)
             QVERIFY2(QDir(station.get(directory)).exists(), qPrintable(directory));
+        for (const QString &directory : {"timetable", "nncronlt", "cron"})
+            QVERIFY2(!QDir(station.get(directory)).exists(), qPrintable(directory));
 
         QTemporaryDir workingDirectory;
         QVERIFY(workingDirectory.isValid());
@@ -224,11 +266,9 @@ private slots:
         QCOMPARE(station.get(), home);
         QCOMPARE(station.media(""), media);
         QCOMPARE(station.configFile(), config);
-        QCOMPARE(station.getCronDir(), cron);
         QCOMPARE(station.type(), STATION_LOCAL);
         QCOMPARE(station.id(), LOCAL_ID);
         QVERIFY(!station.trial());
-        QVERIFY(!station.isAlter());
     }
 
     void configuredStationUsesItsOwnPaths()
@@ -254,25 +294,21 @@ private slots:
         QVERIFY(station.loadConfiguration(directory.path(), STATION_NETWORK, true));
         QCOMPARE(station.get(), directory.path());
         QCOMPARE(station.media("music"), directory.filePath("content/music"));
-        QCOMPARE(station.getCronDir(), directory.filePath("cron_jobs"));
         QCOMPARE(station.configFile(), directory.filePath("mediabox.conf"));
         QCOMPARE(station.type(), STATION_NETWORK);
         QCOMPARE(station.id(), 42);
         QVERIFY(station.trial());
-        QVERIFY(station.isAlter());
         QVERIFY(!QDir(directory.filePath("content")).exists());
         QVERIFY(!QDir(directory.filePath("timetable")).exists());
 
         QVERIFY(QDir::setCurrent(workingDirectory.path()));
         QVERIFY(station.loadConfiguration(directory.path(), STATION_NETWORK, true));
         QCOMPARE(station.media("music"), directory.filePath("content/music"));
-        QCOMPARE(station.getCronDir(), directory.filePath("cron_jobs"));
 
         QVERIFY(station.initializeStandaloneConfiguration());
         QCOMPARE(station.id(), LOCAL_ID);
         QCOMPARE(station.type(), STATION_LOCAL);
         QVERIFY(!station.trial());
-        QVERIFY(!station.isAlter());
     }
 
     void absentMediaUsesStationDirectory()
@@ -295,7 +331,6 @@ private slots:
         StationManager station;
         QVERIFY(station.loadConfiguration(directory.path(), STATION_LOCAL, false));
         QCOMPARE(station.media("music"), directory.filePath("media/music"));
-        QCOMPARE(station.getCronDir(), directory.filePath("cron"));
         QVERIFY(station.media("") != QDir::currentPath());
         QVERIFY(!station.loadConfiguration("", STATION_LOCAL, false));
         QVERIFY(!station.loadConfiguration("relative/path", STATION_LOCAL, false));

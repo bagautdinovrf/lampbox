@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef LOCALPLAYERLAUNCHER_H
 #define LOCALPLAYERLAUNCHER_H
 

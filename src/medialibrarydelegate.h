@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef MEDIALIBRARYDELEGATE_H
 #define MEDIALIBRARYDELEGATE_H
 

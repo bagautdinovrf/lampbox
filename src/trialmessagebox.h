@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef TRIALMESSAGEBOX_H
 #define TRIALMESSAGEBOX_H
 

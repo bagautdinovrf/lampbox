@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef PLAYERCONTROLWIDGET_H
 #define PLAYERCONTROLWIDGET_H
 

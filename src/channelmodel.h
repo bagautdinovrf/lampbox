@@ -1,4 +1,5 @@
 
+#pragma once
 #ifndef CHANNELMODEL_H
 #define CHANNELMODEL_H
 
@@ -27,6 +28,8 @@ public:
      * @return
      */
     bool setData(const QModelIndex &index, const QVariant &value, int role) override;
+    bool setRule(int row, const QVariantList &fields);
+    QString lastError() const;
 
     /**
       */

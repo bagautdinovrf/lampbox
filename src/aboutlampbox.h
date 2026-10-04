@@ -1,11 +1,9 @@
+#pragma once
+
 #ifndef ABOUTLAMPBOX_H
 #define ABOUTLAMPBOX_H
 
 #include <QDialog>
-
-namespace Ui {
-    class AboutLampbox;
-}
 
 class AboutLampbox : public QDialog
 {
@@ -18,8 +16,6 @@ public:
 signals:
     void doneRequested();
 
-private:
-    Ui::AboutLampbox *ui;
 };
 
 #endif // ABOUTLAMPBOX_H

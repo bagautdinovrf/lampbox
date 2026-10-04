@@ -9,18 +9,57 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
-find_package(Qt6 6.12 REQUIRED COMPONENTS Core Gui Widgets Xml Network)
+find_package(Qt6 6.12 REQUIRED COMPONENTS Core Gui Widgets Network)
 qt_standard_project_setup(REQUIRES 6.12)
 
+option(BUILD_TESTING "Build automated tests (enabled explicitly by the verification script)" OFF)
 include(CTest)
 include(GNUInstallDirs)
 include(cmake/TagLib.cmake)
 add_subdirectory(common)
 
-# An object library keeps resources linked into both the application and tests.
-add_library(MediaBoxManagerCore OBJECT
-    src/aboutlampbox.cpp
-    src/aboutlampbox.h
+# Domain, persistence and application services build without Qt Widgets.
+function(mediabox_manager_library target)
+    target_compile_features(${target} PUBLIC cxx_std_23)
+    target_include_directories(${target} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+    if(MSVC)
+        target_compile_options(${target} PUBLIC /utf-8 /permissive- /Zc:__cplusplus)
+        target_compile_options(${target} PRIVATE /W4)
+    else()
+        target_compile_options(${target} PRIVATE -Wall -Wextra)
+    endif()
+endfunction()
+add_library(MediaBoxScheduleCore STATIC
+    src/schedulecore/schedulecore.cpp
+    src/schedulecore/schedulecore.h
+)
+mediabox_manager_library(MediaBoxScheduleCore)
+
+add_library(MediaBoxScheduleStorage STATIC
+    src/projectrepository.cpp
+    src/scheduleimport.cpp
+    src/projectrepository.h
+    src/scheduleimport.h
+)
+mediabox_manager_library(MediaBoxScheduleStorage)
+
+add_library(MediaBoxMediaLibrary STATIC
+    src/mediaimportservice.cpp
+    src/mediaimportservice.h
+    src/mediadata.cpp
+    src/mediadata.h
+)
+mediabox_manager_library(MediaBoxMediaLibrary)
+
+add_library(MediaBoxPlayerClients STATIC
+    src/mediaboxplayerclient.cpp
+    src/mediaboxplayerclient.h
+    src/mediaboxvplayerclient.cpp
+    src/mediaboxvplayerclient.h
+)
+mediabox_manager_library(MediaBoxPlayerClients)
+
+add_library(MediaBoxManagerApplication STATIC
     src/advertdata.cpp
     src/advertdata.h
     src/advertmanager.cpp
@@ -35,17 +74,44 @@ add_library(MediaBoxManagerCore OBJECT
     src/channelmanager.h
     src/channelmodel.cpp
     src/channelmodel.h
+    src/informer.cpp
+    src/informer.h
+    src/mediamanager.cpp
+    src/mediamanager.h
+    src/mediamodel.cpp
+    src/mediamodel.h
+    src/settings.cpp
+    src/settings.h
+    src/stationmanager.cpp
+    src/stationmanager.h
+    src/localplayerlauncher.cpp
+    src/localplayerlauncher.h
+    src/mediacontroller.cpp
+    src/mediacontroller.h
+    src/videocontroller.cpp
+    src/videocontroller.h
+    src/lampdata.h
+)
+mediabox_manager_library(MediaBoxManagerApplication)
+
+target_link_libraries(MediaBoxScheduleCore PUBLIC Qt6::Core)
+target_link_libraries(MediaBoxScheduleStorage PUBLIC MediaBoxScheduleCore)
+target_link_libraries(MediaBoxMediaLibrary PUBLIC Qt6::Core PRIVATE LampBox::TagLib)
+target_link_libraries(MediaBoxPlayerClients PUBLIC Qt6::Core Qt6::Network)
+target_link_libraries(MediaBoxManagerApplication PUBLIC
+    MediaBoxScheduleStorage MediaBoxMediaLibrary
+    MediaBoxPlayerClients MediaBoxPaths
+)
+target_compile_definitions(MediaBoxManagerApplication PUBLIC VERSION="${PROJECT_VERSION}")
+
+# An object library keeps resources linked into both the application and tests.
+add_library(MediaBoxManagerUi OBJECT
+    src/aboutlampbox.cpp
+    src/aboutlampbox.h
     src/composition.cpp
     src/composition.h
     src/compositionslist.cpp
     src/compositionslist.h
-    src/dateeditdelegate.cpp
-    src/dateeditdelegate.h
-    src/informer.cpp
-    src/informer.h
-    src/lampdata.h
-    src/maininformwidget.cpp
-    src/maininformwidget.h
     src/restyletheme.cpp
     src/restyletheme.h
     src/restylewidgets.cpp
@@ -59,136 +125,42 @@ add_library(MediaBoxManagerCore OBJECT
     src/medialibrarydelegate.h
     src/mainwindow.cpp
     src/mainwindow.h
-    src/mediacontroller.cpp
-    src/mediacontroller.h
-    src/localplayerlauncher.cpp
-    src/localplayerlauncher.h
-    src/videocontroller.cpp
-    src/videocontroller.h
-    src/mediaboxplayerclient.cpp
-    src/mediaboxplayerclient.h
-    src/mediaboxvplayerclient.cpp
-    src/mediaboxvplayerclient.h
     src/videocontrolwidget.cpp
     src/videocontrolwidget.h
     src/playercontrolwidget.cpp
     src/playercontrolwidget.h
-    src/mediadata.cpp
-    src/mediadata.h
-    src/mediamanager.cpp
-    src/mediamanager.h
-    src/mediamodel.cpp
-    src/mediamodel.h
-    src/parser.cpp
-    src/parser.h
     src/report.cpp
     src/report.h
-    src/settings.cpp
-    src/settings.h
     src/settingsdialog.cpp
     src/settingsdialog.h
-    src/simplelineeditdelegate.cpp
-    src/simplelineeditdelegate.h
-    src/stationmanager.cpp
-    src/stationmanager.h
-    src/timedelegate.cpp
-    src/timedelegate.h
     src/trialmessagebox.cpp
     src/trialmessagebox.h
-    src/volumedelegate.cpp
-    src/volumedelegate.h
-    src/lampcontrollers/advertcsvgenerator.cpp
-    src/lampcontrollers/advertcsvgenerator.h
-    src/lampcontrollers/advertjsongenerator.cpp
-    src/lampcontrollers/advertjsongenerator.h
-    src/lampcontrollers/balance.cpp
-    src/lampcontrollers/balance.h
-    src/lampcontrollers/controller.cpp
-    src/lampcontrollers/controller.h
-    src/lampcontrollers/cron.h
-    src/lampcontrollers/hours.cpp
-    src/lampcontrollers/hours.h
-    src/lampcontrollers/qcrongenerator.cpp
-    src/lampcontrollers/qcrongenerator.h
-    src/lampcontrollers/trackdistributor.cpp
-    src/lampcontrollers/trackdistributor.h
-    src/lampcontrollers/trackfullinfo.cpp
-    src/lampcontrollers/trackfullinfo.h
-    src/lampcontrollers/xmlparse.cpp
-    src/lampcontrollers/xmlparse.h
-    src/lampdelegates/datedelegate.cpp
-    src/lampdelegates/datedelegate.h
-    src/lampdelegates/delegateadsrepeat.cpp
-    src/lampdelegates/delegateadsrepeat.h
-    src/lampdelegates/delegatedatetimeperiod.cpp
-    src/lampdelegates/delegatedatetimeperiod.h
-    src/lampdelegates/delegatedaysoftheweek.cpp
-    src/lampdelegates/delegatedaysoftheweek.h
-    src/lampdelegates/delegatemonthedit.cpp
-    src/lampdelegates/delegatemonthedit.h
-    src/lampdelegates/delegatemonthwidget.cpp
-    src/lampdelegates/delegatemonthwidget.h
-    src/lampdelegates/delegatevolumeedit.cpp
-    src/lampdelegates/delegatevolumeedit.h
-    src/lampdelegates/frequencydelegate.cpp
-    src/lampdelegates/frequencydelegate.h
-    src/lampdelegates/lineeditdelegate.cpp
-    src/lampdelegates/lineeditdelegate.h
-    src/lampdelegates/noteditabledelegate.h
-    src/lampdelegates/onairdelegate.cpp
-    src/lampdelegates/onairdelegate.h
-    src/lampdelegates/trackdelegate.cpp
-    src/lampdelegates/trackdelegate.h
-    src/lampdelegates/types.h
-    src/lampdelegates/widgets/color.cpp
-    src/lampdelegates/widgets/color.hpp
-    src/lampdelegates/widgets/drawing.cpp
-    src/lampdelegates/widgets/drawing.hpp
-    src/lampdelegates/widgets/sliderwidget.cpp
-    src/lampdelegates/widgets/sliderwidget.h
-    src/lampdelegates/widgets/switch.cpp
-    src/lampdelegates/widgets/switch.hpp
-    src/aboutlampbox.ui
-    src/maininformwidget.ui
-    src/report.ui
-    src/settingsdialog.ui
-    src/lampdelegates/TimePeriodEditDelegate.ui
-    src/lampdelegates/delegateadsrepeat.ui
-    src/lampdelegates/delegatedatetimeperiod.ui
-    src/lampdelegates/delegatedaysoftheweek.ui
-    src/lampdelegates/delegatemonthwidget.ui
     src/icons.qrc
-    src/lampdelegates/delegateres.qrc
-    src/lampdelegates/widgets/volumeslider.qrc
 )
-set_target_properties(MediaBoxManagerCore PROPERTIES AUTORCC ON)
-target_compile_features(MediaBoxManagerCore PUBLIC cxx_std_23)
-target_include_directories(MediaBoxManagerCore PUBLIC
+set_target_properties(MediaBoxManagerUi PROPERTIES AUTORCC ON)
+target_compile_features(MediaBoxManagerUi PUBLIC cxx_std_23)
+target_include_directories(MediaBoxManagerUi PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/lampcontrollers"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/lampdelegates"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/lampdelegates/widgets"
 )
-target_compile_definitions(MediaBoxManagerCore PUBLIC
+target_compile_definitions(MediaBoxManagerUi PUBLIC
     VERSION="${PROJECT_VERSION}"
-    LMCONTROLLERS LMDELEGATES LMEXWIDGETS
     "$<$<CONFIG:Debug>:SHOW_DEBUG_OUTPUT>"
 )
-target_link_libraries(MediaBoxManagerCore PUBLIC
-    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Xml Qt6::Network LampBox::TagLib MediaBoxPaths
+target_link_libraries(MediaBoxManagerUi PUBLIC
+    MediaBoxManagerApplication Qt6::Gui Qt6::Widgets
 )
 if(WIN32)
-    target_link_libraries(MediaBoxManagerCore PUBLIC shell32)
+    target_link_libraries(MediaBoxManagerUi PUBLIC shell32)
 endif()
 if(MSVC)
-    target_compile_options(MediaBoxManagerCore PUBLIC /utf-8 /permissive- /Zc:__cplusplus)
-    target_compile_options(MediaBoxManagerCore PRIVATE /W4)
+    target_compile_options(MediaBoxManagerUi PUBLIC /utf-8 /permissive- /Zc:__cplusplus)
+    target_compile_options(MediaBoxManagerUi PRIVATE /W4)
 else()
-    target_compile_options(MediaBoxManagerCore PRIVATE -Wall -Wextra)
+    target_compile_options(MediaBoxManagerUi PRIVATE -Wall -Wextra)
 endif()
 
 qt_add_executable(MediaBoxManager WIN32 MACOSX_BUNDLE src/main.cpp)
-target_link_libraries(MediaBoxManager PRIVATE MediaBoxManagerCore)
+target_link_libraries(MediaBoxManager PRIVATE MediaBoxManagerUi)
 if(WIN32)
     target_sources(MediaBoxManager PRIVATE src/app.rc)
     set_source_files_properties(src/app.rc PROPERTIES
@@ -207,7 +179,7 @@ qt_generate_deploy_app_script(
 install(SCRIPT "${mediaboxmanager_deploy_script}")
 
 add_subdirectory(MediaBoxPlayer)
-target_link_libraries(MediaBoxManagerCore PUBLIC MediaBoxPlayerCore)
+target_link_libraries(MediaBoxManagerApplication PUBLIC MediaBoxPlayerCore)
 add_subdirectory(MediaBoxVPlayer)
 add_dependencies(MediaBoxManager MediaBoxPlayer MediaBoxVPlayer)
 

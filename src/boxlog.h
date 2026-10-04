@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef _BOX_LOG_H
 #define _BOX_LOG_H
 

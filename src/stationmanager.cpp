@@ -9,7 +9,8 @@
 
 namespace {
 const QStringList stationEntries = {QStringLiteral("timetable"), QStringLiteral("media"),
-        QStringLiteral("cron"), QStringLiteral("nncronlt"), QStringLiteral("mediabox.conf")};
+        QStringLiteral("cron"), QStringLiteral("nncronlt"), QStringLiteral("mediabox.conf"),
+        QStringLiteral("project.json"), QStringLiteral("project.json.pending")};
 const QString initializedMarker = QStringLiteral(".station-storage-initialized");
 const QString migrationMarker = QStringLiteral(".station-storage-migration");
 
@@ -172,25 +173,19 @@ bool StationManager::loadConfiguration(const QString &stationPath, TypeStation s
     const int configuredId = settings.value("mediastation/mediabox_id", LOCAL_ID).toInt();
     const QString configuredName = settings.value("mediastation/mediabox_name", "NO SET").toString();
     QString mediaPath = settings.value("mediastation/media").toString();
-    QString cronPath = settings.value("mediastation/crondir").toString();
-    const bool configuredAlternative = settings.value("mediastation/alternative", false).toBool();
     if (settings.status() != QSettings::NoError)
         return false;
 
     if (mediaPath.trimmed().isEmpty())
         mediaPath = "media";
-    if (cronPath.trimmed().isEmpty())
-        cronPath = "cron";
 
     pathToStation = stationDirectory;
     pathToMedia.setPath(QDir::cleanPath(stationDirectory.absoluteFilePath(mediaPath)));
-    mCronDir = QDir::cleanPath(stationDirectory.absoluteFilePath(cronPath));
     mConfigFile = configuration;
     stationId = configuredId;
     nameStation = configuredName;
     typeStation = stationType;
     mTrial = isTrial;
-    alternativeExecScript = configuredAlternative;
     lastErrorStr.clear();
     return true;
 }
@@ -261,20 +256,18 @@ bool StationManager::initializeStandaloneConfiguration(const QString &dataPath,
 
     pathToStation = destination;
     pathToMedia.setPath(pathToStation.absoluteFilePath("media"));
-    mCronDir = pathToStation.absoluteFilePath("cron");
     mConfigFile = pathToStation.absoluteFilePath("mediabox.conf");
     stationId = LOCAL_ID;
     nameStation = "NO SET";
     typeStation = STATION_LOCAL;
     mTrial = false;
-    alternativeExecScript = false;
 
     if (QFileInfo::exists(mConfigFile) && !loadConfiguration(dataPath, STATION_LOCAL, false)) {
         lastErrorStr = tr("Не удалось загрузить конфигурацию станции: %1").arg(mConfigFile);
         return false;
     }
 
-    const QStringList directories = {"timetable", "media/music", "media/video", "media/ads", "nncronlt", "cron"};
+    const QStringList directories = {"media/music", "media/video", "media/ads"};
     for (const QString &directory : directories) {
         if (!pathToStation.mkpath(directory)) {
             lastErrorStr = tr("Не удалось создать каталог данных: %1")
@@ -306,10 +299,6 @@ TypeStation StationManager::type(){
     return typeStation;
 }
 
-QString StationManager::getCronDir(){
-    return mCronDir;
-}
-
 int StationManager::id(){
     return stationId;
 }
@@ -323,10 +312,6 @@ return lastErrorStr;
 
 QString StationManager::media(QString subdir){
 return pathToMedia.absoluteFilePath(subdir);
-}
-
-bool StationManager::isAlter(){
-        return alternativeExecScript;
 }
 
 QString StationManager::configFile()

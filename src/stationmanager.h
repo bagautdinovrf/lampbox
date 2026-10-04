@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef STATIONMANAGER_H
 #define STATIONMANAGER_H
 
@@ -39,8 +41,6 @@ private:
     QDir pathToStation;
     QDir pathToMedia;
     QString lastErrorStr;
-    QString mCronDir;
-    bool alternativeExecScript = false;
     QMap<TypeStation,QString> textType;
 
     /// Конфигрурафионный файл
@@ -60,8 +60,6 @@ public:
     QString get();
     QString get(QString subdir);
     QString media(QString subdir);
-    bool isAlter();
-    QString getCronDir();
     TypeStation type();
     QString typeText();
     int id();

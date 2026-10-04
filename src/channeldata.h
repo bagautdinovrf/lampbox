@@ -1,4 +1,5 @@
 
+#pragma once
 #ifndef LAMPBOXDATA_H
 #define LAMPBOXDATA_H
 
@@ -29,6 +30,8 @@ public:
      * @param name
      */
     void setChannelName(const QString &name );
+    void setRuleId(const QString &id) { mRuleId = id; }
+    QString ruleId() const { return mRuleId; }
 
     /**
      * @brief setStartTime
@@ -124,10 +127,11 @@ public:
 
 private:
     /// Номер
-    int                                 mId;
+    int                                 mId = -1;
 
     /// Наименование
     QString                             mChannelName;
+    QString                             mRuleId;
 
     /// Список музыкальных треков
     MediaManager                        mMediaManager;
@@ -148,7 +152,7 @@ private:
     QString                             mMonths;
 
     /// Громкость
-    int                                 mVolume;
+    int                                 mVolume = 100;
 
     bool                                mValid;
 

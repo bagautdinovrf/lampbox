@@ -1,7 +1,11 @@
 #include "ruleeditors.h"
 #include "restyletheme.h"
+#include "channelmodel.h"
+#include "advertmodel.h"
+#include "schedulecore/schedulecore.h"
 
 #include <QAbstractItemModel>
+#include <QAbstractProxyModel>
 #include <QApplication>
 #include <QComboBox>
 #include <QDateEdit>
@@ -105,33 +109,34 @@ QString validate(ChannelRuleValues &v, const QStringList &names = {})
     if (!name.match(v.name).hasMatch())
         return QStringLiteral("Название: от 1 до 15 букв, цифр или знаков подчёркивания, без пробелов.");
     if (names.contains(v.name, Qt::CaseInsensitive)) return QStringLiteral("Канал с таким названием уже существует.");
-    if (!v.start.isValid() || !v.end.isValid()) return QStringLiteral("Укажите корректное время начала и окончания.");
     if (!expand(v.weekdays, 0, 6, &v.weekdays)) return QStringLiteral("Выберите хотя бы один день недели.");
     if (!expand(v.days, 1, 31, &v.days)) return QStringLiteral("Укажите дни от 1 до 31: например, 1–15, 20, 25. * — все дни.");
     if (!expand(v.months, 1, 12, &v.months)) return QStringLiteral("Выберите хотя бы один месяц.");
-    if (v.volume < 0 || v.volume > 100) return QStringLiteral("Громкость должна быть от 0 до 100%.");
-    return {};
+    ScheduleCore::ChannelRule rule;
+    rule.name = v.name;
+    rule.start = v.start;
+    rule.end = v.end;
+    rule.weekdays = v.weekdays;
+    rule.days = v.days;
+    rule.months = v.months;
+    rule.volume = v.volume;
+    return ScheduleCore::validateChannel(rule);
 }
 
 QString validate(AdvertRuleValues &v)
 {
     if (v.fileName.isEmpty()) return QStringLiteral("Сначала выберите рекламный файл.");
     if (!expand(v.hours, 0, 23, &v.hours, true, false, true)) return QStringLiteral("Укажите часы от 0 до 23: например, 8–22 или 8, 12, 18.");
-    if (v.minutes != QLatin1String("*")) {
-        if (v.minutes.contains(QLatin1Char('m'))) {
-            if (!exactMinutes(v.minutes, &v.minutes, true)) return QStringLiteral("Укажите минуты от 0 до 59: например, 00, 15, 30, 45.");
-        } else {
-            bool ok = false;
-            const int frequency = v.minutes.toInt(&ok);
-            if (!ok || frequency < 1 || frequency > 20) return QStringLiteral("Частота должна быть от 1 до 20 выходов в час.");
-            v.minutes = QString::number(frequency);
-        }
-    }
     if (!expand(v.weekdays, 0, 6, &v.weekdays)) return QStringLiteral("Выберите хотя бы один день недели. Для отключения выхода выберите режим «Никогда».");
-    if (!v.start.isValid() || !v.end.isValid()) return QStringLiteral("Укажите корректные даты начала и окончания.");
-    if (v.end < v.start) return QStringLiteral("Дата окончания должна быть не раньше даты начала.");
-    if (v.volume < 0 || v.volume > 100) return QStringLiteral("Громкость должна быть от 0 до 100%.");
-    return {};
+    ScheduleCore::AdvertRule rule;
+    rule.name = v.fileName;
+    rule.hours = v.hours;
+    rule.weekdays = v.weekdays;
+    rule.from = v.start;
+    rule.until = v.end;
+    rule.timing = v.minutes;
+    rule.volume = v.volume;
+    return ScheduleCore::validateAdvert(rule);
 }
 
 QWidget *field(const QString &label, QWidget *control, const QString &note = {})
@@ -497,6 +502,22 @@ QTime readTime(const QVariant &value)
 bool apply(QAbstractItemModel *model, int row, const QList<QVariant> &values, int first)
 {
     if (!model || row < 0 || row >= model->rowCount() || model->columnCount() < 7) return false;
+    for (int column = first; column < 7; ++column)
+        if (!(model->flags(model->index(row, column)) & Qt::ItemIsEditable)) return false;
+
+    // Resolve the row once before a rename can reorder a sorting proxy. Real
+    // repositories commit the entire rule, including validation and persistence.
+    QModelIndex source = model->index(row, 0);
+    while (const auto *proxy = qobject_cast<const QAbstractProxyModel *>(source.model()))
+        source = proxy->mapToSource(source);
+    if (!source.isValid()) return false;
+    auto *sourceModel = const_cast<QAbstractItemModel *>(source.model());
+    if (auto *channels = qobject_cast<ChannelModel *>(sourceModel))
+        return first == 0 && channels->setRule(source.row(), values);
+    if (auto *adverts = qobject_cast<AdvertModel *>(sourceModel))
+        return first == 1 && adverts->setRule(source.row(), values);
+
+    // In-memory preview models have no repository or disk side effects.
     QList<QPersistentModelIndex> indices;
     QList<QVariant> old;
     for (int i = first; i < 7; ++i) {
@@ -511,8 +532,7 @@ bool apply(QAbstractItemModel *model, int row, const QList<QVariant> &values, in
         const QVariant &next = values[i + first];
         if (old[i] == next || (next.metaType().id() == QMetaType::QTime && readTime(old[i]) == next.toTime())) continue;
         if (!indices[i].isValid() || !model->setData(indices[i], next, Qt::EditRole)) {
-            // Models persist on setData. Restore successful writes if a later
-            // field refuses the edit; a channel rename is attempted first.
+            // Restore an in-memory model if it refuses a later field.
             for (auto it = changed.crbegin(); it != changed.crend(); ++it)
                 if (indices[*it].isValid()) model->setData(indices[*it], old[*it], Qt::EditRole);
             return false;
@@ -520,6 +540,18 @@ bool apply(QAbstractItemModel *model, int row, const QList<QVariant> &values, in
         changed << i;
     }
     return true;
+}
+
+QString saveError(QAbstractItemModel *model, const QString &fallback)
+{
+    while (auto *proxy = qobject_cast<QAbstractProxyModel *>(model))
+        model = proxy->sourceModel();
+    QString error;
+    if (const auto *channels = qobject_cast<ChannelModel *>(model))
+        error = channels->lastError();
+    else if (const auto *adverts = qobject_cast<AdvertModel *>(model))
+        error = adverts->lastError();
+    return error.isEmpty() ? fallback : error;
 }
 
 } // namespace
@@ -631,7 +663,7 @@ AdvertRuleDialog::AdvertRuleDialog(const AdvertRuleValues &initial, QWidget *par
     if (initial.minutes != QLatin1String("*")) {
         bool frequencyOk = false;
         const int frequency = initial.minutes.toInt(&frequencyOk);
-        if (!(frequencyOk && frequency >= 1 && frequency <= 20) && !exactMinutes(initial.minutes, nullptr, true))
+        if (!(frequencyOk && frequency >= 1 && frequency <= 5) && !exactMinutes(initial.minutes, nullptr, true))
             d->invalidMinutes = initial.minutes.isEmpty() ? QStringLiteral("invalidm") : initial.minutes;
     }
     d->form = buildForm(this, creating ? QStringLiteral("Добавить в расписание") : QStringLiteral("Рекламный выход"), QStringLiteral("Сохранить выход"));
@@ -653,7 +685,7 @@ AdvertRuleDialog::AdvertRuleDialog(const AdvertRuleValues &initial, QWidget *par
     d->minutes->setPlaceholderText(QStringLiteral("00, 15, 30, 45"));
     d->frequency = new QSpinBox;
     d->frequency->setObjectName(QStringLiteral("advertFrequency"));
-    d->frequency->setRange(1, 20);
+    d->frequency->setRange(1, 5);
     d->frequency->setValue(initial.minutes.toInt());
     d->frequency->setFixedHeight(35);
     d->frequency->setFont(Restyle::font(11));
@@ -773,7 +805,7 @@ bool editChannel(QAbstractItemModel *model, int row, QWidget *parent, const std:
     }
     if (target.isValid() && applyChannel(model, target.row(), dialog.values())) return true;
     QMessageBox::warning(parent, QStringLiteral("Расписание канала"),
-                          QStringLiteral("Не удалось сохранить расписание. Проверьте название канала, доступ к его каталогу и доступность станции."));
+                          saveError(model, QStringLiteral("Не удалось сохранить расписание. Проверьте название канала, доступ к его каталогу и доступность станции.")));
     return false;
 }
 
@@ -790,7 +822,7 @@ bool editAdvert(QAbstractItemModel *model, int row, QWidget *parent)
     AdvertRuleDialog dialog(initial, parent);
     if (dialog.exec() != QDialog::Accepted) return false;
     if (target.isValid() && applyAdvert(model, target.row(), dialog.values())) return true;
-    QMessageBox::warning(parent, QStringLiteral("Рекламный выход"), QStringLiteral("Не удалось сохранить рекламный выход. Проверьте доступность станции и права редактирования."));
+    QMessageBox::warning(parent, QStringLiteral("Рекламный выход"), saveError(model, QStringLiteral("Не удалось сохранить рекламный выход. Проверьте доступность станции и права редактирования.")));
     return false;
 }
 

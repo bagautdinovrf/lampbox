@@ -1,5 +1,4 @@
 #include "settingsdialog.h"
-#include "ui_settingsdialog.h"
 #include "settings.h"
 #include "mediacontroller.h"
 #include "restylewidgets.h"
@@ -158,9 +157,10 @@ RestyleLabel *caption(const QString &text, QWidget *parent)
 }
 
 SettingsDialog::SettingsDialog(QWidget *parent, Qt::WindowFlags f) :
-    QDialog(parent, f), ui(new Ui::SettingsDialog)
+    QDialog(parent, f)
 {
-    ui->setupUi(this);
+    setObjectName(QStringLiteral("SettingsDialog"));
+    setWindowTitle(tr("Настройки"));
     setFont(Restyle::font());
     resize(1124, 630);
     auto *outer = new QVBoxLayout(this);
@@ -433,7 +433,7 @@ SettingsDialog::SettingsDialog(QWidget *parent, Qt::WindowFlags f) :
     });
 }
 
-SettingsDialog::~SettingsDialog() { delete ui; }
+SettingsDialog::~SettingsDialog() = default;
 
 void SettingsDialog::init()
 {

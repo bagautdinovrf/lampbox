@@ -1,9 +1,10 @@
+#pragma once
+
 #ifndef COMPOSITIONSLIST_H
 #define COMPOSITIONSLIST_H
 #include <QList>
 #include <QAbstractTableModel>
 #include "composition.h"
-#include "parser.h"
 class CompositionsList : public QAbstractTableModel
 {
      Q_OBJECT

@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef MEDIABOXPLAYERCLIENT_H
 #define MEDIABOXPLAYERCLIENT_H
 

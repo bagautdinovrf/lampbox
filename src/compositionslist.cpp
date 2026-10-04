@@ -1,4 +1,6 @@
 #include "compositionslist.h"
+#include <QFile>
+#include <QTextStream>
 
 CompositionsList::CompositionsList(QObject *parent) : QAbstractTableModel(parent)
 {

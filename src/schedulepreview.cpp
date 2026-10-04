@@ -1,4 +1,5 @@
 #include "schedulepreview.h"
+#include "advertmodel.h"
 #include "restyletheme.h"
 #include "restylewidgets.h"
 
@@ -16,10 +17,8 @@
 #include <QPersistentModelIndex>
 #include <QPointer>
 #include <QPushButton>
-#include <QRegularExpression>
 #include <QResizeEvent>
 #include <QScreen>
-#include <QSet>
 #include <QSignalBlocker>
 #include <QStyledItemDelegate>
 #include <QTableView>
@@ -32,34 +31,6 @@
 #include <utility>
 
 namespace {
-struct CalendarValues {
-    QSet<int> values;
-    bool valid = false;
-};
-
-CalendarValues values(const QString &text, int minimum, int maximum)
-{
-    CalendarValues result;
-    if (text == QLatin1String("*")) {
-        for (int number = minimum; number <= maximum; ++number)
-            result.values.insert(number);
-        result.valid = true;
-        return result;
-    }
-    // Editors persist expanded comma-separated numbers. Do not silently
-    // reinterpret unsupported cron expressions, empty fields or partial input.
-    static const QRegularExpression number(QStringLiteral("^[0-9]+$"));
-    for (const QString &part : text.split(QLatin1Char(','))) {
-        bool ok = false;
-        const int parsed = part.toInt(&ok);
-        if (!number.match(part).hasMatch() || !ok || parsed < minimum || parsed > maximum)
-            return {};
-        result.values.insert(parsed);
-    }
-    result.valid = !result.values.isEmpty();
-    return result;
-}
-
 QVariant field(const QAbstractItemModel *model, int row, int column)
 {
     const auto index = model->index(row, column);
@@ -76,22 +47,9 @@ QTime timeValue(const QVariant &value)
     return parsed.toString(QStringLiteral("HH:mm")) == text ? parsed : QTime();
 }
 
-QDateTime onDate(const QDateTime &at, const QDate &date, const QTime &time)
-{
-    // Qt's default policy silently moves a missing wall time across a DST gap
-    // and chooses one occurrence of repeated times. Neither is confirmed by
-    // the external player's format: never turn it into an invented exact event.
-    return QDateTime(date, time, at.timeZone(), QDateTime::TransitionResolution::Reject);
-}
-
-QString eventLabel(const QDateTime &when, const QStringList &names)
-{
-    return when.toString(QStringLiteral("dd.MM · HH:mm")) + QStringLiteral(" · ") + names.join(QStringLiteral(", "));
-}
-
 QString weekdayLabel(const QString &text)
 {
-    const auto parsed = values(text, 0, 6);
+    const auto parsed = ScheduleCore::parseCalendar(text, 0, 6);
     if (!parsed.valid)
         return text;
     if (parsed.values.size() == 7)
@@ -107,7 +65,7 @@ QString weekdayLabel(const QString &text)
 
 QString monthLabel(const QString &text)
 {
-    const auto parsed = values(text, 1, 12);
+    const auto parsed = ScheduleCore::parseCalendar(text, 1, 12);
     if (!parsed.valid)
         return text;
     if (parsed.values.size() == 12)
@@ -123,237 +81,49 @@ QString monthLabel(const QString &text)
     return output.join(QStringLiteral(", "));
 }
 
-struct ChannelCalendar {
-    CalendarValues weekdays, days, months;
-    bool matches(const QDate &date) const
-    {
-        // QDate is Monday=1...Sunday=7; the persisted format is Sunday=0.
-        return date.isValid() && weekdays.values.contains(date.dayOfWeek() % 7)
-                && days.values.contains(date.day()) && months.values.contains(date.month());
-    }
-    QString exclusion(const QDate &date) const
-    {
-        if (!weekdays.values.contains(date.dayOfWeek() % 7))
-            return QStringLiteral("День недели исключён из расписания");
-        if (!months.values.contains(date.month()))
-            return QStringLiteral("Месяц исключён из расписания");
-        return QStringLiteral("День месяца исключён из расписания");
-    }
-};
 }
 
 SchedulePreview::Snapshot SchedulePreview::evaluate(const QAbstractItemModel *channels,
                                                     const QAbstractItemModel *adverts,
                                                     const QDateTime &at, int horizonDays)
 {
-    Snapshot result;
-    result.at = at;
-    result.horizonDays = std::clamp(horizonDays, 1, 366);
-    if (!at.isValid()) {
-        result.currentSummary = QStringLiteral("Некорректная дата или время просмотра");
-        result.issues.append(result.currentSummary);
-        return result;
-    }
-
-    QList<ChannelCalendar> calendars;
+    QList<ScheduleCore::ChannelRule> channelRules;
+    QList<ScheduleCore::AdvertRule> advertRules;
     for (int row = 0; channels && row < channels->rowCount(); ++row) {
-        Channel channel;
-        channel.sourceRow = row;
-        channel.name = field(channels, row, 0).toString();
-        channel.start = timeValue(field(channels, row, 1));
-        channel.end = timeValue(field(channels, row, 2));
-        channel.weekdays = field(channels, row, 3).toString();
-        channel.days = field(channels, row, 4).toString();
-        channel.months = field(channels, row, 5).toString();
-        channel.volume = field(channels, row, 6).toInt();
-        const ChannelCalendar calendar{values(channel.weekdays, 0, 6), values(channel.days, 1, 31), values(channel.months, 1, 12)};
-        channel.valid = calendar.weekdays.valid && calendar.days.valid && calendar.months.valid
-                && channel.start.isValid() && channel.end.isValid() && channel.start < channel.end;
-        channel.calendarMatches = calendar.matches(at.date());
-        const bool localWindowSupported = !channel.valid || !channel.calendarMatches
-                || (onDate(at, at.date(), channel.start).isValid() && onDate(at, at.date(), channel.end).isValid());
-        if (!calendar.weekdays.valid || !calendar.days.valid || !calendar.months.valid) {
-            channel.reason = QStringLiteral("Некорректное календарное условие: ожидаются * или числа через запятую");
-        } else if (!channel.start.isValid() || !channel.end.isValid()) {
-            channel.reason = QStringLiteral("Некорректное время интервала");
-        } else if (channel.start == channel.end) {
-            channel.reason = QStringLiteral("Начало совпадает с окончанием: длительность не определена; это не полные сутки");
-        } else if (channel.start > channel.end) {
-            channel.reason = QStringLiteral("Переход через полночь: календарная семантика MediaBoxPlayer не подтверждена; окно не включено в расчёт");
-        } else if (!localWindowSupported) {
-            channel.reason = QStringLiteral("Локальное время начала или окончания отсутствует либо неоднозначно при переводе часов; окно не включено в расчёт");
-            channel.calendarMatches = false;
-        } else if (!channel.calendarMatches) {
-            channel.reason = calendar.exclusion(at.date());
-        } else if (at.time() < channel.start) {
-            channel.reason = QStringLiteral("Окно ещё не началось · сегодня с ") + channel.start.toString(QStringLiteral("HH:mm"));
-        } else if (at.time() >= channel.end) {
-            channel.reason = QStringLiteral("Окно на сегодня закончилось в ") + channel.end.toString(QStringLiteral("HH:mm"));
-        } else {
-            channel.active = true;
-            channel.reason = QStringLiteral("Календарные условия и интервал совпали. Это расчёт плана, не подтверждение воспроизведения");
-            result.activeRows.append(row);
-        }
-        channel.status = !channel.valid || !localWindowSupported ? QStringLiteral("Требует проверки")
-                : channel.active ? QStringLiteral("По расписанию")
-                : !channel.calendarMatches ? QStringLiteral("Не в этот день")
-                : at.time() < channel.start ? QStringLiteral("Позже") : QStringLiteral("Завершён");
-        if (!channel.valid || !localWindowSupported) {
-            result.hasUnresolvedRules = true;
-            result.issues.append(channel.name + QStringLiteral(": ") + channel.reason);
-        }
-        result.channels.append(channel);
-        calendars.append(calendar);
+        ScheduleCore::ChannelRule rule;
+        rule.name = field(channels, row, 0).toString();
+        rule.start = timeValue(field(channels, row, 1));
+        rule.end = timeValue(field(channels, row, 2));
+        rule.weekdays = field(channels, row, 3).toString();
+        rule.days = field(channels, row, 4).toString();
+        rule.months = field(channels, row, 5).toString();
+        bool volumeOk = false;
+        rule.volume = field(channels, row, 6).toInt(&volumeOk);
+        if (!volumeOk)
+            rule.volume = -1;
+        channelRules.append(rule);
     }
-
-    if (result.activeRows.size() > 1) {
-        QStringList active;
-        for (int row : result.activeRows)
-            active.append(result.channels.at(row).name);
-        result.currentSummary = QStringLiteral("Пересечение: ") + active.join(QStringLiteral(", "));
-        result.issues.prepend(QStringLiteral("Подходят несколько каналов. Приоритет не задан: ") + active.join(QStringLiteral(", ")));
-    } else if (result.activeRows.size() == 1) {
-        result.currentSummary = QStringLiteral("По расписанию · ") + result.channels.at(result.activeRows.first()).name;
-    } else {
-        result.currentSummary = QStringLiteral("Нет подходящего канала");
-    }
-    if (result.hasUnresolvedRules)
-        result.currentSummary += QStringLiteral(" · есть непроверенные условия");
-
-    // Detect overlaps and internal gaps with a sweep, rather than comparing
-    // every pair of channels. The view remains useful for large channel lists.
-    QList<QPair<int, int>> boundaries;
-    for (const auto &channel : std::as_const(result.channels)) {
-        if (channel.valid && channel.calendarMatches) {
-            boundaries.append({channel.start.hour() * 60 + channel.start.minute(), 1});
-            boundaries.append({channel.end.hour() * 60 + channel.end.minute(), -1});
-        }
-    }
-    std::sort(boundaries.begin(), boundaries.end());
-    int activeCount = 0;
-    bool overlapReported = result.activeRows.size() > 1;
-    bool gapReported = false;
-    for (qsizetype index = 0; index < boundaries.size();) {
-        const int minute = boundaries.at(index).first;
-        while (index < boundaries.size() && boundaries.at(index).first == minute)
-            activeCount += boundaries.at(index++).second;
-        if (index == boundaries.size())
-            break;
-        const QString span = QTime(minute / 60, minute % 60).toString(QStringLiteral("HH:mm"))
-                + QStringLiteral("–") + QTime(boundaries.at(index).first / 60, boundaries.at(index).first % 60).toString(QStringLiteral("HH:mm"));
-        if (activeCount > 1 && !overlapReported) {
-            result.issues.append(span + QStringLiteral(": пересечение каналов, приоритет не задан"));
-            overlapReported = true;
-        }
-        if (activeCount == 0 && !gapReported) {
-            result.issues.append(span + QStringLiteral(": между интервалами нет назначенного канала"));
-            gapReported = true;
-        }
-    }
-
-    // A change can be an end as well as a start (including a transition to a
-    // gap). Group simultaneous boundaries; do not arbitrarily choose a winner.
-    for (int day = 0; day < result.horizonDays && !result.nextChannelTime.isValid(); ++day) {
-        const QDate date = at.date().addDays(day);
-        if (!date.isValid())
-            break;
-        for (qsizetype row = 0; row < result.channels.size(); ++row) {
-            const auto &channel = result.channels.at(row);
-            if (!channel.valid || !calendars.at(row).matches(date))
-                continue;
-            if (!onDate(at, date, channel.start).isValid() || !onDate(at, date, channel.end).isValid())
-                continue;
-            for (const QTime &time : {channel.start, channel.end}) {
-                const QDateTime candidate = onDate(at, date, time);
-                if (!candidate.isValid() || candidate <= at)
-                    continue;
-                const QString name = channel.name + (time == channel.start ? QStringLiteral(" — начало") : QStringLiteral(" — окончание"));
-                if (!result.nextChannelTime.isValid() || candidate < result.nextChannelTime) {
-                    result.nextChannelTime = candidate;
-                    result.nextChannelNames = {name};
-                } else if (candidate == result.nextChannelTime) {
-                    result.nextChannelNames.append(name);
-                }
-            }
-        }
-    }
-
     for (int row = 0; adverts && row < adverts->rowCount(); ++row) {
-        const QString name = field(adverts, row, 0).toString();
-        const auto hours = values(field(adverts, row, 1).toString(), 0, 23);
-        const auto weekdays = values(field(adverts, row, 3).toString(), 0, 6);
-        const QDate from = field(adverts, row, 4).toDate(), until = field(adverts, row, 5).toDate();
-        const QString minuteText = field(adverts, row, 2).toString();
-        if (minuteText == QLatin1String("*")) // Persisted "never", not every minute.
-            continue;
-        if (!hours.valid || !weekdays.valid || !from.isValid() || !until.isValid() || from > until) {
-            result.issues.append(name + QStringLiteral(": некорректное рекламное календарное условие"));
-            result.hasUnresolvedRules = true;
-            continue;
+        ScheduleCore::AdvertRule rule;
+        rule.name = field(adverts, row, 0).toString();
+        rule.hours = field(adverts, row, 1).toString();
+        rule.timing = field(adverts, row, 2).toString();
+        rule.weekdays = field(adverts, row, 3).toString();
+        rule.from = field(adverts, row, 4).toDate();
+        rule.until = field(adverts, row, 5).toDate();
+        const QVariant published = adverts->index(row, 0).data(AdvertModel::CompiledMinutesRole);
+        for (const QVariant &minute : published.toList()) {
+            bool minuteOk = false;
+            const int value = minute.toInt(&minuteOk);
+            rule.compiledMinutes.append(minuteOk ? value : -1);
         }
-        const auto eligible = [&](const QDate &date) {
-            return date >= from && date <= until && weekdays.values.contains(date.dayOfWeek() % 7);
-        };
-        bool frequencyOk = false;
-        const int frequency = minuteText.toInt(&frequencyOk);
-        if (frequencyOk && frequency >= 1 && frequency <= 20) {
-            if (eligible(at.date()) && hours.values.contains(at.time().hour()))
-                result.frequencyAdvertsNow.append(name + QStringLiteral(" · %1 в час; точные минуты неизвестны").arg(frequency));
-            continue;
-        }
-        QStringList minuteNumbers;
-        bool exactValid = true;
-        for (const QString &part : minuteText.split(QLatin1Char(','))) {
-            if (!part.endsWith(QLatin1Char('m'))) {
-                exactValid = false;
-                break;
-            }
-            minuteNumbers.append(part.chopped(1));
-        }
-        const auto minutes = values(minuteNumbers.join(QLatin1Char(',')), 0, 59);
-        if (!exactValid || !minutes.valid || minuteNumbers.contains(QStringLiteral("*"))) {
-            result.issues.append(name + QStringLiteral(": некорректные минуты; ожидаются 00m,30m, частота 1–20 или *"));
-            result.hasUnresolvedRules = true;
-            continue;
-        }
-        if (eligible(at.date()) && hours.values.contains(at.time().hour()) && minutes.values.contains(at.time().minute()))
-            result.exactAdvertsNow.append(name);
-        QList<int> dailyMinutes;
-        for (int hour : hours.values)
-            for (int minute : minutes.values)
-                dailyMinutes.append(hour * 60 + minute);
-        std::sort(dailyMinutes.begin(), dailyMinutes.end());
-        for (int day = 0; day < result.horizonDays; ++day) {
-            const QDate date = at.date().addDays(day);
-            if (!date.isValid() || date > until || (result.nextAdvertTime.isValid() && date > result.nextAdvertTime.date()))
-                break;
-            if (!eligible(date))
-                continue;
-            bool found = false;
-            for (int minute : std::as_const(dailyMinutes)) {
-                const QDateTime candidate = onDate(at, date, QTime(minute / 60, minute % 60));
-                if (!candidate.isValid() || candidate <= at)
-                    continue;
-                if (!result.nextAdvertTime.isValid() || candidate < result.nextAdvertTime) {
-                    result.nextAdvertTime = candidate;
-                    result.nextAdvertNames = {name};
-                } else if (candidate == result.nextAdvertTime) {
-                    result.nextAdvertNames.append(name);
-                }
-                found = true;
-                break;
-            }
-            if (found)
-                break;
-        }
+        bool volumeOk = false;
+        rule.volume = field(adverts, row, 6).toInt(&volumeOk);
+        if (!volumeOk)
+            rule.volume = -1;
+        advertRules.append(rule);
     }
-    result.nextChannelSummary = result.nextChannelTime.isValid()
-            ? eventLabel(result.nextChannelTime, result.nextChannelNames)
-            : QStringLiteral("Не найдена за %1 дней").arg(result.horizonDays);
-    result.nextAdvertSummary = result.nextAdvertTime.isValid()
-            ? eventLabel(result.nextAdvertTime, result.nextAdvertNames)
-            : QStringLiteral("Не найден за %1 дней").arg(result.horizonDays);
-    return result;
+    return ScheduleCore::evaluate(channelRules, advertRules, at, horizonDays);
 }
 
 namespace {
@@ -847,7 +617,7 @@ void SchedulePreviewWidget::showConditions()
           << tr("Расчёт использует существующие календарные условия и дневные интервалы [начало, окончание). Начало включено, окончание исключено.")
           << tr("Ночные интервалы и одинаковые начало/конец требуют проверки: их семантика в действующем движке не подтверждена.")
           << tr("При переводе часов несуществующее или неоднозначное локальное время исключено из поиска точных событий; поведение внешнего плеера не предполагается.")
-          << tr("Частотная реклама не задаёт точных минут. Текущий файл и факт воспроизведения этим расчётом не определяются.")
+          << tr("Минуты частотной рекламы рассчитаны тем же правилом, что и экспорт. Текущий файл и факт воспроизведения этим расчётом не определяются.")
           << tr("Поиск ограничен %1 календарными днями. Просмотр не изменяет расписание и системное время.").arg(d->plan.horizonDays);
     QDialog dialog(this);
     dialog.setWindowTitle(tr("Проверка плана"));

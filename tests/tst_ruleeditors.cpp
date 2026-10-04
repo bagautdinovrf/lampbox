@@ -1,15 +1,23 @@
 #include "ruleeditors.h"
 #include "restyletheme.h"
+#include "channelmodel.h"
 
 #include <QApplication>
 #include <QComboBox>
 #include <QDateEdit>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QSortFilterProxyModel>
+#include <QScopeGuard>
+#include <QSignalSpy>
 #include <QSpinBox>
 #include <QStandardItemModel>
+#include <QStandardPaths>
+#include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
 
@@ -69,6 +77,74 @@ private slots:
     void initTestCase()
     {
         Restyle::install(*qApp);
+    }
+
+    void realRuleThroughProxyCommitsOnceAndRetainsStateOnWriteFailure()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const bool originalTestMode = QStandardPaths::isTestModeEnabled();
+        const QVariant originalStation = qApp->property("restylePreviewStation");
+        const QVariant originalSettings = qApp->property("restylePreviewSettings");
+        const auto restore = qScopeGuard([&] {
+            qApp->setProperty("restylePreviewStation", originalStation);
+            qApp->setProperty("restylePreviewSettings", originalSettings);
+            QStandardPaths::setTestModeEnabled(originalTestMode);
+        });
+        QStandardPaths::setTestModeEnabled(true);
+        qApp->setProperty("restylePreviewStation", directory.path());
+        qApp->setProperty("restylePreviewSettings", directory.filePath("manager.conf"));
+        const auto write = [](const QString &path, const QByteArray &bytes) {
+            QFile file(path);
+            return file.open(QIODevice::WriteOnly) && file.write(bytes) == bytes.size();
+        };
+        QVERIFY(write(directory.filePath("mediabox.conf"),
+                      "[mediastation]\nmediabox_id=-1\nmediabox_name=Test\nmedia=media\ncrondir=cron\n"));
+        QVERIFY(QDir().mkpath(directory.filePath("media/music/А")));
+        QVERIFY(QDir().mkpath(directory.filePath("media/music/Б")));
+        QVERIFY(QDir().mkpath(directory.filePath("timetable")));
+        QVERIFY(write(directory.filePath("timetable/timetable"),
+                      QStringLiteral("А 08:00 12:00 * * * 65\nБ 12:00 18:00 * * * 70\n").toUtf8()));
+        const QString path = directory.filePath("project.json");
+        ChannelManager manager(MUSIC);
+        QVERIFY2(manager.collectChannels(), qPrintable(manager.lastError()));
+        ChannelModel model(&manager);
+        manager.setChannelModel(&model);
+        QSortFilterProxyModel proxy;
+        proxy.setSourceModel(&model);
+        proxy.setDynamicSortFilter(true);
+        proxy.sort(0);
+        QSignalSpy changes(&model, &QAbstractItemModel::dataChanged);
+        ChannelRuleValues values;
+        values.name = QStringLiteral("Я");
+        values.start = QTime(9, 0);
+        values.end = QTime(13, 0);
+        values.volume = 40;
+        QVERIFY(applyChannel(&proxy, 0, values));
+        QCOMPARE(changes.size(), 1);
+        QCOMPARE(model.index(0, 0).data().toString(), values.name);
+        QCOMPARE(model.index(0, 1).data().toString(), QStringLiteral("09:00"));
+        QCOMPARE(model.index(1, 0).data().toString(), QStringLiteral("Б"));
+        QVERIFY(QFileInfo::exists(directory.filePath("media/music/Я")));
+        QVERIFY(!QFileInfo::exists(directory.filePath("media/music/А")));
+
+        QFile saved(path);
+        QVERIFY(saved.open(QIODevice::ReadOnly));
+        const QByteArray committed = saved.readAll();
+        saved.close();
+        const auto before = snapshot(model, 0);
+        QVERIFY(QFile::rename(path, path + ".previous"));
+        QVERIFY(QDir().mkdir(path)); // Deterministic filesystem refusal on Windows and Linux.
+        values.volume = 80;
+        const int proxyRow = proxy.mapFromSource(model.index(0, 0)).row();
+        QVERIFY(!applyChannel(&proxy, proxyRow, values));
+        QCOMPARE(snapshot(model, 0), before);
+        QCOMPARE(changes.size(), 1);
+        QVERIFY(!model.lastError().isEmpty());
+        QFile previous(path + ".previous");
+        QVERIFY(previous.open(QIODevice::ReadOnly));
+        QCOMPARE(previous.readAll(), committed);
+        manager.setChannelModel(nullptr);
     }
 
     void cancellationDoesNotWrite()
@@ -240,7 +316,7 @@ private slots:
         model.append(advertRow());
         AdvertRuleValues values;
         values.fileName = QStringLiteral("Ролик.mp3");
-        for (const QString &minutes : {QStringLiteral("0"), QStringLiteral("21"), QStringLiteral("60m"), QStringLiteral("00m,30"), QStringLiteral("2,3")}) {
+        for (const QString &minutes : {QStringLiteral("0"), QStringLiteral("6"), QStringLiteral("20"), QStringLiteral("21"), QStringLiteral("60m"), QStringLiteral("00m,30"), QStringLiteral("2,3")}) {
             values.minutes = minutes;
             QVERIFY(!applyAdvert(&model, 0, values));
         }

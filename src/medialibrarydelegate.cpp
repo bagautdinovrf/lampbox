@@ -1,4 +1,5 @@
 #include "medialibrarydelegate.h"
+#include "settings.h"
 
 #include "mediamodel.h"
 #include "restyletheme.h"

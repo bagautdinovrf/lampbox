@@ -1,229 +1,164 @@
 #include "advertmanager.h"
-#include "boxlog.h"
-
-#include "trackfullinfo.h"
-#include "advertcsvgenerator.h"
 #include "informer.h"
+#include "lampdata.h"
 #include "stationmanager.h"
-#include "trialmessagebox.h"
+#include <QUuid>
 
-#include <QFile>
-#include <QTextStream>
-#include <QApplication>
-#include <QDir>
-#include <QScopedPointer>
-
-
-AdvertManager::AdvertManager(QObject *parent) :
-    QObject(parent),
-    mDateFormat(LAMP_DATE_FORMAT)
-{
-    mFileAdvertTask = mPathData.advertTask;
-    mFileAdverTable = /*qApp->applicationDirPath() + QDir::separator() +*/ mPathData.advertTableFile;
-    mFileAdvertView = mPathData.advertViewFile;
-    collectAdvert();
-}
-
-int AdvertManager::column()
-{
-    /// Количество столбцов
-    ///1 Название
-    ///2 Часы
-    ///3 Минуты
-    ///4 Дни недели
-    ///5 Начало
-    ///6 Конец
-    ///7 Громкость
-    return 7;
-}
-
-int AdvertManager::count()
-{
-    return mAdvertDataList.size();
-}
-
-void AdvertManager::collectAdvert()
-{
-    emit beginCollect();
-    mAdvertDataList.clear();
-
-    if( STATION_NETWORK == StationManager::Instance().type() )
-    {
-        QFile file( mFileAdvertView );
-        if( !file.exists() ) {
-            QFile(mFileAdverTable).copy(file.fileName());
-        }
-    }
-
-//    QFile file( mFileAdverTable );
-    QFile file( mFileAdvertView );
-    if ( !file.open(QIODevice::ReadOnly | QIODevice::Text) ) {
-        BoxLog() << "Невозможно открыть файл:" << file.fileName();
-    } else {
-        QTextStream stream(&file);
-        while( !stream.atEnd() ) {
-            QString line = stream.readLine();
-            mAdvertDataList.append( parseAdvert(line) );
-        }
-        file.close();
-    }
-    emit endCollect();
-}
-
-AdvertData AdvertManager::parseAdvert(const QString &line)
+namespace {
+AdvertData dataFor(const ScheduleCore::AdvertRule &rule)
 {
     AdvertData data;
-    QStringList list = line.split(';');
-    data.setName(list[0]);
-    data.setHours(list[1]);
-    data.setMinuts(list[2]);
-    data.setDays(list[3]);
-    data.setStartDate( QDate::fromString( list[4], mDateFormat) );
-    data.setEndDate( QDate::fromString( list[5], mDateFormat) );
-    data.setVolume(list[6].toInt());
+    data.setName(rule.name); data.setHours(rule.hours); data.setMinuts(rule.timing);
+    data.setDays(rule.weekdays); data.setStartDate(rule.from); data.setEndDate(rule.until);
+    data.setVolume(rule.volume);
     return data;
 }
-
-
-bool AdvertManager::saveAdvert()
+bool sameTiming(const ScheduleCore::AdvertRule &a, const ScheduleCore::AdvertRule &b)
 {
-    QFile file(mFileAdvertView);
-    if( !file.open( QFile::WriteOnly | QFile::Text ) ) {
-        BoxLog() << "Невозможно открыть файл:" << file.fileName();
-        return false;
-    }
-
-    QTextStream stream(&file);
-
-    int size = mAdvertDataList.size();
-    for(int i = 0; i < size; ++i) {
-        stream << mAdvertDataList[i].name()
-               << ";" << mAdvertDataList[i].hours()
-               << ";" << mAdvertDataList[i].minuts()
-               << ";" << mAdvertDataList[i].days()
-               << ";" << mAdvertDataList[i].startDate().toString(mDateFormat)
-               << ";" << mAdvertDataList[i].endDate().toString(mDateFormat)
-               << ";" << QString::number( mAdvertDataList[i].volume() )
-               << "\n";
-    }
-    file.close();
-
-    /// Генерация рекламы
-    generateAdvert();
-
-    return true;
+    const auto at = ScheduleCore::parseAdvertTiming(a.timing), bt = ScheduleCore::parseAdvertTiming(b.timing);
+    return a.name == b.name
+            && ScheduleCore::parseCalendar(a.hours, 0, 23).values == ScheduleCore::parseCalendar(b.hours, 0, 23).values
+            && ScheduleCore::parseCalendar(a.weekdays, 0, 6).values == ScheduleCore::parseCalendar(b.weekdays, 0, 6).values
+            && a.from == b.from && a.until == b.until && at.kind == bt.kind
+            && at.frequency == bt.frequency && at.minutes == bt.minutes;
+}
 }
 
-bool AdvertManager::addAdvert(const QString &name)
+AdvertManager::AdvertManager(QObject *parent) : QObject(parent)
 {
-    if( StationManager::Instance().trial() ) {
-        if( mAdvertDataList.size() > 1 ) {
-            TrialMessageBox();
-            return false;
-        }
+    const SPathData paths;
+    mProjectPaths = {paths.homePathDir, paths.channelDirMusic, paths.channelDirVideo};
+    collectAdvert();
+}
+bool AdvertManager::fail(const QString &error)
+{
+    mLastError = error;
+    Informer::Instance().infoEvent(error, Informer::ERROR);
+    return false;
+}
+int AdvertManager::column() { return 7; }
+int AdvertManager::count() { return mAdvertDataList.size(); }
+
+bool AdvertManager::collectAdvert()
+{
+    QString error;
+    mLoadFailed = true;
+    ProjectRepository::Project project;
+    if (!ProjectRepository::load(mProjectPaths, &project, &error)) return fail(error);
+    QList<AdvertData> replacement;
+    QList<QList<int>> phases;
+    QStringList ids;
+    for (const auto &rule : project.advert) {
+        replacement.append(dataFor(rule)); phases.append(rule.compiledMinutes); ids.append(rule.stableId);
     }
-
-    QFile file( mFileAdvertView );
-    if( !file.open( QFile::Append | QFile::Text ) ) {
-        BoxLog() << "Невозможно открыть файл:" << file.fileName();
-        return false;
-    }
-
-    QDate currentDate = QDate::currentDate();
-    QString stringCurrentDate = currentDate.toString(mDateFormat);
-    QString line = name + tr(";*;00m;0,1,2,3,4,5,6;%1;%1;100\n").arg(stringCurrentDate);
-    QTextStream stream(&file);
-    stream << line;
-    file.close();
-
     emit beginCollect();
-    mAdvertDataList.append(parseAdvert(line));
+    mAdvertDataList = replacement; mCompiledMinutes = phases; mRuleIds = ids;
     emit endCollect();
-
-    generateAdvert();
-
-return true;
-}
-
-bool AdvertManager::delAdvert(int num)
-{
-    if( num < 0 || num >= mAdvertDataList.size() )
-        return false;
-
-    AdvertData temp = mAdvertDataList.takeAt(num);
-    if( saveAdvert() ) {
-        emit beginCollect();
-        emit endCollect();
-    } else {
-        mAdvertDataList.insert(num, temp);
-        return false;
-    }
-
+    mLastError.clear(); mLoadFailed = false;
     return true;
 }
 
-AdvertData& AdvertManager::advert(int num)
+QList<ScheduleCore::AdvertRule> AdvertManager::rules() const
 {
-    int id;
-    if( num <= 0 )
-        id = 0;
-    else if( num >= mAdvertDataList.size() )
-        id = mAdvertDataList.size() - 1;
-    else
-        id = num;
-
-return mAdvertDataList[id];
+    QList<ScheduleCore::AdvertRule> result;
+    for (int row = 0; row < mAdvertDataList.size(); ++row) {
+        const auto &data = mAdvertDataList[row];
+        ScheduleCore::AdvertRule rule;
+        rule.stableId = mRuleIds.value(row);
+        rule.name = data.name(); rule.hours = data.hours(); rule.timing = data.minuts();
+        rule.weekdays = data.days(); rule.from = data.startDate(); rule.until = data.endDate();
+        rule.volume = data.volume(); rule.compiledMinutes = compiledMinutes(row); result.append(rule);
+    }
+    return result;
 }
 
-const QList<AdvertData>& AdvertManager::advertDataList()
+bool AdvertManager::decodeRule(const QVariantList &fields, ScheduleCore::AdvertRule *rule)
 {
-    return mAdvertDataList;
+    if (fields.size() != 7) return fail(QStringLiteral("Ожидаются семь полей рекламного правила"));
+    rule->name = fields[0].toString(); rule->hours = fields[1].toString(); rule->timing = fields[2].toString();
+    rule->weekdays = fields[3].toString(); rule->from = fields[4].toDate(); rule->until = fields[5].toDate();
+    bool volumeOk = false; rule->volume = fields[6].toInt(&volumeOk);
+    if (!ProjectRepository::validFileName(rule->name, false)) return fail(QStringLiteral("Некорректное имя рекламного файла"));
+    if (!volumeOk) return fail(QStringLiteral("Некорректная громкость"));
+    const QString error = ScheduleCore::validateAdvert(*rule);
+    return error.isEmpty() || fail(error);
 }
 
-
-bool AdvertManager::generateAdvert()
+bool AdvertManager::persist(const QList<ScheduleCore::AdvertRule> &snapshot)
 {
-    TracksFullInfo trackList;
-    const QString dateFormat = "yyyy-MM-dd";
-    for( auto it = mAdvertDataList.begin(); it != mAdvertDataList.end(); ++it ) {
-//        QStringList minuts = it->minuts().split(',');
-//        for( auto i = 0; i < minuts.size(); ++i ) {
-            if( "*" == it->minuts() )
-                continue;
-            TrackFullInfo track(it->name(), /*minuts[i]*/it->minuts(), it->hours(), it->days(), it->startDate().toString(dateFormat), it->endDate().toString(dateFormat), it->name(), QString::number( it->volume()) );
-            trackList.push_back(track);
-//        }
+    if (mLoadFailed) return fail(QStringLiteral("Сохранение запрещено после ошибки загрузки. ") + mLastError);
+    auto prepared = snapshot;
+    QList<QList<int>> phases;
+    for (auto &rule : prepared) {
+        const QString error = ScheduleCore::validateAdvert(rule);
+        if (!error.isEmpty()) return fail(error);
+        if (!ProjectRepository::validFileName(rule.name, false)) return fail(QStringLiteral("Некорректное имя рекламного файла"));
+        if (ScheduleCore::parseAdvertTiming(rule.timing).kind == ScheduleCore::AdvertTiming::Kind::Frequency)
+            rule.compiledMinutes = ScheduleCore::compileAdvertMinutes(rule);
+        else rule.compiledMinutes.clear();
+        phases.append(rule.compiledMinutes);
     }
+    QString error;
+    if (!ProjectRepository::replaceAdverts(mProjectPaths, prepared, &error)) return fail(error);
+    mCompiledMinutes = phases;
+    mLastError.clear(); return true;
+}
 
-    if( QFile::exists(mFileAdverTable) ) {
-        if( !QFile::remove(mFileAdverTable) ) {
-            Informer::Instance().infoEvent("Невозможно обновить файл расписания!");
-            BoxLog() << "Cannot delete file:" << mFileAdverTable << "!";
-            return false;
-        }
-    }
+bool AdvertManager::setRule(int row, const QVariantList &fields)
+{
+    if (StationManager::Instance().type() == STATION_NETWORK)
+        return fail(QStringLiteral("Рекламой сетевой станции управляют централизованно"));
+    if (row < 0 || row >= mAdvertDataList.size()) return fail(QStringLiteral("Рекламное правило не найдено"));
+    ScheduleCore::AdvertRule rule;
+    if (!decodeRule(fields, &rule)) return false;
+    if (rule.name != mAdvertDataList[row].name()) return fail(QStringLiteral("Нельзя изменить файл рекламного правила"));
+    auto snapshot = rules();
+    rule.stableId = snapshot[row].stableId;
+    if (sameTiming(rule, snapshot[row])) rule.compiledMinutes = snapshot[row].compiledMinutes;
+    snapshot[row] = rule;
+    if (!persist(snapshot)) return false;
+    mAdvertDataList[row] = dataFor(rule);
+    return true;
+}
 
-    if( !trackList.size() ) {
-        Informer::Instance().infoEvent("Отсутствует расписание рекламы, сформируйте расписание!");
-        BoxLog() << "Отсутствует расписание рекламы!";
-        return false;
-    }
+bool AdvertManager::addAdvert(const QVariantList &fields)
+{
+    if (StationManager::Instance().type() == STATION_NETWORK)
+        return fail(QStringLiteral("Рекламой сетевой станции управляют централизованно"));
+    if (StationManager::Instance().trial() && mAdvertDataList.size() > 1)
+        return fail(QStringLiteral("Достигнут предел рекламных правил пробной версии"));
+    ScheduleCore::AdvertRule rule;
+    if (!decodeRule(fields, &rule)) return false;
+    rule.stableId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    auto snapshot = rules(); snapshot.append(rule);
+    if (!persist(snapshot)) return false;
+    emit beginCollect();
+    mAdvertDataList.append(dataFor(rule)); mRuleIds.append(rule.stableId);
+    emit endCollect();
+    return true;
+}
+bool AdvertManager::delAdvert(int row)
+{
+    if (StationManager::Instance().type() == STATION_NETWORK)
+        return fail(QStringLiteral("Рекламой сетевой станции управляют централизованно"));
+    if (row < 0 || row >= mAdvertDataList.size()) return fail(QStringLiteral("Рекламное правило не найдено"));
+    auto snapshot = rules(); snapshot.removeAt(row);
+    if (!persist(snapshot)) return false;
+    emit beginCollect();
+    mAdvertDataList.removeAt(row); mRuleIds.removeAt(row);
+    emit endCollect();
+    return true;
+}
+AdvertData &AdvertManager::advert(int row)
+{
+    if (row < 0 || row >= mAdvertDataList.size()) { static AdvertData invalid; return invalid; }
+    return mAdvertDataList[row];
+}
 
-    QScopedPointer<AdvertCsvGenerator> generator(new AdvertCsvGenerator);
-
-    if( !generator->makeAdvert(trackList) ) {
-        Informer::Instance().infoEvent("Нет доступа к файлу расписания!");
-        BoxLog() << "Cannot open file:" << mFileAdverTable << "!";
-        return false;
-    }
-
-
-    if( !generator->file().copy(mFileAdverTable) ) {
-        Informer::Instance().infoEvent("Невозможно обновить файл расписания!");
-        BoxLog() << "Cannot copy file:" << mFileAdverTable << "!";
-        return false;
-    }
-
-
-return true;
+QList<int> AdvertManager::compiledMinutes(int row) const
+{
+    if (row < 0 || row >= mCompiledMinutes.size() || row >= mAdvertDataList.size()
+            || ScheduleCore::parseAdvertTiming(mAdvertDataList[row].minuts()).kind != ScheduleCore::AdvertTiming::Kind::Frequency)
+        return {};
+    return mCompiledMinutes[row];
 }

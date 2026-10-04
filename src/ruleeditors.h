@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef RULEEDITORS_H
 #define RULEEDITORS_H
 
@@ -26,7 +28,7 @@ struct ChannelRuleValues {
 struct AdvertRuleValues {
     QString fileName;
     QString hours = QStringLiteral("*");
-    // The existing format distinguishes 00m,30m / frequency 1..20 / * (never).
+    // The existing format distinguishes 00m,30m / frequency 1..5 / * (never).
     QString minutes = QStringLiteral("00m,30m");
     QString weekdays = QStringLiteral("*");
     QDate start = QDate::currentDate();

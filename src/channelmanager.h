@@ -1,104 +1,42 @@
-
-
-#ifndef CHANNELMANAGER_H
-#define CHANNELMANAGER_H
-
-
+#pragma once
 #include "channeldata.h"
-#include "lampdata.h"
+#include "projectrepository.h"
+#include <QVariant>
 
 using namespace LampBox;
-
 class ChannelModel;
-
 
 class ChannelManager
 {
 public:
-    ChannelManager(CHANNEL_TYPE type);
+    explicit ChannelManager(CHANNEL_TYPE type);
     ~ChannelManager();
-
-    /**
-     * @brief collectChannels
-     */
-    void collectChannels();
-
-    /**
-     * @brief saveChannels
-     */
-    void saveChannels();
-
-    /**
-     * @brief getChannelData
-     * @param num
-     * @return
-     */
-    ChannelData& channel( int num );
-
-    /// Количество каналов
+    bool collectChannels();
+    QString lastError() const { return mLastError; }
+    bool setRule(int row, const QVariantList &fields);
+    bool createChannel(const QVariantList &fields);
+    ChannelData &channel(int num);
     int channelCount() const;
-
-    /// Количество столбцов
     int columnCount() const;
-
     void setCurrentChannel(int cur);
-
-    ChannelData& currentChannel();
-
-    bool createChannel();
-
-    void setChannelModel( ChannelModel * model );
-
-    bool deleteChannel( int num );
-
+    ChannelData &currentChannel();
+    void setChannelModel(ChannelModel *model);
+    bool deleteChannel(int num);
     bool deleteCurrentChannel();
-
-    bool containsChannel(const QString &name );
-
-    /**
-     * @brief currentChannelNum            - Возвращает номер текущего канала
-     * @return
-     */
+    bool containsChannel(const QString &name);
     int currentChannelNum();
 
 private:
-    /**
-     * @brief parseLine
-     * @param ba
-     */
-    ChannelData parseLine(const QString &ba);
-
-    /**
-     * @brief getTime
-     * @param str
-     * @return
-     */
-    QTime getTime(const QString &str );
-
-    /**
-     * @brief createChannelDir
-     * @param name
-     * @return
-     */
-    bool createChannelDir(const QString &name);
-
-private:
-    /// Тип менеджера
-    const CHANNEL_TYPE                          mManagerType;
-    ///
-    QList<ChannelData>                          mChannelList;
-    ///
-    SPathData                                   mPath;
-    /// Путь к расписанию
-    QString                                     mTimeTableFile;
-    /// Текущий канал
-    int                                         mNumCurrentChannel;
-    ///
-    ChannelModel                                *mParent;
-    ///Название канала по умолчанию
-    const QString                               mDefaultChannelName;
-    ///
-    QString                                     mChannelDir;
+    QList<ScheduleCore::ChannelRule> rules() const;
+    bool decodeRule(const QVariantList &fields, ScheduleCore::ChannelRule *rule);
+    bool fail(const QString &error);
+    const CHANNEL_TYPE mManagerType;
+    QList<ChannelData> mChannelList;
+    QString mProjectFile;
+    ProjectRepository::Paths mProjectPaths;
+    int mNumCurrentChannel = -1;
+    ChannelModel *mParent = nullptr;
+    QString mChannelDir;
+    QString mLastError;
+    bool mLoadFailed = true;
 };
-
-#endif // CHANNELMANAGER_H

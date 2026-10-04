@@ -1,4 +1,5 @@
 #include "schedulepreview.h"
+#include "advertmodel.h"
 
 #include <QDateEdit>
 #include <QSignalSpy>
@@ -46,7 +47,9 @@ private slots:
     void unsupportedIntervals();
     void boundedLookaheadAndSimultaneousChanges();
     void advertsRespectCalendarAndMinutes();
-    void advertFrequencyAndNeverAreNotExact();
+    void advertFrequencyUsesCompiledMinutesAndNeverIsEmpty();
+    void invalidFrequencyHasDiagnostics();
+    void publishedLegacyMinutesAreUsed();
     void localTimeTransitionsDoNotInventExactEvents();
     void widgetIsReadOnlyAndRefreshes();
 };
@@ -155,18 +158,66 @@ void SchedulePreviewTests::advertsRespectCalendarAndMinutes()
     QVERIFY(result.exactAdvertsNow.isEmpty());
 }
 
-void SchedulePreviewTests::advertFrequencyAndNeverAreNotExact()
+void SchedulePreviewTests::advertFrequencyUsesCompiledMinutesAndNeverIsEmpty()
 {
     QStandardItemModel model(0, 7);
-    advert(model, QStringLiteral("Частота"), QStringLiteral("*"), QStringLiteral("20"),
+    advert(model, QStringLiteral("Частота"), QStringLiteral("*"), QStringLiteral("3"),
            QDate(2026, 1, 1), QDate(2026, 12, 31));
     advert(model, QStringLiteral("Никогда"), QStringLiteral("*"), QStringLiteral("*"),
            QDate(2026, 1, 1), QDate(2026, 12, 31));
-    const auto result = SchedulePreview::evaluate(nullptr, &model, at(2026, 10, 4));
+    ScheduleCore::AdvertRule rule;
+    rule.name = QStringLiteral("Частота");
+    rule.hours = rule.weekdays = QStringLiteral("*");
+    rule.timing = QStringLiteral("3");
+    rule.from = QDate(2026, 1, 1);
+    rule.until = QDate(2026, 12, 31);
+    const auto minutes = ScheduleCore::compileAdvertMinutes(rule);
+    const auto moment = at(2026, 10, 4, 10, minutes.first());
+    const auto result = SchedulePreview::evaluate(nullptr, &model, moment);
     QCOMPARE(result.frequencyAdvertsNow.size(), 1);
-    QVERIFY(result.exactAdvertsNow.isEmpty());
-    QVERIFY(!result.nextAdvertTime.isValid());
+    QCOMPARE(result.exactAdvertsNow, QStringList{QStringLiteral("Частота")});
+    QCOMPARE(result.nextAdvertTime, moment.addSecs(20 * 60));
     QVERIFY(!result.hasUnresolvedRules);
+    model.setData(model.index(0, 6), 15);
+    QCOMPARE(SchedulePreview::evaluate(nullptr, &model, moment).nextAdvertTime, result.nextAdvertTime);
+    model.setData(model.index(0, 2), QStringLiteral("*"));
+    const auto disabled = SchedulePreview::evaluate(nullptr, &model, moment);
+    QVERIFY(disabled.exactAdvertsNow.isEmpty());
+    QVERIFY(!disabled.nextAdvertTime.isValid());
+}
+
+void SchedulePreviewTests::invalidFrequencyHasDiagnostics()
+{
+    for (const auto &timing : {QStringLiteral("6"), QStringLiteral("20"), QStringLiteral("60m")}) {
+        QStandardItemModel model(0, 7);
+        advert(model, QStringLiteral("Некорректная"), QStringLiteral("*"), timing,
+               QDate(2026, 1, 1), QDate(2026, 12, 31));
+        const auto result = SchedulePreview::evaluate(nullptr, &model, at(2026, 10, 4));
+        QVERIFY(result.hasUnresolvedRules);
+        QVERIFY(!result.issues.isEmpty());
+        QVERIFY(result.frequencyAdvertsNow.isEmpty());
+        QVERIFY(result.exactAdvertsNow.isEmpty());
+        QVERIFY(!result.nextAdvertTime.isValid());
+    }
+}
+
+void SchedulePreviewTests::publishedLegacyMinutesAreUsed()
+{
+    QStandardItemModel model(0, 7);
+    advert(model, QStringLiteral("Старая фаза"), QStringLiteral("*"), QStringLiteral("3"),
+           QDate(2026, 1, 1), QDate(2026, 12, 31));
+    model.setData(model.index(0, 0), QVariantList{2, 22, 42}, AdvertModel::CompiledMinutesRole);
+    const auto moment = at(2026, 10, 4, 10, 2);
+    auto preview = SchedulePreview::evaluate(nullptr, &model, moment);
+    QCOMPARE(preview.exactAdvertsNow, QStringList{QStringLiteral("Старая фаза")});
+    QCOMPARE(preview.nextAdvertTime, moment.addSecs(20 * 60));
+    model.setData(model.index(0, 6), 10);
+    QCOMPARE(SchedulePreview::evaluate(nullptr, &model, moment).nextAdvertTime, preview.nextAdvertTime);
+    model.setData(model.index(0, 0), QVariantList{2, 22, 60}, AdvertModel::CompiledMinutesRole);
+    preview = SchedulePreview::evaluate(nullptr, &model, moment);
+    QVERIFY(preview.hasUnresolvedRules);
+    QVERIFY(preview.exactAdvertsNow.isEmpty());
+    QVERIFY(!preview.nextAdvertTime.isValid());
 }
 
 void SchedulePreviewTests::localTimeTransitionsDoNotInventExactEvents()

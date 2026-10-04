@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef MEDIACONTROLLER_H
 #define MEDIACONTROLLER_H
 

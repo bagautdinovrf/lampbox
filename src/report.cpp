@@ -1,5 +1,4 @@
 #include "report.h"
-#include "ui_report.h"
 #include "restylewidgets.h"
 
 #include <QComboBox>
@@ -15,9 +14,10 @@
 #include <QTableView>
 #include <QVBoxLayout>
 
-Report::Report(QWidget *parent, Qt::WindowFlags f) : QWidget(parent, f), ui(new Ui::Report)
+Report::Report(QWidget *parent, Qt::WindowFlags f) : QWidget(parent, f)
 {
-    ui->setupUi(this);
+    setObjectName(QStringLiteral("Report"));
+    setWindowTitle(tr("Отчёты"));
     setFont(Restyle::font());
     resize(1124, 600);
     auto *outer = new QVBoxLayout(this);
@@ -134,7 +134,7 @@ Report::Report(QWidget *parent, Qt::WindowFlags f) : QWidget(parent, f), ui(new 
     connect(generate, &QPushButton::clicked, this, &Report::Generate);
 }
 
-Report::~Report() { delete ui; }
+Report::~Report() = default;
 
 void Report::setReportDirectory(const QString &directory)
 {

@@ -11,6 +11,7 @@
 #include "videocontrolwidget.h"
 #include "medialibrarydelegate.h"
 #include "mediamanager.h"
+#include "mediaimportservice.h"
 #include "mediamodel.h"
 #include "report.h"
 #include "restyletheme.h"
@@ -24,6 +25,7 @@
 #include <QApplication>
 #include <QBoxLayout>
 #include <QComboBox>
+#include <QCloseEvent>
 #include <QDateTimeEdit>
 #include <QDialogButtonBox>
 #include <QFileDialog>
@@ -269,11 +271,21 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         mOperationState->setToolTip(s);
     });
     changePage(0);
+    QStringList loadErrors;
+    for (auto *manager : mChannelManagers)
+        if (!manager->lastError().isEmpty())
+            loadErrors.append(manager->lastError());
+    if (!mAdvertManager->lastError().isEmpty())
+        loadErrors.append(mAdvertManager->lastError());
+    if (!loadErrors.isEmpty())
+        Informer::Instance().infoEvent(loadErrors.join(QLatin1Char('\n')), Informer::ERROR);
     QSize available = screen()->availableGeometry().size();
     adaptLayout(available.width() - 24);
     resize(QSize(1440, 900).boundedTo(available - QSize(24, 48)));
 }
 MainWindow::~MainWindow() {
+    if (mMediaImport)
+        mMediaImport->cancel();
     // Stop selection/model callbacks while tearing down the widgets. The data
     // managers must outlive every view that can still ask its model for data.
     for (auto *child : findChildren<QObject *>())
@@ -287,6 +299,17 @@ MainWindow::~MainWindow() {
             mChannelManagers[i]->channel(r).mediaManager().setMediaModel(nullptr);
         delete mChannelManagers[i];
     }
+}
+
+void MainWindow::closeEvent(QCloseEvent *event) {
+    if (mMediaImport) {
+        mCloseAfterImport = true;
+        mMediaImport->cancel();
+        mOperationState->setText("Завершение импорта…");
+        event->ignore();
+        return;
+    }
+    QMainWindow::closeEvent(event);
 }
 
 void MainWindow::buildShell() {
@@ -685,7 +708,7 @@ QWidget *MainWindow::buildMediaPage(int page) {
     folder->setObjectName("addFolderButton" + suffix);
     lh->addWidget(folder);
     connect(folder, &QPushButton::clicked, this, [this] {
-        if (!mediaManager(mPage))
+        if (mMediaImport || !mediaManager(mPage))
             return;
         QString path = QFileDialog::getExistingDirectory(this, "Добавить файлы из папки");
         if (!path.isEmpty())
@@ -886,7 +909,12 @@ void MainWindow::selectChannel(int page, int row) {
     }
     auto *manager = mChannelManagers[page];
     manager->setCurrentChannel(row);
-    mPages[page].source->setMediaManager(&manager->channel(row).mediaManager());
+    auto &media = manager->channel(row).mediaManager();
+    // The storage layer binds rule identities without reading media. Load on
+    // selection, except the target whose complete snapshot is being imported.
+    if (!mMediaImport || media.getDirMediaFiles().absolutePath() != mImportTargetDirectory)
+        media.collectMediaFiles();
+    mPages[page].source->setMediaManager(&media);
     mPages[page].schedule->setSelectedRow(row);
     updatePage(page);
 }
@@ -911,18 +939,19 @@ void MainWindow::updatePage(int page) {
     const int count = manager ? manager->mediaCount() : 0;
     p.fileCount->setText(QStringLiteral("%1 файлов").arg(count));
     p.libraryEmpty->setVisible(count == 0);
-    p.addFiles->setEnabled(manager && (page != 2 || advertWritable()));
+    p.addFiles->setEnabled(!mMediaImport && manager && (page != 2 || advertWritable()));
     const QString suffix = page == 0 ? QString() : page == 1 ? "_video" : "_advert";
     p.root->findChild<QPushButton *>("addFolderButton" + suffix)->setEnabled(p.addFiles->isEnabled());
     p.root->findChild<QPushButton *>("sidebarAddButton" + suffix)
-        ->setEnabled(page != 2 || (advertWritable() && p.files->selectionModel()->hasSelection()));
+        ->setEnabled(!mMediaImport && (page != 2 || (advertWritable() && p.files->selectionModel()->hasSelection())));
     p.files->setEnabled(manager);
     if (page < 2) {
+        p.root->findChild<QPushButton *>("createChannelButton" + suffix)->setEnabled(!mMediaImport);
         int row = mChannelManagers[page]->currentChannelNum();
         bool selected = row >= 0 && row < mChannelModels[page]->rowCount();
         p.subtitle->setText(QStringLiteral("%1 каналов · расписание, условия выхода и содержимое")
                                 .arg(mChannelModels[page]->rowCount()));
-        p.editChannel->setEnabled(selected);
+        p.editChannel->setEnabled(!mMediaImport && selected);
         p.channelTitle->setText(selected ? mChannelModels[page]->index(row, 0).data().toString()
                                          : "Нет каналов");
         p.channelTitle->setToolTip(p.channelTitle->text());
@@ -1009,7 +1038,7 @@ void MainWindow::updateFileInfo(int page) {
     auto index = p.proxy->mapToSource(p.files->currentIndex());
     bool selected = manager && index.isValid() && p.files->selectionModel()->hasSelection() &&
                     index.row() < manager->count();
-    p.deleteFiles->setEnabled(p.files->selectionModel()->hasSelection() && (page != 2 || advertWritable()));
+    p.deleteFiles->setEnabled(!mMediaImport && p.files->selectionModel()->hasSelection() && (page != 2 || advertWritable()));
     p.preview->setEnabled(selected && (page == PAGE_VIDEO || playerAvailable()));
     p.fileInfo->setEnabled(selected);
     if (page == 2)
@@ -1077,7 +1106,7 @@ void MainWindow::updatePlayerState() {
         updateFileInfo(page);
 }
 void MainWindow::slot_addMediaFiles() {
-    if (mPage == 2 && !advertWritable())
+    if (mMediaImport || (mPage == 2 && !advertWritable()))
         return;
     if (!mediaManager(mPage))
         return;
@@ -1091,54 +1120,91 @@ void MainWindow::slot_addMediaFiles() {
         copyFiles(files);
 }
 void MainWindow::copyFiles(const QStringList &paths) {
-    if (mPage == 2 && !advertWritable())
+    if (mMediaImport || paths.isEmpty() || (mPage == 2 && !advertWritable()))
         return;
     auto *manager = mediaManager(mPage);
     if (!manager)
         return;
-    const auto files = SPathData::addFiles(paths);
-    if (files.isEmpty())
-        return;
-    QProgressDialog progress("Копирование файлов…", "Отменить", 0, files.size(), this);
-    progress.setWindowModality(Qt::WindowModal);
-    progress.setMinimumDuration(0);
-    progress.setAutoClose(false);
-    QStringList failures;
-    int added = 0;
-    bool canceled = false;
-    for (int i = 0; i < files.size(); ++i) {
-        progress.setValue(i);
-        progress.setLabelText("Копирование файлов…\n" + QFileInfo(files[i]).fileName());
-        qApp->processEvents();
-        if (progress.wasCanceled()) {
-            canceled = true;
-            break;
-        }
-        if (StationManager::Instance().trial() && manager->count() >= 10) {
-            TrialMessageBox("Вы можете добавить не больше 10 файлов.");
-            break;
-        }
-        const int previousCount = manager->count();
-        const bool copied = manager->addFile(files[i]);
-        manager->collectMediaFiles();
-        // Collection applies the existing trial duration limit. Count only
-        // files retained in the library, not merely a successful disk copy.
-        if (copied && manager->count() > previousCount)
-            added += manager->count() - previousCount;
-        else
-            failures << QFileInfo(files[i]).fileName();
+    const int targetPage = mPage;
+    const QString targetDirectory = manager->getDirMediaFiles().absolutePath();
+    MediaImportRequest request;
+    request.paths = paths;
+    request.targetDirectory = targetDirectory;
+    request.acceptedFormats = manager->importFormats();
+    request.libraryFormats = manager->libraryFormats();
+    request.initialSnapshot = manager->snapshot();
+    if (StationManager::Instance().trial()) {
+        request.maximumFiles = 10;
+        request.maximumDurationSeconds = 300;
     }
-    progress.close();
-    updatePage(mPage);
-    mOperationState->setText(QStringLiteral("%1 · добавлено файлов: %2")
-                                 .arg(canceled ? "Копирование отменено" : "Копирование завершено")
-                                 .arg(added));
-    if (!failures.isEmpty())
-        showError("Не удалось добавить файлы (проверьте формат, наличие файла и доступ к папке):\n" +
-                  failures.mid(0, 15).join('\n'));
+    mMediaImport = new MediaImportService(this);
+    mImportTargetDirectory = targetDirectory;
+    auto *service = mMediaImport;
+    auto *progress = new QProgressDialog("Подготовка медиатеки…", "Отменить", 0, 0, this);
+    progress->setObjectName("mediaImportProgress");
+    // Modal QProgressDialog::setValue processes nested events. The import uses
+    // ordinary queued signals and keeps navigation/playback available instead.
+    progress->setWindowModality(Qt::NonModal);
+    progress->setMinimumDuration(0);
+    progress->setAutoClose(false);
+    progress->setAutoReset(false);
+    connect(progress, &QProgressDialog::canceled, service, &MediaImportService::cancel);
+    connect(service, &MediaImportService::progress, progress,
+            [progress](int completed, int total, const QString &file, qint64 copied, qint64 bytes) {
+        if (progress->wasCanceled())
+            return;
+        progress->setRange(0, total);
+        progress->setValue(completed);
+        const QString detail = bytes > 0
+            ? QStringLiteral("\n%1 / %2 МБ").arg(copied / 1048576.0, 0, 'f', 1).arg(bytes / 1048576.0, 0, 'f', 1)
+            : QString();
+        progress->setLabelText((total ? QStringLiteral("Добавление файлов…\n")
+                                      : QStringLiteral("Подготовка медиатеки…\n")) + file + detail);
+    });
+    connect(service, &MediaImportService::finished, this,
+            [this, service, progress, targetPage, targetDirectory](const MediaImportResult &result) {
+        // Resolve the original destination by identity, never by the current
+        // selection and never through a manager pointer captured by the worker.
+        MediaManager *target = nullptr;
+        if (targetPage == PAGE_ADVERT) {
+            if (mMediaAdvertManager->getDirMediaFiles().absolutePath() == targetDirectory)
+                target = mMediaAdvertManager.get();
+        } else {
+            for (int row = 0; row < mChannelManagers[targetPage]->channelCount(); ++row) {
+                auto &candidate = mChannelManagers[targetPage]->channel(row).mediaManager();
+                if (candidate.getDirMediaFiles().absolutePath() == targetDirectory) {
+                    target = &candidate;
+                    break;
+                }
+            }
+        }
+        if (target)
+            target->applySnapshot(result.snapshot);
+        mMediaImport = nullptr;
+        mImportTargetDirectory.clear();
+        progress->close();
+        progress->deleteLater();
+        service->deleteLater();
+        for (int page = 0; page < 3; ++page)
+            updatePage(page);
+        mOperationState->setText(QStringLiteral("%1 · добавлено файлов: %2")
+                                    .arg(result.cancelled ? "Импорт отменён" : "Импорт завершён")
+                                    .arg(result.imported));
+        mOperationState->setToolTip(mOperationState->text());
+        if (mCloseAfterImport) {
+            close();
+            return;
+        }
+        if (!result.errors.isEmpty())
+            showError("Не удалось добавить некоторые файлы:\n" + result.errors.mid(0, 15).join('\n'));
+    });
+    for (int page = 0; page < 3; ++page)
+        updatePage(page);
+    service->start(std::move(request));
+    progress->show();
 }
 void MainWindow::slot_removeMediaFiles() {
-    if (mPage == 2 && !advertWritable())
+    if (mMediaImport || (mPage == 2 && !advertWritable()))
         return;
     auto &p = mPages[mPage];
     auto *manager = mediaManager(mPage);
@@ -1180,7 +1246,7 @@ void MainWindow::slot_removeMediaFiles() {
         showError("Не удалось удалить файлы:\n" + failed.join('\n'));
 }
 void MainWindow::slot_addChannel() {
-    if (mPage >= 2)
+    if (mMediaImport || mPage >= 2)
         return;
     auto *manager = mChannelManagers[mPage];
     if (StationManager::Instance().trial() && manager->channelCount()) {
@@ -1195,25 +1261,20 @@ void MainWindow::slot_addChannel() {
         return;
     const int previousRow = manager->currentChannelNum();
     mPages[mPage].source->setMediaManager(nullptr);
-    if (!manager->createChannel()) {
+    const QVariantList fields{values->name, values->start, values->end, values->weekdays,
+                              values->days, values->months, values->volume};
+    if (!manager->createChannel(fields)) {
         selectChannel(mPage, previousRow);
-        showError("Не удалось создать канал. Проверьте доступ к папке станции.");
+        showError(manager->lastError());
         return;
     }
     int row = manager->channelCount() - 1;
-    if (!RuleEditors::applyChannel(mChannelModels[mPage], row, *values)) {
-        manager->deleteChannel(row);
-        if (manager->channelCount())
-            selectChannel(mPage, qBound(0, previousRow, manager->channelCount() - 1));
-        showError("Не удалось сохранить параметры нового канала.");
-        return;
-    }
     mPages[mPage].channels->selectRow(row);
     selectChannel(mPage, row);
     updatePage(mPage);
 }
 void MainWindow::openChannelEditor() {
-    if (mPage >= 2)
+    if (mMediaImport || mPage >= 2)
         return;
     auto index = mPages[mPage].channels->currentIndex();
     if (!index.isValid())
@@ -1222,7 +1283,7 @@ void MainWindow::openChannelEditor() {
     updatePage(mPage);
 }
 void MainWindow::slot_deleteChannel() {
-    if (mPage >= 2)
+    if (mMediaImport || mPage >= 2)
         return;
     auto *manager = mChannelManagers[mPage];
     if (!manager->channelCount() || !mPages[mPage].channels->currentIndex().isValid())
@@ -1233,7 +1294,7 @@ void MainWindow::slot_deleteChannel() {
         return;
     mPages[mPage].source->setMediaManager(nullptr);
     if (!manager->deleteCurrentChannel()) {
-        showError("Не удалось удалить канал. Остановите станцию и проверьте доступ к файлам.");
+        showError(manager->lastError());
         selectChannel(mPage, manager->currentChannelNum());
         return;
     }
@@ -1262,16 +1323,13 @@ void MainWindow::slot_addAdvert() {
         auto values = RuleEditors::newAdvert(name, this);
         if (!values)
             continue;
-        if (!mAdvertManager->addAdvert(name)) {
-            showError("Не удалось добавить рекламное правило.");
+        const QVariantList fields{values->fileName, values->hours, values->minutes, values->weekdays,
+                                  values->start, values->end, values->volume};
+        if (!mAdvertManager->addAdvert(fields)) {
+            showError(mAdvertManager->lastError());
             break;
         }
         int row = mAdvertManager->count() - 1;
-        if (!RuleEditors::applyAdvert(mAdvertModel, row, *values)) {
-            mAdvertManager->delAdvert(row);
-            showError("Не удалось сохранить рекламное правило.");
-            break;
-        }
         p.adverts->selectRow(row);
     }
     updatePage(2);
@@ -1301,7 +1359,7 @@ void MainWindow::slot_deleteAdvert() {
     std::sort(rows.begin(), rows.end(), std::greater<int>());
     for (int row : rows)
         if (!mAdvertManager->delAdvert(row)) {
-            showError("Не удалось удалить рекламное правило.");
+            showError(mAdvertManager->lastError());
             break;
         }
     updatePage(2);
@@ -1472,6 +1530,8 @@ void MainWindow::showAllSchedules() {
     l->addLayout(actions);
     connect(close, &QPushButton::clicked, &dialog, &QDialog::accept);
     connect(edit, &QPushButton::clicked, &dialog, [this, table, &dialog] {
+        if (mMediaImport)
+            return;
         auto i = table->currentIndex();
         if (!i.isValid())
             return;
@@ -1480,7 +1540,7 @@ void MainWindow::showAllSchedules() {
         else if (advertWritable())
             RuleEditors::editAdvert(mAdvertModel, i.row(), &dialog);
     });
-    edit->setEnabled(mPage < 2 || advertWritable());
+    edit->setEnabled(!mMediaImport && (mPage < 2 || advertWritable()));
     dialog.exec();
 }
 

@@ -1,326 +1,184 @@
-
-
 #include "channelmanager.h"
 #include "channelmodel.h"
-#include "boxlog.h"
+#include "informer.h"
 #include "stationmanager.h"
-#include "trialmessagebox.h"
-
 #include <QDir>
-#include <QTextStream>
+#include <QFileInfo>
+#include <QSet>
+#include <QUuid>
 
-
-ChannelManager::ChannelManager(CHANNEL_TYPE type) :
-    mManagerType(type),
-    mNumCurrentChannel(-1),
-    mParent(0),
-    mDefaultChannelName("Новый_")
+namespace {
+void apply(ChannelData &data, const ScheduleCore::ChannelRule &rule)
 {
-    if( MUSIC == mManagerType) {
-        mTimeTableFile  = mPath.sheduleFileMusic;
-        mChannelDir     = mPath.channelDirMusic;
-    } else if( VIDEO == mManagerType ) {
-        mTimeTableFile  = mPath.sheduleFileVideo;
-        mChannelDir     = mPath.channelDirVideo;
-    }
-
-    if( !QDir().exists(mChannelDir) )
-        QDir().mkpath(mChannelDir);
+    data.setChannelName(rule.name);
+    data.setRuleId(rule.stableId);
+    data.setStartTime(rule.start); data.setEndTime(rule.end);
+    data.setDaysOfWeek(rule.weekdays); data.setDays(rule.days); data.setMonths(rule.months);
+    data.setVolume(rule.volume);
+}
 }
 
-
-ChannelManager::~ChannelManager()
+ChannelManager::ChannelManager(CHANNEL_TYPE type) : mManagerType(type)
 {
-    //
+    const SPathData paths;
+    mProjectPaths = {paths.homePathDir, paths.channelDirMusic, paths.channelDirVideo};
+    mProjectFile = ProjectRepository::filePath(mProjectPaths);
+    mChannelDir = type == MUSIC ? paths.channelDirMusic : paths.channelDirVideo;
+}
+ChannelManager::~ChannelManager() = default;
+
+bool ChannelManager::fail(const QString &error)
+{
+    mLastError = error;
+    Informer::Instance().infoEvent(error, Informer::ERROR);
+    return false;
 }
 
-/**
- * @brief ChannelManager::collectChannels
- */
-void ChannelManager::collectChannels()
+bool ChannelManager::collectChannels()
 {
-    if( mParent )
-        mParent->beginCollect();
-
+    ProjectRepository::Project project;
+    QString error;
+    mLoadFailed = true;
+    if (!ProjectRepository::load(mProjectPaths, &project, &error)) return fail(error);
+    const auto &loaded = mManagerType == VIDEO ? project.video : project.music;
+    // Parse everything before reset; loading never scans or removes media.
+    if (mParent) mParent->beginCollect();
     mChannelList.clear();
-    QFile file( mTimeTableFile );
-    if ( !file.open(QIODevice::ReadOnly | QIODevice::Text) ) {
-        BoxLog() << "Невозможно открыть файл:" << file.fileName();
-    } else {
-        QTextStream stream(&file);
-        while(!stream.atEnd()) {
-            QString line = stream.readLine();
-            mChannelList.append( parseLine(line) );
-//            qDebug() << "volume=" << mChannelList.last().volume();
-        }
-        file.close();
+    mChannelList.reserve(loaded.size());
+    for (const auto &rule : loaded) {
+        mChannelList.emplaceBack(mManagerType);
+        apply(mChannelList.last(), rule);
     }
+    mNumCurrentChannel = -1;
+    if (mParent) mParent->endCollect();
+    mLastError.clear();
+    mLoadFailed = false;
+    return true;
+}
 
-    if( StationManager::Instance().trial() || true ) {
-        for( int i = mChannelList.size()-1; i > 0; --i ) {
-            deleteChannel(i);
-        }
+QList<ScheduleCore::ChannelRule> ChannelManager::rules() const
+{
+    QList<ScheduleCore::ChannelRule> result;
+    for (const ChannelData &data : mChannelList) {
+        ScheduleCore::ChannelRule rule;
+        rule.name = data.channelName(); rule.start = data.startTime(); rule.end = data.endTime();
+        rule.stableId = data.ruleId();
+        rule.weekdays = data.daysOfWeek(); rule.days = data.days(); rule.months = data.months();
+        rule.volume = data.volume(); result.append(rule);
     }
-
-    if( mParent )
-        mParent->endCollect();
+    return result;
 }
 
-/**
- * @brief ChannelManager::createChannel
- * @param name
- * @return
- */
-bool ChannelManager::createChannel()
+bool ChannelManager::decodeRule(const QVariantList &fields, ScheduleCore::ChannelRule *rule)
 {
-    if( StationManager::Instance().trial() ) {
-        if( mChannelList.size() > 0 ) {
-            TrialMessageBox("Вы можете создать только 1 плейлист.");
-            return false;
-        }
+    if (fields.size() != 7) return fail(QStringLiteral("Ожидаются семь полей правила канала"));
+    rule->name = fields[0].toString(); rule->start = fields[1].toTime(); rule->end = fields[2].toTime();
+    rule->weekdays = fields[3].toString(); rule->days = fields[4].toString(); rule->months = fields[5].toString();
+    bool volumeOk = false;
+    rule->volume = fields[6].toInt(&volumeOk);
+    if (!ProjectRepository::validFileName(rule->name, true))
+        return fail(QStringLiteral("Имя канала должно быть безопасным именем каталога"));
+    if (!volumeOk) return fail(QStringLiteral("Некорректная громкость"));
+    const QString error = ScheduleCore::validateChannel(*rule);
+    return error.isEmpty() || fail(error);
+}
+
+bool ChannelManager::setRule(int row, const QVariantList &fields)
+{
+    if (mLoadFailed) return fail(QStringLiteral("Сохранение запрещено после ошибки загрузки. ") + mLastError);
+    if (row < 0 || row >= mChannelList.size()) return fail(QStringLiteral("Канал не найден"));
+    ScheduleCore::ChannelRule rule;
+    if (!decodeRule(fields, &rule)) return false;
+    auto snapshot = rules();
+    rule.stableId = snapshot[row].stableId;
+    for (int i = 0; i < snapshot.size(); ++i)
+        if (i != row && snapshot[i].name.compare(rule.name, Qt::CaseInsensitive) == 0)
+            return fail(QStringLiteral("Канал с таким именем уже существует"));
+    const QString oldName = snapshot[row].name;
+    const bool renamed = oldName != rule.name;
+    snapshot[row] = rule;
+    QString error;
+    if (!ProjectRepository::replaceChannels(mProjectPaths, mManagerType == VIDEO, snapshot,
+                renamed ? oldName : QString(), renamed ? rule.name : QString(), &error)) {
+        return fail(error);
     }
+    apply(mChannelList[row], rule);
+    mLastError.clear();
+    return true;
+}
 
-    uint index = 1;
-    QString name = mDefaultChannelName + QString::number(index);
-    while( containsChannel(name)  ) {
-        name = mDefaultChannelName + QString::number(++index);
+bool ChannelManager::createChannel(const QVariantList &fields)
+{
+    if (mLoadFailed) return fail(QStringLiteral("Создание запрещено после ошибки загрузки. ") + mLastError);
+    if (StationManager::Instance().trial() && !mChannelList.isEmpty())
+        return fail(QStringLiteral("Пробная версия позволяет создать только один плейлист"));
+    ScheduleCore::ChannelRule rule;
+    if (!decodeRule(fields, &rule)) return false;
+    rule.stableId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    if (containsChannel(rule.name)) return fail(QStringLiteral("Канал с таким именем уже существует"));
+    QDir root(mChannelDir);
+    if (root.exists(rule.name) || !QDir().mkpath(root.absolutePath()) || !root.mkdir(rule.name))
+        return fail(QStringLiteral("Не удалось создать каталог канала %1").arg(rule.name));
+    auto snapshot = rules(); snapshot.append(rule);
+    QString error;
+    if (!ProjectRepository::replaceChannels(mProjectPaths, mManagerType == VIDEO, snapshot, {}, {}, &error)) {
+        root.rmdir(rule.name); // Only our newly created empty directory.
+        return fail(error);
     }
+    if (mParent) mParent->beginCollect();
+    mChannelList.emplaceBack(mManagerType);
+    apply(mChannelList.last(), rule);
+    if (mParent) mParent->endCollect();
+    mLastError.clear();
+    return true;
+}
 
-    createChannelDir(name);
-
-    QFile file( mTimeTableFile );
-    if( !file.open( QFile::Append | QFile::Text ) ) {
-        BoxLog() << "Невозможно открыть файл:" << file.fileName();
-        return false;
+bool ChannelManager::deleteChannel(int row)
+{
+    if (mLoadFailed) return fail(QStringLiteral("Удаление запрещено после ошибки загрузки. ") + mLastError);
+    if (row < 0 || row >= mChannelList.size()) return fail(QStringLiteral("Канал не найден"));
+    auto snapshot = rules();
+    const QString name = snapshot[row].name;
+    if (!ProjectRepository::validFileName(name, true)) return fail(QStringLiteral("Небезопасное имя каталога"));
+    QDir root(mChannelDir);
+    const QString tombstone = QStringLiteral(".deleted-") + QUuid::createUuid().toString(QUuid::WithoutBraces);
+    const bool directoryExists = root.exists(name);
+    snapshot.removeAt(row);
+    QString error;
+    if (!ProjectRepository::replaceChannels(mProjectPaths, mManagerType == VIDEO, snapshot,
+                directoryExists ? name : QString(), directoryExists ? tombstone : QString(), &error)) {
+        return fail(error);
     }
-
-    QString start_time;
-    QString end_time = "00:00";
-
-    if( channelCount() )
-        start_time = channel(channelCount() - 1).endTime().toString("HH:mm");
-    else
-        start_time = end_time;
-
-    ChannelData data(mManagerType);
-    data.setChannelName( name );
-    data.setStartTime( getTime(start_time) );
-    data.setEndTime( getTime(end_time) );
-    data.setDaysOfWeek("*");
-    data.setDays("*");
-    data.setMonths("*");
-    data.setVolume(100);
-
-    QTextStream stream(&file);
-    stream << name << " "
-           << start_time << " "
-           << end_time << " "
-           << data.daysOfWeek() << " "
-           << data.days() << " "
-           << data.months() << " "
-           << QString::number(data.volume())
-           << "\n";
-    file.close();
-
-    if( mParent )
-        mParent->beginCollect();
-    mChannelList.append(data);
-    if( mParent )
-        mParent->endCollect();
-
-return true;
+    if (mParent) mParent->beginCollect();
+    mChannelList.removeAt(row);
+    mNumCurrentChannel = -1;
+    if (mParent) mParent->endCollect();
+    mLastError.clear();
+    // Commit schedule before deleting bytes; failed cleanup leaves an orphan.
+    if (directoryExists && !QFileInfo::exists(mProjectFile + QStringLiteral(".pending"))
+            && !QDir(root.filePath(tombstone)).removeRecursively())
+        Informer::Instance().infoEvent(QStringLiteral("Канал удалён из расписания; оставшиеся файлы: %1").arg(root.filePath(tombstone)), Informer::WARNING);
+    return true;
 }
 
-/**
- * @brief ChannelManager::saveChannels
- */
-void ChannelManager::saveChannels()
+ChannelData &ChannelManager::channel(int num)
 {
-    QFile file(mTimeTableFile);
-    if( !file.open( QFile::WriteOnly | QFile::Text ) ) {
-        BoxLog() << "Невозможно открыть файл:" << file.fileName();
-        return;
+    if (num < 0 || num >= mChannelList.size()) {
+        static ChannelData invalid;
+        return invalid;
     }
-
-    QTextStream stream(&file);
-    int size = mChannelList.size();
-
-    for(int i = 0; i < size; ++i)
-    {
-       stream << mChannelList[i].channelName() + " " +
-                 mChannelList[i].startTime().toString("HH:mm") + " " +
-                 mChannelList[i].endTime().toString("HH:mm") << " "
-              << mChannelList[i].daysOfWeek() << " "
-              << mChannelList[i].days() << " "
-              << mChannelList[i].months() << " "
-              << QString::number( mChannelList[i].volume() )
-              << "\n";
-    }
-    file.close();
+    return mChannelList[num];
 }
-
-/**
- * @brief ChannelManager::columnCount
- * @return
- */
-int ChannelManager::columnCount() const
-{
-    // Плейлист
-    // Начало
-    // Окончаниче
-    // Громкость
-    return 7;
-}
-
-/**
- * @brief ChannelManager::parseLine
- * @param str
- * @return
- */
-ChannelData ChannelManager::parseLine(const QString &str)
-{
-    QStringList list = str.split(' ');
-    ChannelData data(mManagerType);
-    data.setChannelName(list[0]);
-    data.setStartTime(getTime(list[1]));
-    data.setEndTime(getTime(list[2]));
-    data.setDaysOfWeek(list[3]);
-    data.setDays(list[4]);
-    data.setMonths(list[5]);
-    data.setVolume( list[6].toInt() );
-//    qDebug() << "parse" << list[6].toInt();
-return data;
-}
-
-
-QTime ChannelManager::getTime(const QString &str )
-{
-    QStringList list = str.split(':');
-return QTime( list[0].toInt(), list[1].toInt() );
-}
-
-/**
- * @brief ChannelManager::getChannelData
- * @param num
- * @return
- */
-ChannelData& ChannelManager::channel( int num )
-{
-    int id;
-    if(num <= 0 )
-        id = 0;
-    else if( num >= mChannelList.size() )
-        id = mChannelList.size() - 1;
-    else
-        id = num;
-
-    return mChannelList[id];
-}
-
-/**
- * @brief ChannelManager::channelCount
- * @return
- */
-int ChannelManager::channelCount() const
-{
-    return mChannelList.size();
-}
-
-void ChannelManager::setCurrentChannel(int cur)
-{
-    if(cur >= mChannelList.size() || cur < 0)
-        mNumCurrentChannel = -1;
-    else
-        mNumCurrentChannel = cur;
-}
-
-
-ChannelData& ChannelManager::currentChannel()
-{
-    if( mNumCurrentChannel == -1 ) {
-        static ChannelData channel;
-        return channel;
-    }
-    return mChannelList[mNumCurrentChannel];
-}
-
-
-void ChannelManager::setChannelModel( ChannelModel * model )
-{
-    mParent = model;
-}
-
-
+int ChannelManager::channelCount() const { return mChannelList.size(); }
+int ChannelManager::columnCount() const { return 7; }
+void ChannelManager::setCurrentChannel(int cur) { mNumCurrentChannel = cur >= 0 && cur < mChannelList.size() ? cur : -1; }
+ChannelData &ChannelManager::currentChannel() { return channel(mNumCurrentChannel); }
+void ChannelManager::setChannelModel(ChannelModel *model) { mParent = model; }
 bool ChannelManager::containsChannel(const QString &name)
 {
-    for( const auto & item : mChannelList ) {
-        if( name == item.channelName() )
-            return true;
-    }
-
+    for (const auto &data : mChannelList)
+        if (name.compare(data.channelName(), Qt::CaseInsensitive) == 0) return true;
     return false;
-
-//    for( QList<ChannelData>::Iterator it = mChannelList.begin(); it != mChannelList.end(); ++it ) {
-//        if( name == it->channelName() )
-//            return true;
-//    }
-//    return false;
 }
-
-
-bool ChannelManager::deleteCurrentChannel()
-{
-    if( -1 == mNumCurrentChannel)
-        return false;
-
-    return deleteChannel(mNumCurrentChannel);
-}
-
-
-bool ChannelManager::deleteChannel(int num)
-{
-    if( num < 0 || num >= mChannelList.size() )
-        return false;
-
-    // Удаление канала
-    if( !channel(num).channelName().isEmpty() ) {
-        if( channel(num).mediaManager().deleteChannel() ) {
-//            qDebug() << "delete channel ok";
-        }
-        else
-            return false;
-    }
-
-    if(!mChannelList.size())
-        mNumCurrentChannel = -1;
-
-    if(mParent)
-        mParent->beginCollect();
-    mChannelList.removeAt(num);
-    if(mParent)
-        mParent->endCollect();
-
-    saveChannels();
-
-    return true;
-}
-
-bool ChannelManager::createChannelDir(const QString &name)
-{
-    if( name.isEmpty() )
-        return false;
-
-    QDir dir;
-    dir.setPath(mChannelDir);
-    if( !dir.mkdir(name) ) {
-        BoxLog() << "Dir" << name << "cannot create!";
-        return false;
-    }
-
-    return true;
-}
-
-int ChannelManager::currentChannelNum()
-{
-    return mNumCurrentChannel;
-}
+bool ChannelManager::deleteCurrentChannel() { return deleteChannel(mNumCurrentChannel); }
+int ChannelManager::currentChannelNum() { return mNumCurrentChannel; }
