@@ -8,6 +8,7 @@
 #include "mediaboxmanagerdata.h"
 
 #include <QAbstractTableModel>
+#include <QSet>
 
 
 //Qt
@@ -42,7 +43,8 @@ public:
         FormatRole,
         FileSizeRole,
         MediaTypeRole,
-        SortRole
+        SortRole,
+        PlayingRole
     };
 
     explicit MediaModel(MediaManager *mediaManager, CHANNEL_TYPE type, QObject *parent = nullptr);
@@ -50,6 +52,7 @@ public:
 
     void setMediaManager(MediaManager * mediaManager);
     void setManagerType(CHANNEL_TYPE type);
+    void setPlayingFiles(const QStringList &paths);
 
     CHANNEL_TYPE type();
 
@@ -72,6 +75,8 @@ signals:
 
 
 private:
+    bool isPlaying(const QString &fileName) const;
+    QSet<QString> mPlayingFiles;
     MediaManager                        *mMediaManager_;
     CHANNEL_TYPE                        mManagerType;
 

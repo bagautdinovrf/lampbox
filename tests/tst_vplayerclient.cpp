@@ -135,8 +135,10 @@ private slots:
             {"schedule", {{"schedule", QJsonObject{{"channels", QJsonArray{}}, {"adverts", QJsonArray{}}}}},
              [&] { return client.startSchedule("foyer", {{"channels", QJsonArray{}}, {"adverts", QJsonArray{}}}); }},
             {"schedule", {}, [&] { return client.startSchedule("foyer"); }},
-            {"playChannel", {{"name", "Канал"}, {"paths", QJsonArray{"/video/channel.mp4"}}, {"volume", 45}},
+            {"playChannel", {{"name", "Канал"}, {"paths", QJsonArray{"/video/channel.mp4"}}, {"volume", 45}, {"order", "shuffle_cycle"}},
              [&] { return client.playChannel("foyer", "Канал", {"/video/channel.mp4"}, 45); }},
+            {"playChannel", {{"name", "Канал"}, {"paths", QJsonArray{"/video/channel.mp4"}}, {"volume", 45}, {"order", "sequential"}},
+             [&] { return client.playChannel("foyer", "Канал", {"/video/channel.mp4"}, 45, "sequential"); }},
             {"play", {}, [&] { return client.play("foyer"); }},
             {"pause", {}, [&] { return client.pause("foyer"); }},
             {"stop", {}, [&] { return client.stop("foyer"); }},
@@ -361,7 +363,8 @@ private slots:
         QVERIFY(client.playChannel("hall", " ", {"/video/a.mp4"}, 100).isEmpty());
         QVERIFY(client.playChannel("hall", "Канал", {"relative.mp4"}, 100).isEmpty());
         QVERIFY(client.playChannel("hall", "Канал", {"/video/a.mp4"}, -1).isEmpty());
-        QCOMPARE(failed.size(), 13);
+        QVERIFY(client.playChannel("hall", "Канал", {"/video/a.mp4"}, 100, "random").isEmpty());
+        QCOMPARE(failed.size(), 14);
         QTest::qWait(30);
         QCOMPARE(peer.requests.size(), 1);
     }

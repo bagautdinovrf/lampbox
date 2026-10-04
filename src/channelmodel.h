@@ -13,6 +13,7 @@ class ChannelModel : public QAbstractTableModel
 {
     Q_OBJECT
 public:
+    enum Role { PlaybackOrderRole = Qt::UserRole + 1 };
     explicit ChannelModel(ChannelManager *channelManager, QObject *parent = nullptr);
     ~ChannelModel() override;
 

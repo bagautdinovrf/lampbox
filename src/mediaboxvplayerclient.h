@@ -59,7 +59,8 @@ public:
     QString setSchedule(const QString &windowId, const QJsonObject &schedule);
     QString startSchedule(const QString &windowId, const QJsonObject &schedule = {});
     QString playChannel(const QString &windowId, const QString &name,
-                        const QStringList &paths, int volume);
+                        const QStringList &paths, int volume,
+                        const QString &order = QStringLiteral("shuffle_cycle"));
     QString play(const QString &windowId);
     QString pause(const QString &windowId);
     QString stop(const QString &windowId);

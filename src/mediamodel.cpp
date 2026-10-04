@@ -6,6 +6,22 @@
 #include <QUrl>
 
 namespace {
+QString playbackPath(QString path)
+{
+    if (path.startsWith(QStringLiteral("file:"), Qt::CaseInsensitive))
+        path = QUrl(path).toLocalFile();
+    if (path.isEmpty())
+        return {};
+    path = QDir::cleanPath(QDir::fromNativeSeparators(path));
+#ifdef Q_OS_WIN
+    // Windows drive and UNC paths are insensitive to case. Remote POSIX paths
+    // retain their case; a matching basename alone never identifies a track.
+    if ((path.size() > 1 && path.at(1) == QLatin1Char(':')) || path.startsWith("//"))
+        path = path.toCaseFolded();
+#endif
+    return path;
+}
+
 QString durationText(uint seconds)
 {
     if (!seconds)
@@ -55,6 +71,35 @@ void MediaModel::setMediaManager(MediaManager *mediaManager)
     endCollect();
 }
 
+bool MediaModel::isPlaying(const QString &fileName) const
+{
+    return mMediaManager_ && !mPlayingFiles.isEmpty()
+        && mPlayingFiles.contains(playbackPath(mMediaManager_->getDirMediaFiles().absoluteFilePath(fileName)));
+}
+
+void MediaModel::setPlayingFiles(const QStringList &paths)
+{
+    QSet<QString> playing;
+    for (const QString &path : paths) {
+        const QString normalized = playbackPath(path);
+        if (!normalized.isEmpty())
+            playing.insert(normalized);
+    }
+    if (playing == mPlayingFiles)
+        return;
+    QSet<QString> changed = mPlayingFiles - playing;
+    changed.unite(playing - mPlayingFiles);
+    mPlayingFiles = playing;
+    if (!mMediaManager_)
+        return;
+    for (int row = 0; row < rowCount(); ++row) {
+        const QString path = mMediaManager_->getDirMediaFiles().absoluteFilePath(mMediaManager_->mediaData(row).fileName());
+        if (changed.contains(playbackPath(path)))
+            emit dataChanged(index(row, 0), index(row, ColumnCount - 1),
+                             {PlayingRole, Qt::ToolTipRole, Qt::AccessibleDescriptionRole});
+    }
+}
+
 QVariant MediaModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
     if (role != Qt::DisplayRole)
@@ -81,6 +126,7 @@ QVariant MediaModel::data(const QModelIndex &index, int role) const
 
     const MediaData &media = mMediaManager_->mediaData(index.row());
     switch (role) {
+    case PlayingRole: return isPlaying(media.fileName());
     case FileNameRole: return media.fileName();
     case TitleRole: return media.title();
     case ArtistRole: return media.artist();
@@ -95,7 +141,8 @@ QVariant MediaModel::data(const QModelIndex &index, int role) const
         return static_cast<int>(Qt::AlignLeft | Qt::AlignVCenter);
     case Qt::ToolTipRole:
     case Qt::AccessibleDescriptionRole:
-        return tr("Файл: %1\nНазвание: %2\nИсполнитель: %3\nАльбом: %4\nЖанр: %5\nГод: %6\nДлительность: %7\nФормат: %8")
+        return (isPlaying(media.fileName()) ? tr("Сейчас играет\n") : QString())
+            + tr("Файл: %1\nНазвание: %2\nИсполнитель: %3\nАльбом: %4\nЖанр: %5\nГод: %6\nДлительность: %7\nФормат: %8")
             .arg(media.fileName(), availableText(media.title()), availableText(media.artist()),
                  availableText(media.album()), availableText(media.genre()),
                  media.year() ? QString::number(media.year()) : QStringLiteral("—"),

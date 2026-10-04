@@ -360,11 +360,13 @@ void VideoControlWidget::setScheduleSnapshot(const QJsonObject &schedule)
     updateActions();
 }
 
-void VideoControlWidget::setSelectedChannel(const QString &name, const QStringList &paths, int volume)
+void VideoControlWidget::setSelectedChannel(const QString &name, const QStringList &paths, int volume,
+                                            const QString &order)
 {
     mSelectedChannelName = name;
     mSelectedChannelPaths = paths;
     mSelectedChannelVolume = volume;
+    mSelectedChannelOrder = order;
     mSelectedChannel->setText(name.isEmpty()
         ? tr("Выберите видеоканал в основном окне менеджера.")
         : tr("Выбран канал: %1 · файлов: %2").arg(name).arg(paths.size()));
@@ -393,7 +395,7 @@ bool VideoControlWidget::playSelectedChannel()
         return false;
     }
     const QString id = mClient->playChannel(confirmedWindow()->id, mSelectedChannelName,
-                                           mSelectedChannelPaths, mSelectedChannelVolume);
+                                           mSelectedChannelPaths, mSelectedChannelVolume, mSelectedChannelOrder);
     submit(id, tr("Запуск канала «%1»").arg(mSelectedChannelName));
     return !id.isEmpty();
 }

@@ -99,7 +99,8 @@ public:
     QString clear();
     QString setSchedule(const QJsonObject &schedule);
     QString startSchedule(const QJsonObject &schedule = {});
-    QString playChannel(const QString &name, const QStringList &paths, int volume);
+    QString playChannel(const QString &name, const QStringList &paths, int volume,
+                        const QString &order = QStringLiteral("shuffle_cycle"));
 
 signals:
     void connectionStateChanged(MediaBoxPlayerClient::ConnectionState state);

@@ -53,6 +53,9 @@ QVariant ChannelModel::data(const QModelIndex &index, int nRole) const
     if (!index.isValid() || index.row() < 0 || index.row() >= rowCount() || index.column() >= columnCount())
         return QVariant();
 
+    if (nRole == PlaybackOrderRole)
+        return mChannelManager_->channel(index.row()).playbackOrder();
+
     if( nRole == Qt::DisplayRole || nRole == Qt::EditRole)
     {
         int row = index.row();
@@ -81,20 +84,21 @@ QVariant ChannelModel::data(const QModelIndex &index, int nRole) const
 
 bool ChannelModel::setData(const QModelIndex &index, const QVariant &value, int role)
 {
-    if (!index.isValid() || index.model() != this || role != Qt::EditRole
+    if (!index.isValid() || index.model() != this || (role != Qt::EditRole && role != PlaybackOrderRole)
             || index.row() >= rowCount() || index.column() < 0 || index.column() >= 7)
         return false;
     QVariantList fields;
     for (int column = 0; column < 7; ++column)
         fields.append(data(this->index(index.row(), column), Qt::EditRole));
-    fields[index.column()] = value;
+    if (role == PlaybackOrderRole) fields.append(value);
+    else fields[index.column()] = value;
     return setRule(index.row(), fields);
 }
 
 bool ChannelModel::setRule(int row, const QVariantList &fields)
 {
     if (!mChannelManager_->setRule(row, fields)) return false;
-    emit dataChanged(index(row, 0), index(row, 6), {Qt::DisplayRole, Qt::EditRole});
+    emit dataChanged(index(row, 0), index(row, 6), {Qt::DisplayRole, Qt::EditRole, PlaybackOrderRole});
     return true;
 }
 

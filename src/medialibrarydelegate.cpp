@@ -33,7 +33,9 @@ void paintFileTile(QPainter *painter, const QRectF &rect, const QModelIndex &ind
     painter->setRenderHint(QPainter::Antialiasing);
     Restyle::paintSurface(*painter, rect, QStringLiteral("thumbnail"));
     const QRectF iconRect(rect.center().x() - 7, rect.center().y() - 7, 14, 14);
-    Restyle::paintIcon(*painter, iconRect, fileIcon(index), theme.secondary);
+    const bool playing = index.data(MediaModel::PlayingRole).toBool();
+    Restyle::paintIcon(*painter, iconRect, playing ? QStringLiteral("play") : fileIcon(index),
+                       playing ? theme.success : theme.secondary);
     painter->restore();
 }
 }
@@ -51,6 +53,10 @@ void MediaLibraryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &
 {
     QStyleOptionViewItem item(option);
     initStyleOption(&item, index);
+    const bool playing = index.data(MediaModel::PlayingRole).toBool();
+    const Restyle::Tokens &theme = Restyle::tokens();
+    if (playing)
+        item.backgroundBrush = theme.successBg;
     item.text.clear();
     item.icon = QIcon();
     item.features &= ~(QStyleOptionViewItem::HasDisplay | QStyleOptionViewItem::HasDecoration);
@@ -60,13 +66,15 @@ void MediaLibraryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &
 
     painter->save();
     painter->setClipRect(option.rect);
-    const Restyle::Tokens &theme = Restyle::tokens();
     const bool enabled = option.state.testFlag(QStyle::State_Enabled);
     const QColor textColor = enabled ? theme.text : theme.muted;
     const QColor secondaryColor = enabled ? theme.secondary : theme.muted;
     const QRect content = option.rect.adjusted(8, 4, -8, -4);
 
     if (index.column() == MediaModel::FileNameColumn) {
+        if (playing)
+            painter->fillRect(QRect(option.rect.left(), option.rect.top() + 3, 3,
+                                    option.rect.height() - 6), theme.success);
         QStyleOptionButton check;
         check.rect = selectionRect(option.rect);
         check.palette = option.palette;
@@ -85,7 +93,7 @@ void MediaLibraryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &
         if (metadata.trimmed().isEmpty() && title != fileName)
             metadata = fileName;
 
-        const QFont titleFont = Restyle::font(13);
+        const QFont titleFont = Restyle::font(13, playing ? QFont::DemiBold : QFont::Normal);
         const QFont metadataFont = Restyle::font(11);
         const QFontMetrics titleMetrics(titleFont);
         const QFontMetrics metadataMetrics(metadataFont);
@@ -98,7 +106,7 @@ void MediaLibraryDelegate::paint(QPainter *painter, const QStyleOptionViewItem &
         const int baseline = option.rect.top() + (option.rect.height() - titleMetrics.height()) / 2
             + titleMetrics.ascent();
         painter->setFont(titleFont);
-        painter->setPen(textColor);
+        painter->setPen(playing && enabled ? theme.success : textColor);
         painter->drawText(textLeft, baseline, visibleTitle);
         const int metadataLeft = textLeft + titleMetrics.horizontalAdvance(visibleTitle) + 9;
         const int metadataWidth = qMax(0, content.right() - metadataLeft + 1);

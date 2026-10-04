@@ -25,7 +25,8 @@ public:
     void reloadConnection();
     void addPlaylistPaths(const QStringList &paths);
     void setScheduleSnapshot(const QJsonObject &schedule);
-    void setSelectedChannel(const QString &name, const QStringList &paths, int volume);
+    void setSelectedChannel(const QString &name, const QStringList &paths, int volume,
+                            const QString &order = QStringLiteral("shuffle_cycle"));
     bool playSelectedChannel();
     bool startSelectedSchedule();
 signals:
@@ -97,6 +98,7 @@ private:
     QPushButton *mSchedule = nullptr;
     QPushButton *mPlayChannel = nullptr;
     RestyleLabel *mSelectedChannel = nullptr;
+    QString mSelectedChannelOrder = QStringLiteral("shuffle_cycle");
     QPushButton *mToggleFullscreen = nullptr;
     QList<QPushButton *> mTransportButtons;
     QList<QPushButton *> mPlaylistButtons;

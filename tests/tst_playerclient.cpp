@@ -207,8 +207,10 @@ private slots:
             {"setSchedule", {{"schedule", schedule}}, [&] { return client.setSchedule(schedule); }},
             {"schedule", {}, [&] { return client.startSchedule(); }},
             {"schedule", {{"schedule", schedule}}, [&] { return client.startSchedule(schedule); }},
-            {"playChannel", {{"name", "Утро"}, {"paths", QJsonArray::fromStringList(paths)}, {"volume", 63}},
-             [&] { return client.playChannel(QStringLiteral("Утро"), paths, 63); }}
+            {"playChannel", {{"name", "Утро"}, {"paths", QJsonArray::fromStringList(paths)}, {"volume", 63}, {"order", "shuffle_cycle"}},
+             [&] { return client.playChannel(QStringLiteral("Утро"), paths, 63); }},
+            {"playChannel", {{"name", "Утро"}, {"paths", QJsonArray::fromStringList(paths)}, {"volume", 63}, {"order", "sequential"}},
+             [&] { return client.playChannel(QStringLiteral("Утро"), paths, 63, QStringLiteral("sequential")); }}
         };
         QSet<QString> ids{peer.requests.at(0).object.value("id").toString()};
         QVERIFY(!ids.contains(QString()));
@@ -781,7 +783,8 @@ private slots:
         QVERIFY(client.playChannel("Утро", {"relative.wav"}, 100).isEmpty());
         QVERIFY(client.playChannel("Утро", {"/srv/track.wav"}, 101).isEmpty());
         QVERIFY(client.playChannel("Утро", {"/srv/track.wav"}, -1).isEmpty());
-        QCOMPARE(failed.size(), 14);
+        QVERIFY(client.playChannel("Утро", {"/srv/track.wav"}, 100, "random").isEmpty());
+        QCOMPARE(failed.size(), 15);
         for (const QList<QVariant> &result : failed) {
             QVERIFY(result.at(0).toString().isEmpty());
             QVERIFY(!result.at(2).toString().isEmpty());

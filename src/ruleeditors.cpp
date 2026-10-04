@@ -120,6 +120,7 @@ QString validate(ChannelRuleValues &v, const QStringList &names = {})
     rule.days = v.days;
     rule.months = v.months;
     rule.volume = v.volume;
+    rule.order = v.order;
     return ScheduleCore::validateChannel(rule);
 }
 
@@ -520,21 +521,32 @@ bool apply(QAbstractItemModel *model, int row, const QList<QVariant> &values, in
     // In-memory preview models have no repository or disk side effects.
     QList<QPersistentModelIndex> indices;
     QList<QVariant> old;
+    QList<QVariant> nextValues;
+    QList<int> roles;
     for (int i = first; i < 7; ++i) {
         const QModelIndex index = model->index(row, i);
         if (!(model->flags(index) & Qt::ItemIsEditable)) return false;
         indices << QPersistentModelIndex(index);
         const QVariant previous = index.data(Qt::EditRole);
         old << (values[i].metaType().id() == QMetaType::QTime ? QVariant(readTime(previous)) : previous);
+        nextValues << values[i];
+        roles << Qt::EditRole;
+    }
+    if (first == 0 && values.size() > 7) {
+        const QModelIndex index = model->index(row, 0);
+        indices << QPersistentModelIndex(index);
+        old << index.data(ChannelModel::PlaybackOrderRole);
+        nextValues << values[7];
+        roles << ChannelModel::PlaybackOrderRole;
     }
     QList<int> changed;
     for (int i = 0; i < indices.size(); ++i) {
-        const QVariant &next = values[i + first];
+        const QVariant &next = nextValues[i];
         if (old[i] == next || (next.metaType().id() == QMetaType::QTime && readTime(old[i]) == next.toTime())) continue;
-        if (!indices[i].isValid() || !model->setData(indices[i], next, Qt::EditRole)) {
+        if (!indices[i].isValid() || !model->setData(indices[i], next, roles[i])) {
             // Restore an in-memory model if it refuses a later field.
             for (auto it = changed.crbegin(); it != changed.crend(); ++it)
-                if (indices[*it].isValid()) model->setData(indices[*it], old[*it], Qt::EditRole);
+                if (indices[*it].isValid()) model->setData(indices[*it], old[*it], roles[*it]);
             return false;
         }
         changed << i;
@@ -565,6 +577,7 @@ struct ChannelRuleDialog::Private {
     QWidget *weekdays;
     QLineEdit *days;
     QWidget *months;
+    QComboBox *order;
     bool remove = false;
 };
 
@@ -583,8 +596,17 @@ ChannelRuleDialog::ChannelRuleDialog(const ChannelRuleValues &initial, const QSt
     d->days = line(compact(initial.days, 1, 31), QStringLiteral("channelDays"));
     d->days->setPlaceholderText(QStringLiteral("1–31 или 1, 5, 10–20"));
     d->months = picker(initial.months, true);
+    d->order = new QComboBox;
+    d->order->setObjectName(QStringLiteral("channelOrder"));
+    d->order->setFixedHeight(35);
+    d->order->setFont(Restyle::font(11));
+    d->order->addItem(QStringLiteral("По порядку"), QStringLiteral("sequential"));
+    d->order->addItem(QStringLiteral("Случайно"), QStringLiteral("shuffle_cycle"));
+    d->order->setCurrentIndex(d->order->findData(initial.order));
+    d->order->setToolTip(QStringLiteral("По порядку — по имени файла. Случайно — все треки без повторов, затем новый случайный круг."));
     auto *grid = d->form.grid;
-    grid->addWidget(field(QStringLiteral("Название канала"), d->name), 0, 0, 1, 2);
+    grid->addWidget(field(QStringLiteral("Название канала"), d->name), 0, 0);
+    grid->addWidget(field(QStringLiteral("Порядок треков"), d->order), 0, 1);
     grid->addWidget(field(QStringLiteral("Начало"), d->start), 1, 0);
     grid->addWidget(field(QStringLiteral("Окончание"), d->end), 1, 1);
     grid->addWidget(field(QStringLiteral("Дни недели"), d->weekdays), 2, 0, 1, 2);
@@ -603,7 +625,8 @@ ChannelRuleValues ChannelRuleDialog::values() const
     return {d->name->text(), d->start->property("invalidOriginal").toBool() ? QTime() : d->start->time(),
             d->end->property("invalidOriginal").toBool() ? QTime() : d->end->time(),
             pickerValue(d->weekdays), d->days->text(), pickerValue(d->months),
-            d->form.volume->property("invalidOriginal").toBool() ? -1 : d->form.volume->value()};
+            d->form.volume->property("invalidOriginal").toBool() ? -1 : d->form.volume->value(),
+            d->order->currentData().toString()};
 }
 
 void ChannelRuleDialog::accept()
@@ -780,7 +803,7 @@ bool applyChannel(QAbstractItemModel *model, int row, const ChannelRuleValues &v
     if (!model) return false;
     auto v = values;
     if (!validate(v, channelNames(model, row)).isEmpty()) return false;
-    return apply(model, row, {v.name, v.start, v.end, v.weekdays, v.days, v.months, v.volume}, 0);
+    return apply(model, row, {v.name, v.start, v.end, v.weekdays, v.days, v.months, v.volume, v.order}, 0);
 }
 
 bool applyAdvert(QAbstractItemModel *model, int row, const AdvertRuleValues &values)
@@ -797,6 +820,8 @@ bool editChannel(QAbstractItemModel *model, int row, QWidget *parent, const std:
     QPersistentModelIndex target(model->index(row, 0));
     ChannelRuleValues initial{read(model, row, 0).toString(), readTime(read(model, row, 1)), readTime(read(model, row, 2)),
                               read(model, row, 3).toString(), read(model, row, 4).toString(), read(model, row, 5).toString(), read(model, row, 6).toInt()};
+    const QVariant order = model->index(row, 0).data(ChannelModel::PlaybackOrderRole);
+    if (order.isValid()) initial.order = order.toString();
     ChannelRuleDialog dialog(initial, channelNames(model, row), parent);
     if (deleteAction) dialog.enableDelete();
     if (dialog.exec() != QDialog::Accepted) {

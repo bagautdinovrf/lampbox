@@ -120,10 +120,12 @@ private slots:
         values.start = QTime(9, 0);
         values.end = QTime(13, 0);
         values.volume = 40;
+        values.order = QStringLiteral("sequential");
         QVERIFY(applyChannel(&proxy, 0, values));
         QCOMPARE(changes.size(), 1);
         QCOMPARE(model.index(0, 0).data().toString(), values.name);
         QCOMPARE(model.index(0, 1).data().toString(), QStringLiteral("09:00"));
+        QCOMPARE(model.index(0, 0).data(ChannelModel::PlaybackOrderRole).toString(), values.order);
         QCOMPARE(model.index(1, 0).data().toString(), QStringLiteral("Б"));
         QVERIFY(QFileInfo::exists(directory.filePath("media/music/Я")));
         QVERIFY(!QFileInfo::exists(directory.filePath("media/music/А")));
@@ -136,11 +138,13 @@ private slots:
         QVERIFY(QFile::rename(path, path + ".previous"));
         QVERIFY(QDir().mkdir(path)); // Deterministic filesystem refusal on Windows and Linux.
         values.volume = 80;
+        values.order = QStringLiteral("shuffle_cycle");
         const int proxyRow = proxy.mapFromSource(model.index(0, 0)).row();
         QVERIFY(!applyChannel(&proxy, proxyRow, values));
         QCOMPARE(snapshot(model, 0), before);
         QCOMPARE(changes.size(), 1);
         QVERIFY(!model.lastError().isEmpty());
+        QCOMPARE(model.index(0, 0).data(ChannelModel::PlaybackOrderRole).toString(), QStringLiteral("sequential"));
         QFile previous(path + ".previous");
         QVERIFY(previous.open(QIODevice::ReadOnly));
         QCOMPARE(previous.readAll(), committed);
@@ -221,6 +225,38 @@ private slots:
         QTest::keyClick(cancel, Qt::Key_Return);
         QVERIFY(!dialog.isVisible());
         QCOMPARE(dialog.result(), int(QDialog::Rejected));
+    }
+
+    void channelOrderCanBeChosenAndReopened()
+    {
+        RecordingModel model;
+        model.append(channelRow());
+        ChannelRuleDialog dialog(ChannelRuleValues{});
+        auto *order = dialog.findChild<QComboBox *>(QStringLiteral("channelOrder"));
+        QVERIFY(order);
+        QCOMPARE(order->currentData().toString(), QStringLiteral("shuffle_cycle"));
+        order->setCurrentIndex(order->findData(QStringLiteral("sequential")));
+        const QString captureDirectory = qEnvironmentVariable("PLAYBACK_UI_CAPTURE_DIR");
+        if (!captureDirectory.isEmpty()) {
+            QVERIFY(Restyle::verifiedCyrillicFont());
+            QVERIFY(QDir().mkpath(captureDirectory));
+            dialog.show();
+            QTest::qWait(50);
+            QVERIFY(dialog.grab().save(QDir(captureDirectory).filePath(QStringLiteral("channel-order.png"))));
+            dialog.hide();
+        }
+        QVERIFY(applyChannel(&model, 0, dialog.values()));
+        QCOMPARE(model.index(0, 0).data(ChannelModel::PlaybackOrderRole).toString(), QStringLiteral("sequential"));
+        QTimer::singleShot(0, [] {
+            auto *editor = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            QVERIFY(editor);
+            auto *choice = editor->findChild<QComboBox *>(QStringLiteral("channelOrder"));
+            QCOMPARE(choice->currentData().toString(), QStringLiteral("sequential"));
+            choice->setCurrentIndex(choice->findData(QStringLiteral("shuffle_cycle")));
+            editor->accept();
+        });
+        QVERIFY(editChannel(&model, 0));
+        QCOMPARE(model.index(0, 0).data(ChannelModel::PlaybackOrderRole).toString(), QStringLiteral("shuffle_cycle"));
     }
 
     void channelPickerUsesCronNumbers()

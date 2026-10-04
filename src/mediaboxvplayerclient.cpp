@@ -210,8 +210,11 @@ QString MediaBoxVPlayerClient::startSchedule(const QString &windowId, const QJso
 }
 
 QString MediaBoxVPlayerClient::playChannel(const QString &windowId, const QString &name,
-                                         const QStringList &paths, int volume)
+                                         const QStringList &paths, int volume, const QString &order)
 {
+    if (order != QStringLiteral("sequential") && order != QStringLiteral("shuffle_cycle"))
+        return reject(QStringLiteral("playChannel"), QStringLiteral("invalid_arguments"),
+                      tr("Выберите порядок треков: по порядку или случайно."));
     if (name.trimmed().isEmpty() || name.size() > 256 || name.contains(QChar::Null)
         || !validMediaPaths(paths) || volume < 0 || volume > 100)
         return reject(QStringLiteral("playChannel"), QStringLiteral("invalid_arguments"),
@@ -220,7 +223,7 @@ QString MediaBoxVPlayerClient::playChannel(const QString &windowId, const QStrin
     return submitWindow(QStringLiteral("playChannel"), windowId,
                         {{QStringLiteral("name"), name},
                          {QStringLiteral("paths"), QJsonArray::fromStringList(paths)},
-                         {QStringLiteral("volume"), volume}});
+                         {QStringLiteral("volume"), volume}, {QStringLiteral("order"), order}});
 }
 
 QString MediaBoxVPlayerClient::play(const QString &id) { return submitWindow(QStringLiteral("play"), id); }

@@ -659,15 +659,19 @@ QString MediaBoxPlayerClient::startSchedule(const QJsonObject &schedule)
     return submit(QStringLiteral("schedule"), {{QStringLiteral("schedule"), schedule}});
 }
 
-QString MediaBoxPlayerClient::playChannel(const QString &name, const QStringList &paths, int volume)
+QString MediaBoxPlayerClient::playChannel(const QString &name, const QStringList &paths, int volume,
+                                        const QString &order)
 {
+    if (order != QStringLiteral("sequential") && order != QStringLiteral("shuffle_cycle"))
+        return reject(QStringLiteral("playChannel"), QStringLiteral("invalid_arguments"),
+                      tr("Выберите порядок треков: по порядку или случайно."));
     if (name.trimmed().isEmpty() || name.size() > 256 || name.contains(QChar::Null)
         || !validPaths(paths) || volume < 0 || volume > 100)
         return reject(QStringLiteral("playChannel"), QStringLiteral("invalid_arguments"),
                       tr("Выберите непустой канал с абсолютными путями и громкостью от 0 до 100."));
     return submit(QStringLiteral("playChannel"), {{QStringLiteral("name"), name},
                   {QStringLiteral("paths"), QJsonArray::fromStringList(paths)},
-                  {QStringLiteral("volume"), volume}});
+                  {QStringLiteral("volume"), volume}, {QStringLiteral("order"), order}});
 }
 
 QString MediaBoxPlayerClient::seek(qint64 positionMs)

@@ -72,6 +72,8 @@ QString ScheduleCore::formatMinutes(const QList<int> &minutes)
 
 QString ScheduleCore::validateChannel(const ChannelRule &rule)
 {
+    if (rule.order != QStringLiteral("sequential") && rule.order != QStringLiteral("shuffle_cycle"))
+        return QStringLiteral("Выберите порядок треков: по порядку или случайно.");
     if (!parseCalendar(rule.weekdays, 0, 6).valid || !parseCalendar(rule.days, 1, 31).valid
             || !parseCalendar(rule.months, 1, 12).valid)
         return QStringLiteral("Некорректное календарное условие: ожидаются * или числа через запятую.");

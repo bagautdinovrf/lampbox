@@ -98,8 +98,13 @@ bool decodeChannels(const QJsonValue &value, QList<ScheduleCore::ChannelRule> *r
     QSet<QString> names;
     for (const auto &item : value.toArray()) {
         if (!item.isObject()) return false;
-        const auto object = item.toObject();
+        auto object = item.toObject();
         ScheduleCore::ChannelRule rule;
+        // Projects saved before per-channel ordering keep the previous shuffle default.
+        if (object.contains("order")) {
+            if (!object.value("order").isString()) return false;
+            rule.order = object.take("order").toString();
+        }
         if (!keys(object, {"id", "name", "start", "end", "weekdays", "days", "months", "volume"})
                 || !identity(object, &rule.stableId, &rule.name, ids)
                 || !object.value("start").isString() || !object.value("end").isString()
@@ -164,7 +169,8 @@ QJsonArray encodeChannels(const QList<ScheduleCore::ChannelRule> &rules)
     for (const auto &r : rules)
         array.append(QJsonObject{{"id", r.stableId}, {"name", r.name}, {"start", r.start.toString("HH:mm")},
                      {"end", r.end.toString("HH:mm")}, {"weekdays", calendarJson(r.weekdays, 0, 6)},
-                     {"days", calendarJson(r.days, 1, 31)}, {"months", calendarJson(r.months, 1, 12)}, {"volume", r.volume}});
+                     {"days", calendarJson(r.days, 1, 31)}, {"months", calendarJson(r.months, 1, 12)},
+                     {"volume", r.volume}, {"order", r.order}});
     return array;
 }
 QJsonArray encodeAdverts(const QList<ScheduleCore::AdvertRule> &rules)

@@ -1351,7 +1351,7 @@ void MainWindow::slot_addChannel() {
     const int previousRow = manager->currentChannelNum();
     mPages[mPage].source->setMediaManager(nullptr);
     const QVariantList fields{values->name, values->start, values->end, values->weekdays,
-                              values->days, values->months, values->volume};
+                              values->days, values->months, values->volume, values->order};
     if (!manager->createChannel(fields)) {
         selectChannel(mPage, previousRow);
         showError(manager->lastError());
@@ -1493,7 +1493,8 @@ QJsonObject MainWindow::playbackSchedule(int page, QString *error) const {
         channels.append(QJsonObject{{"id", channel.ruleId()}, {"name", channel.channelName()},
             {"start", channel.startTime().toString("HH:mm")}, {"end", channel.endTime().toString("HH:mm")},
             {"weekdays", channel.daysOfWeek()}, {"days", channel.days()}, {"months", channel.months()},
-            {"volume", channel.volume()}, {"paths", QJsonArray::fromStringList(channelFiles(channel.mediaManager()))}});
+            {"volume", channel.volume()}, {"order", channel.playbackOrder()},
+            {"paths", QJsonArray::fromStringList(channelFiles(channel.mediaManager()))}});
     }
     const QDir advertDirectory = mMediaAdvertManager->getDirMediaFiles();
     for (int row = 0; row < mAdvertManager->count(); ++row) {
@@ -1511,6 +1512,7 @@ QJsonObject MainWindow::playbackSchedule(int page, QString *error) const {
 }
 
 void MainWindow::updatePlaybackActions() {
+    updatePlayingMedia();
     const bool preview = !qApp->property("restylePreviewStation").toString().isEmpty();
     for (int page = PAGE_MUSIC; page <= PAGE_VIDEO; ++page) {
         auto &p = mPages[page];
@@ -1524,6 +1526,26 @@ void MainWindow::updatePlaybackActions() {
     }
 }
 
+void MainWindow::updatePlayingMedia() {
+    QStringList audioFiles, videoFiles;
+    auto appendPlaying = [](QStringList &files, const PlayerStatus &status) {
+        if (status.state == QStringLiteral("playing") && !status.currentTrack.isEmpty())
+            files.append(status.currentTrack);
+    };
+    if (playerAvailable())
+        appendPlaying(audioFiles, mMediaController->status());
+    if (mVideoController && mVideoController->isReady()) {
+        for (const auto &window : mVideoController->videoStatus().windows)
+            appendPlaying(videoFiles, window.playback);
+    }
+    if (mPages[PAGE_MUSIC].source)
+        mPages[PAGE_MUSIC].source->setPlayingFiles(audioFiles);
+    if (mPages[PAGE_VIDEO].source)
+        mPages[PAGE_VIDEO].source->setPlayingFiles(videoFiles);
+    if (mPages[PAGE_ADVERT].source)
+        mPages[PAGE_ADVERT].source->setPlayingFiles(audioFiles + videoFiles);
+}
+
 void MainWindow::playSelectedChannel(int page) {
     auto *media = mediaManager(page);
     if (!media) return;
@@ -1534,7 +1556,7 @@ void MainWindow::playSelectedChannel(int page) {
         showVideoControls();
         if (auto *controls = findChild<VideoControlWidget *>()) controls->playSelectedChannel();
     } else if (playerAvailable()) {
-        mMediaController->playChannel(channel.channelName(), paths, channel.volume());
+        mMediaController->playChannel(channel.channelName(), paths, channel.volume(), channel.playbackOrder());
     }
 }
 
@@ -1559,7 +1581,7 @@ void MainWindow::updateVideoPlaybackContext() {
     controls->setScheduleSnapshot(error.isEmpty() ? schedule : QJsonObject{});
     if (auto *media = mediaManager(PAGE_VIDEO)) {
         auto &channel = mChannelManagers[PAGE_VIDEO]->currentChannel();
-        controls->setSelectedChannel(channel.channelName(), channelFiles(*media), channel.volume());
+        controls->setSelectedChannel(channel.channelName(), channelFiles(*media), channel.volume(), channel.playbackOrder());
     } else {
         controls->setSelectedChannel({}, {}, 100);
     }

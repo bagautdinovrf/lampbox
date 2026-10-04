@@ -32,6 +32,8 @@ public:
     void setChannelName(const QString &name );
     void setRuleId(const QString &id) { mRuleId = id; }
     QString ruleId() const { return mRuleId; }
+    void setPlaybackOrder(const QString &order) { mPlaybackOrder = order; }
+    QString playbackOrder() const { return mPlaybackOrder; }
 
     /**
      * @brief setStartTime
@@ -132,6 +134,7 @@ private:
     /// Наименование
     QString                             mChannelName;
     QString                             mRuleId;
+    QString                             mPlaybackOrder = QStringLiteral("shuffle_cycle");
 
     /// Список музыкальных треков
     MediaManager                        mMediaManager;

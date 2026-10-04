@@ -30,6 +30,7 @@ struct ChannelRule {
     QTime start, end;
     int volume = 100;
     QString stableId;
+    QString order = QStringLiteral("shuffle_cycle");
 };
 
 struct AdvertRule {

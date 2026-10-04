@@ -128,6 +128,7 @@ QString PlaybackSchedule::decode(const QJsonObject &object, PlaybackSchedule *re
             if (channel.order != QStringLiteral("sequential") && channel.order != QStringLiteral("shuffle_cycle"))
                 return QStringLiteral("Channel order must be sequential or shuffle_cycle.");
         }
+        rule.order = channel.order;
         const auto start = item.value("start").toString(), end = item.value("end").toString();
         rule.start = QTime::fromString(start, QStringLiteral("HH:mm"));
         rule.end = QTime::fromString(end, QStringLiteral("HH:mm"));

@@ -255,7 +255,7 @@ private slots:
         widget.show();
         const QJsonObject schedule{{"channels", QJsonArray{}}, {"adverts", QJsonArray{}}};
         widget.setScheduleSnapshot(schedule);
-        widget.setSelectedChannel("Выбранный канал", {"/remote/channel-one.mp4", "/remote/channel-two.mp4"}, 42);
+        widget.setSelectedChannel("Выбранный канал", {"/remote/channel-one.mp4", "/remote/channel-two.mp4"}, 42, "sequential");
         auto *scheduled = widget.findChild<QPushButton *>("videoSchedule");
         auto *channel = widget.findChild<QPushButton *>("videoPlayChannel");
         auto *status = widget.findChild<QLabel *>("videoConfirmedStatus");
@@ -299,6 +299,7 @@ private slots:
         QCOMPARE(peer.requests.at(2).object.value("paths").toArray(),
                  (QJsonArray{"/remote/channel-one.mp4", "/remote/channel-two.mp4"}));
         QCOMPARE(peer.requests.at(2).object.value("volume").toInt(), 42);
+        QCOMPARE(peer.requests.at(2).object.value("order").toString(), QStringLiteral("sequential"));
         peer.answer(2, snapshot("playing"));
         QTRY_VERIFY(status->text().contains("ручной"));
         QTRY_VERIFY(scheduled->isEnabled());

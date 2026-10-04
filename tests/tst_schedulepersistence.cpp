@@ -148,6 +148,43 @@ private slots:
         QVERIFY(manager.collectAdvert()); QVERIFY(QFileInfo::exists(projectFile()));
         QCOMPARE(manager.count(), 1);
     }
+    void channelOrderDefaultsAndSurvivesEditsAndReload()
+    {
+        auto original = readProject();
+        QCOMPARE(original.music[0].order, QStringLiteral("shuffle_cycle"));
+        QCOMPARE(original.video[0].order, QStringLiteral("shuffle_cycle"));
+        auto legacy = QJsonDocument::fromJson(get(projectFile())).object();
+        for (const QString &section : {QStringLiteral("music"), QStringLiteral("video")}) {
+            auto rows = legacy.value(section).toArray();
+            auto row = rows[0].toObject(); row.remove("order"); rows[0] = row;
+            legacy[section] = rows;
+        }
+        put(projectFile(), QJsonDocument(legacy).toJson());
+        ChannelManager music(MediaBoxManager::MUSIC), video(MediaBoxManager::VIDEO);
+        QVERIFY(music.collectChannels()); QVERIFY(video.collectChannels());
+        QCOMPARE(music.channel(0).playbackOrder(), QStringLiteral("shuffle_cycle"));
+        ChannelModel model(&music);
+        QVERIFY(model.setData(model.index(0, 0), QStringLiteral("sequential"), ChannelModel::PlaybackOrderRole));
+        QVERIFY(model.setData(model.index(0, 6), 45, Qt::EditRole));
+        QVERIFY(music.setRule(0, channelFields("One", 46)));
+        auto fields = channelFields("Screen", 55); fields.append(QStringLiteral("sequential"));
+        QVERIFY(video.setRule(0, fields));
+        const auto saved = readProject();
+        QCOMPARE(saved.music[0].order, QStringLiteral("sequential"));
+        QCOMPARE(saved.video[0].order, QStringLiteral("sequential"));
+        QCOMPARE(saved.music[0].volume, 46);
+        QCOMPARE(saved.advert[0].compiledMinutes, original.advert[0].compiledMinutes);
+        QVERIFY(music.collectChannels()); QVERIFY(video.collectChannels());
+        QCOMPARE(music.channel(0).playbackOrder(), QStringLiteral("sequential"));
+        QCOMPARE(video.channel(0).playbackOrder(), QStringLiteral("sequential"));
+        fields[7] = QStringLiteral("shuffle_cycle");
+        QVERIFY(video.setRule(0, fields));
+        QCOMPARE(readProject().video[0].order, QStringLiteral("shuffle_cycle"));
+        const QByteArray before = get(projectFile());
+        fields[7] = QStringLiteral("invalid");
+        QVERIFY(!video.setRule(0, fields));
+        QCOMPARE(get(projectFile()), before);
+    }
     void strictProjectValidation()
     {
         readProject();
@@ -159,6 +196,10 @@ private slots:
         auto music = original.value("music").toArray();
         auto row = music[0].toObject(); row["volume"] = "70"; music[0] = row;
         changed = original; changed["music"] = music; invalid.append(changed);
+        for (const QJsonValue &order : {QJsonValue("random"), QJsonValue(true), QJsonValue(QJsonValue::Null)}) {
+            music = original.value("music").toArray(); row = music[0].toObject(); row["order"] = order; music[0] = row;
+            changed = original; changed["music"] = music; invalid.append(changed);
+        }
         music = original.value("music").toArray(); row = music[0].toObject(); row["weekdays"] = "*"; music[0] = row;
         changed = original; changed["music"] = music; invalid.append(changed);
         auto ads = original.value("advert").toArray(); row = ads[0].toObject(); row["preparedMinutes"] = QJsonArray{1, 22, 42}; ads[0] = row;

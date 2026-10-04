@@ -109,6 +109,7 @@ class MainWindow : public QMainWindow {
     QJsonObject playbackSchedule(int page, QString *error) const;
     void refreshPlaybackSchedules();
     void updatePlaybackActions();
+    void updatePlayingMedia();
     void updateVideoPlaybackContext();
     void showAllSchedules();
     void showError(const QString &message);

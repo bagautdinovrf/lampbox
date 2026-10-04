@@ -30,6 +30,7 @@
 #include <QScopeGuard>
 #include <QSettings>
 #include <QSignalSpy>
+#include <QSortFilterProxyModel>
 #include <QStandardPaths>
 #include <QTableView>
 #include <QTemporaryDir>
@@ -115,6 +116,18 @@ bool capture(MainWindow &window, const QString &name)
     window.resize(previousSize);
     return saved;
 }
+
+QStringList playingNames(QAbstractItemModel *model)
+{
+    QStringList names;
+    for (int row = 0; row < model->rowCount(); ++row) {
+        const auto index = model->index(row, 0);
+        if (index.data(MediaModel::PlayingRole).toBool())
+            names.append(index.data(MediaModel::FileNameRole).toString());
+    }
+    names.sort();
+    return names;
+}
 } // namespace
 
 class FileUrlReceiver final : public QObject
@@ -130,7 +143,7 @@ class PlaybackUiTests final : public QObject
 {
     Q_OBJECT
 
-    void seed(MainWindow &window)
+    void seed(MainWindow &window, const QString &order = QStringLiteral("shuffle_cycle"))
     {
         for (int page = MainWindow::PAGE_MUSIC; page <= MainWindow::PAGE_VIDEO; ++page) {
             auto *manager = window.mChannelManagers[page];
@@ -142,7 +155,7 @@ class PlaybackUiTests final : public QObject
                 const QString months = row == 0 ? "*" : "1";
                 const int volume = row == 0 ? 21 : page == MainWindow::PAGE_MUSIC ? 63 : 78;
                 QVERIFY2(manager->createChannel({names[row], QTime(0, 0), QTime(23, 59),
-                    "*", "*", months, volume}), qPrintable(manager->lastError()));
+                    "*", "*", months, volume, order}), qPrintable(manager->lastError()));
                 const QString kind = page == MainWindow::PAGE_MUSIC ? "music" : "video";
                 const QString extension = page == MainWindow::PAGE_MUSIC ? ".mp3" : ".mp4";
                 const QString folder = fixtureRoot + "/media/" + kind + '/' + names[row];
@@ -205,8 +218,16 @@ private slots:
         QVERIFY(StationManager::Instance().update());
     }
 
+    void selectedAudioChannelAndAtomicSchedule_data()
+    {
+        QTest::addColumn<QString>("order");
+        QTest::newRow("shuffle") << QString("shuffle_cycle");
+        QTest::newRow("sequential") << QString("sequential");
+    }
+
     void selectedAudioChannelAndAtomicSchedule()
     {
+        QFETCH(QString, order);
         Backend backend;
         const QDateTime now(QDate(2026, 10, 4), QTime(10, 24));
         MediaBox::PlayerEngine engine(&backend, nullptr, [now] { return now; });
@@ -218,7 +239,7 @@ private slots:
         QString error;
         QVERIFY2(server.listen(QHostAddress::LocalHost, 0, &error), qPrintable(error));
         MainWindow window;
-        seed(window);
+        seed(window, order);
         QVERIFY(!QTest::currentTestFailed());
         injectAudio(window, server.port());
         qApp->setProperty("restylePreviewStation", QVariant());
@@ -244,7 +265,7 @@ private slots:
         backend.finish();
         backend.finish();
         backend.finish();
-        QCOMPARE(engine.status().value("order").toString(), QStringLiteral("shuffle_cycle"));
+        QCOMPARE(engine.status().value("order").toString(), order);
         QVERIFY(engine.status().value("currentIndex").toInt() >= 0);
         QVERIFY(engine.status().value("currentIndex").toInt() < window.mMediaController->status().queue.size());
         QCOMPARE(engine.status().value("state").toString(), QStringLiteral("playing"));
@@ -262,6 +283,9 @@ private slots:
         const auto channels = snapshot.value("channels").toArray();
         QCOMPARE(channels.size(), 2);
         QCOMPARE(channels.at(0).toObject().value("name").toString(), QStringLiteral("Дневной_канал"));
+        QCOMPARE(channels.at(0).toObject().value("order").toString(), order);
+        QCOMPARE(channels.at(1).toObject().value("order").toString(), order);
+        QCOMPARE(engine.status().value("order").toString(), order);
         QCOMPARE(channels.at(1).toObject().value("paths").toArray(),
                  QJsonArray::fromStringList(filesFor("music", "Ручной_канал")));
         const auto adverts = snapshot.value("adverts").toArray();
@@ -278,8 +302,14 @@ private slots:
         QCOMPARE(window.mMediaController->status().queue.size(), 3);
     }
 
+    void selectedVideoChannelTargetsWindow_data()
+    {
+        selectedAudioChannelAndAtomicSchedule_data();
+    }
+
     void selectedVideoChannelTargetsWindow()
     {
+        QFETCH(QString, order);
         Backend backend;
         MediaBox::PlayerEngine engine(&backend);
         QList<QJsonObject> requests;
@@ -294,9 +324,13 @@ private slots:
         QString error;
         QVERIFY2(server.listen(QHostAddress::LocalHost, 0, &error), qPrintable(error));
         MainWindow window;
-        seed(window);
+        seed(window, order);
         QVERIFY(!QTest::currentTestFailed());
         window.mVideoController = new VideoController(&window);
+        connect(window.mVideoController, &MediaBoxVPlayerClient::videoStatusChanged,
+                &window, &MainWindow::updatePlaybackActions);
+        connect(window.mVideoController, &MediaBoxPlayerClient::connectionStateChanged,
+                &window, &MainWindow::updatePlaybackActions);
         window.mVideoController->setTiming({10000, 500, 1000, 1000, 1000});
         window.mVideoController->connectToPlayer({"127.0.0.1", server.port(), token()});
         qApp->setProperty("restylePreviewStation", QVariant());
@@ -314,10 +348,129 @@ private slots:
         QCOMPARE(request.value("name").toString(), QStringLiteral("Город"));
         QCOMPARE(request.value("paths").toArray(), QJsonArray::fromStringList(filesFor("video", "Город")));
         QCOMPARE(request.value("volume").toInt(), 78);
+        QCOMPARE(request.value("order").toString(), order);
+        QCOMPARE(engine.status().value("order").toString(), order);
+        QString scheduleError;
+        const auto schedule = window.playbackSchedule(MainWindow::PAGE_VIDEO, &scheduleError);
+        QVERIFY(scheduleError.isEmpty());
+        QCOMPARE(schedule.value("channels").toArray().at(1).toObject().value("order").toString(), order);
         QTRY_COMPARE(window.mVideoController->videoStatus().windows.at(0).playback.repeat, QStringLiteral("all"));
         QCOMPARE(window.mVideoController->videoStatus().windows.at(0).playback.queue.size(), 3);
+        QTRY_COMPARE(playingNames(window.mPages[1].source),
+                     QStringList{QFileInfo(window.mVideoController->videoStatus().windows.at(0).playback.currentTrack).fileName()});
         if (auto *dialog = window.findChild<QDialog *>("videoControlDialog")) dialog->hide();
         QVERIFY(capture(window, "video-channel"));
+    }
+
+    void playingTrackFollowsAudioAndPreservesSelection()
+    {
+        Backend backend;
+        MediaBox::PlayerEngine engine(&backend);
+        MediaBox::ControlServer server(&engine, token().toLatin1());
+        QString error;
+        QVERIFY2(server.listen(QHostAddress::LocalHost, 0, &error), qPrintable(error));
+        MainWindow window;
+        seed(window);
+        QVERIFY(!QTest::currentTestFailed());
+        injectAudio(window, server.port());
+        QTRY_VERIFY(window.mMediaController->isReady());
+        window.show();
+        auto &page = window.mPages[MainWindow::PAGE_MUSIC];
+        const QStringList paths = filesFor("music", "Ручной_канал");
+        auto *selection = page.files->selectionModel();
+        selection->select(page.proxy->index(2, 0), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+        const QString selected = selection->selectedRows().first().data(MediaModel::FileNameRole).toString();
+        QVERIFY(!window.mMediaController->load(paths, 0, true).isEmpty());
+        QTRY_COMPARE(playingNames(page.source), QStringList{QFileInfo(paths[0]).fileName()});
+        QCOMPARE(selection->selectedRows().first().data(MediaModel::FileNameRole).toString(), selected);
+        QVERIFY(page.source->index(0, 0).data(Qt::AccessibleDescriptionRole).toString().startsWith("Сейчас играет"));
+        QVERIFY(capture(window, "playing-track"));
+        Restyle::apply("tide-relief", "dark");
+        QVERIFY(capture(window, "playing-track-dark"));
+        Restyle::apply("tide-relief", "denim");
+
+        page.proxy->sort(0, Qt::DescendingOrder);
+        QCOMPARE(playingNames(page.proxy), playingNames(page.source));
+        page.search->setText(QFileInfo(paths[1]).completeBaseName());
+        QCOMPARE(page.proxy->rowCount(), 1);
+        QVERIFY(playingNames(page.proxy).isEmpty());
+        page.search->clear();
+        QCOMPARE(playingNames(page.proxy), playingNames(page.source));
+
+        // All channels contain the same basenames; only the full path identifies playback.
+        page.channels->selectRow(0);
+        window.selectChannel(0, 0);
+        QVERIFY(playingNames(page.source).isEmpty());
+        page.channels->selectRow(1);
+        window.selectChannel(0, 1);
+        QCOMPARE(playingNames(page.source), QStringList{QFileInfo(paths[0]).fileName()});
+
+        window.mMediaController->next();
+        QTRY_COMPARE(playingNames(page.source), QStringList{QFileInfo(paths[1]).fileName()});
+        window.mMediaController->pause();
+        QTRY_VERIFY(playingNames(page.source).isEmpty());
+        window.mMediaController->play();
+        QTRY_COMPARE(playingNames(page.source), QStringList{QFileInfo(paths[1]).fileName()});
+        window.mMediaController->stop();
+        QTRY_VERIFY(playingNames(page.source).isEmpty());
+
+        const QString advert = fixtureRoot + "/media/ads/Кофе.mp3";
+        window.mMediaController->load({advert}, 0, true);
+        QTRY_COMPARE(playingNames(window.mPages[2].source), QStringList{"Кофе.mp3"});
+        QVERIFY(playingNames(page.source).isEmpty());
+        window.mMediaController->disconnectFromPlayer();
+        QVERIFY(playingNames(window.mPages[2].source).isEmpty());
+    }
+
+    void allVideoWindowsContributePlayingTracks()
+    {
+        Backend backend;
+        MediaBox::PlayerEngine engine(&backend);
+        QJsonObject status = videoStatus(engine.status());
+        MediaBox::ControlServer server([&](const QJsonObject &request) {
+            auto reply = engine.execute(request);
+            reply.insert("status", status);
+            return reply;
+        }, token().toLatin1());
+        QString error;
+        QVERIFY2(server.listen(QHostAddress::LocalHost, 0, &error), qPrintable(error));
+        MainWindow window;
+        seed(window);
+        QVERIFY(!QTest::currentTestFailed());
+        window.mVideoController = new VideoController(&window);
+        connect(window.mVideoController, &MediaBoxVPlayerClient::videoStatusChanged,
+                &window, &MainWindow::updatePlaybackActions);
+        connect(window.mVideoController, &MediaBoxPlayerClient::connectionStateChanged,
+                &window, &MainWindow::updatePlaybackActions);
+        const QStringList paths = filesFor("video", "Город");
+        const QString advert = fixtureRoot + "/media/ads/Кофе.mp3";
+        QJsonArray windows;
+        for (int i = 0; i < 3; ++i) {
+            const QString path = i < 2 ? paths[i] : advert;
+            auto playback = engine.status();
+            playback.insert("state", "playing");
+            playback.insert("playbackRequested", true);
+            playback.insert("queue", QJsonArray{path});
+            playback.insert("currentIndex", 0);
+            playback.insert("currentTrack", path);
+            auto video = status.value("windows").toArray().first().toObject();
+            video.insert("id", QString::number(i));
+            video.insert("playback", playback);
+            windows.append(video);
+        }
+        status.insert("windows", windows);
+        window.mVideoController->connectToPlayer({"127.0.0.1", server.port(), token()});
+        QTRY_VERIFY(window.mVideoController->isReady());
+        const QStringList names{QFileInfo(paths[0]).fileName(), QFileInfo(paths[1]).fileName()};
+        QTRY_COMPARE(playingNames(window.mPages[1].source), names);
+        QCOMPARE(playingNames(window.mPages[2].source), QStringList{"Кофе.mp3"});
+        windows.removeAt(0);
+        status.insert("windows", windows);
+        window.mVideoController->requestStatus();
+        QTRY_COMPARE(playingNames(window.mPages[1].source), QStringList{names[1]});
+        window.mVideoController->disconnectFromPlayer();
+        QVERIFY(playingNames(window.mPages[1].source).isEmpty());
+        QVERIFY(playingNames(window.mPages[2].source).isEmpty());
     }
 
     void folderActionsUseSelectedChannel_data()
