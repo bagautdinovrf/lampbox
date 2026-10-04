@@ -92,6 +92,8 @@ class MainWindow : public QMainWindow {
     void showFileInfo();
     void showStationInfo();
     void showPlayerControls();
+    void showVideoControls();
+    void addSelectedVideosToPlaylist();
     void showAllSchedules();
     void showError(const QString &message);
     void selectChannel(int page, int row);

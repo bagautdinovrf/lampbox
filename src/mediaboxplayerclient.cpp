@@ -169,6 +169,41 @@ MediaBoxPlayerClient::~MediaBoxPlayerClient()
     }
 }
 
+bool MediaBoxPlayerClient::parsePlaybackStatus(const QJsonObject &object, PlayerStatus *status)
+{
+    return parseStatus(object, status);
+}
+
+bool MediaBoxPlayerClient::validMediaPaths(const QStringList &paths)
+{
+    return validPaths(paths);
+}
+
+bool MediaBoxPlayerClient::decodeStatus(const QJsonObject &object, QVariant *snapshot) const
+{
+    PlayerStatus status;
+    if (!parsePlaybackStatus(object, &status))
+        return false;
+    *snapshot = QVariant::fromValue(status);
+    return true;
+}
+
+void MediaBoxPlayerClient::applyStatus(const QVariant &snapshot)
+{
+    m_status = snapshot.value<PlayerStatus>();
+}
+
+void MediaBoxPlayerClient::publishStatus(const QVariant &snapshot)
+{
+    const auto status = snapshot.value<PlayerStatus>();
+    emit statusChanged(status);
+}
+
+void MediaBoxPlayerClient::resetStatus()
+{
+    m_status = PlayerStatus{};
+}
+
 void MediaBoxPlayerClient::setTiming(const Timing &timing)
 {
     m_timing.pollIntervalMs = qMax(1, timing.pollIntervalMs);
@@ -203,7 +238,7 @@ void MediaBoxPlayerClient::connectToPlayer(const PlayerConnectionSettings &setti
     if (normalized.host != m_settings.host || normalized.port != m_settings.port
         || normalized.token != m_settings.token) {
         m_hasStatus = false;
-        m_status = PlayerStatus{};
+        resetStatus();
     }
     m_settings = normalized;
     if (m_settings.host.isEmpty() || m_settings.port == 0) {
@@ -472,10 +507,10 @@ bool MediaBoxPlayerClient::processReply(const QByteArray &line)
     }
 
     const bool hasStatus = object.contains(QStringLiteral("status"));
-    PlayerStatus status;
+    QVariant status;
     if (hasStatus) {
         const auto value = object.value(QStringLiteral("status"));
-        if (!value.isObject() || !parseStatus(value.toObject(), &status))
+        if (!value.isObject() || !decodeStatus(value.toObject(), &status))
             return invalid(tr("неверная структура состояния плеера."));
     } else if (ok.toBool()) {
         return invalid(tr("успешный ответ не содержит состояния плеера."));
@@ -493,7 +528,7 @@ bool MediaBoxPlayerClient::processReply(const QByteArray &line)
     m_current.reset();
     m_responseTimer.stop();
     if (hasStatus) {
-        m_status = status;
+        applyStatus(status);
         m_hasStatus = true;
     }
     if (ok.toBool() && synchronizing) {
@@ -507,8 +542,8 @@ bool MediaBoxPlayerClient::processReply(const QByteArray &line)
     }
     if (hasStatus) {
         // Pass a stable local snapshot: a direct receiver can change settings,
-        // which resets m_status before other receivers run.
-        emit statusChanged(status);
+        // which resets the stored status before other receivers run.
+        publishStatus(status);
         if (m_generation != generation) {
             reportResult();
             return false;

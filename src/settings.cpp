@@ -12,6 +12,7 @@
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QDebug>
+#include <QJsonDocument>
 
 namespace {
 bool syncSettings(QSettings &settings)
@@ -213,6 +214,42 @@ bool Settings::setPlayerConnection(const PlayerConnectionSettings &connection)
     settings.setValue("Player/Host", connection.host.trimmed());
     settings.setValue("Player/Port", connection.port);
     settings.setValue("Player/Token", connection.token.trimmed());
+    return syncSettings(settings);
+}
+
+PlayerConnectionSettings Settings::videoPlayerConnection() const
+{
+    QSettings settings(mConfigFile, QSettings::IniFormat);
+    PlayerConnectionSettings connection;
+    connection.port = 17656;
+    connection.host = settings.value("VideoPlayer/Host", connection.host).toString();
+    bool valid = false;
+    const int port = settings.value("VideoPlayer/Port", connection.port).toInt(&valid);
+    if (valid && port > 0 && port <= 65535)
+        connection.port = static_cast<quint16>(port);
+    connection.token = settings.value("VideoPlayer/Token").toString();
+    return connection;
+}
+
+bool Settings::setVideoPlayerConnection(const PlayerConnectionSettings &connection)
+{
+    QSettings settings(mConfigFile, QSettings::IniFormat);
+    settings.setValue("VideoPlayer/Host", connection.host.trimmed());
+    settings.setValue("VideoPlayer/Port", connection.port);
+    settings.setValue("VideoPlayer/Token", connection.token.trimmed());
+    return syncSettings(settings);
+}
+
+QJsonArray Settings::videoWindowProfiles() const
+{
+    QSettings settings(mConfigFile, QSettings::IniFormat);
+    return QJsonDocument::fromJson(settings.value("VideoPlayer/Profiles").toByteArray()).array();
+}
+
+bool Settings::setVideoWindowProfiles(const QJsonArray &profiles)
+{
+    QSettings settings(mConfigFile, QSettings::IniFormat);
+    settings.setValue("VideoPlayer/Profiles", QJsonDocument(profiles).toJson(QJsonDocument::Compact));
     return syncSettings(settings);
 }
 

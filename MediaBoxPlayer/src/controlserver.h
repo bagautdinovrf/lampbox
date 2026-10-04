@@ -3,8 +3,10 @@
 #include <QByteArray>
 #include <QHostAddress>
 #include <QObject>
+#include <QJsonObject>
 #include <QStringList>
 #include <QTcpServer>
+#include <functional>
 
 namespace MediaBox {
 
@@ -15,6 +17,8 @@ class ControlServer final : public QObject
 {
 public:
     ControlServer(PlayerEngine *engine, QByteArray token, QObject *parent = nullptr);
+    ControlServer(std::function<QJsonObject(const QJsonObject &)> handler,
+                  QByteArray token, QObject *parent = nullptr);
     bool listen(const QHostAddress &address, quint16 port, QString *error);
     quint16 port() const { return m_server.serverPort(); }
 
@@ -22,7 +26,7 @@ private:
     void acceptConnections();
     QByteArray dispatch(const QByteArray &line);
 
-    PlayerEngine *m_engine;
+    std::function<QJsonObject(const QJsonObject &)> m_handler;
     QByteArray m_token;
     QTcpServer m_server;
     int m_connections = 0;

@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QMap>
+#include <QJsonArray>
 
 #include "mediaboxplayerclient.h"
 
@@ -71,6 +72,10 @@ public:
 
     PlayerConnectionSettings playerConnection() const;
     bool setPlayerConnection(const PlayerConnectionSettings &connection);
+    PlayerConnectionSettings videoPlayerConnection() const;
+    bool setVideoPlayerConnection(const PlayerConnectionSettings &connection);
+    QJsonArray videoWindowProfiles() const;
+    bool setVideoWindowProfiles(const QJsonArray &profiles);
 
 private:
     friend class SettingsTest;

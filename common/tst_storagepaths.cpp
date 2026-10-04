@@ -63,12 +63,14 @@ private slots:
         const QString applicationDataRoot = dataRoot;
         const QString managerName = QStringLiteral("MediaBoxManager");
         const QString playerName = QStringLiteral("MediaBoxPlayer");
+        const QString videoPlayerName = QStringLiteral("MediaBoxVPlayer");
 #elif defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
         const QString configRoot = QStringLiteral("/etc/mediabox");
         const QString dataRoot = configRoot;
         const QString applicationDataRoot = dataRoot;
         const QString managerName = QStringLiteral("mediaboxmanager");
         const QString playerName = QStringLiteral("mediaboxplayer");
+        const QString videoPlayerName = QStringLiteral("mediaboxvplayer");
 #else
         QSKIP("Native desktop path contract is tested on Windows and Linux.");
 #endif
@@ -77,14 +79,16 @@ private slots:
         // XDG overrides: Linux installations use machine-wide directories.
         const bool configExisted = QFileInfo::exists(configRoot);
         const bool dataExisted = QFileInfo::exists(dataRoot);
-        for (const auto &name : {"MediaBoxManager", "MediaBoxPlayer"}) {
+        for (const auto &name : {"MediaBoxManager", "MediaBoxPlayer", "MediaBoxVPlayer"}) {
             QCoreApplication::setApplicationName(name);
             QCOMPARE(commonConfigurationDirectory(), configRoot);
             QCOMPARE(commonDataDirectory(), dataRoot);
             QCOMPARE(configurationDirectory(Application::Manager), configRoot + '/' + managerName);
             QCOMPARE(configurationDirectory(Application::Player), configRoot + '/' + playerName);
+            QCOMPARE(configurationDirectory(Application::VideoPlayer), configRoot + '/' + videoPlayerName);
             QCOMPARE(dataDirectory(Application::Manager), applicationDataRoot + '/' + managerName);
             QCOMPARE(dataDirectory(Application::Player), applicationDataRoot + '/' + playerName);
+            QCOMPARE(dataDirectory(Application::VideoPlayer), applicationDataRoot + '/' + videoPlayerName);
         }
         QCOMPARE(QFileInfo::exists(configRoot), configExisted);
         QCOMPARE(QFileInfo::exists(dataRoot), dataExisted);
@@ -104,6 +108,10 @@ private slots:
         QCoreApplication::setOrganizationName(organization);
         QVERIFY(commonConfigurationDirectory().contains(organization));
         QVERIFY(commonDataDirectory().contains(organization));
+        for (const auto application : {Application::Manager, Application::Player, Application::VideoPlayer}) {
+            QVERIFY(configurationDirectory(application).contains(organization));
+            QVERIFY(dataDirectory(application).contains(organization));
+        }
         QVERIFY(!QFileInfo::exists(commonConfigurationDirectory()));
         QVERIFY(!QFileInfo::exists(commonDataDirectory()));
     }

@@ -151,8 +151,16 @@ bool matchesToken(const QByteArray &expected, const QByteArray &actual)
 } // namespace
 
 ControlServer::ControlServer(PlayerEngine *engine, QByteArray token, QObject *parent)
-    : QObject(parent), m_engine(engine), m_token(std::move(token))
+    : ControlServer([engine](const QJsonObject &request) { return engine->execute(request); },
+                    std::move(token), parent)
 {
+}
+
+ControlServer::ControlServer(std::function<QJsonObject(const QJsonObject &)> handler,
+                             QByteArray token, QObject *parent)
+    : QObject(parent), m_handler(std::move(handler)), m_token(std::move(token))
+{
+    Q_ASSERT(m_handler);
     m_server.setMaxPendingConnections(MaxConnections);
     connect(&m_server, &QTcpServer::newConnection, this, &ControlServer::acceptConnections);
 }
@@ -234,7 +242,7 @@ QByteArray ControlServer::dispatch(const QByteArray &line)
     } else {
         request.remove(QStringLiteral("token"));
         request.remove(QStringLiteral("protocolVersion"));
-        response = m_engine->execute(request);
+        response = m_handler(request);
     }
     if (!id.isUndefined())
         response.insert(QStringLiteral("id"), id);

@@ -7,6 +7,7 @@
 #include "informer.h"
 #include "mediacontroller.h"
 #include "playercontrolwidget.h"
+#include "videocontrolwidget.h"
 #include "medialibrarydelegate.h"
 #include "mediamanager.h"
 #include "mediamodel.h"
@@ -172,6 +173,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     auto *settings = new SettingsDialog(mStack, Qt::Widget);
     settings->setWindowFlags(Qt::Widget);
     connect(settings, &SettingsDialog::doneRequested, this, [this] { changePage(mPage); });
+    connect(settings, &SettingsDialog::videoScreensRequested, this, &MainWindow::showVideoControls);
     mStack->addWidget(settings);
     auto *about = new AboutLampbox(mStack, Qt::Widget);
     about->setWindowFlags(Qt::Widget);
@@ -360,13 +362,13 @@ void MainWindow::buildShell() {
     mPlay = button({}, "play", "play");
     mPlay->setFixedSize(34, 34);
     mPlay->setObjectName("playerPlayButton");
-    mPlay->setToolTip("Продолжить воспроизведение очереди");
+    mPlay->setToolTip("Продолжить аудиоочередь MediaBoxPlayer");
     mPlay->setAccessibleName(mPlay->toolTip());
     t->addWidget(mPlay);
     mStop = button({}, "stop", "stop");
     mStop->setFixedSize(30, 30);
     mStop->setObjectName("playerStopButton");
-    mStop->setToolTip("Остановить воспроизведение");
+    mStop->setToolTip("Остановить аудио MediaBoxPlayer");
     mStop->setAccessibleName(mStop->toolTip());
     t->addWidget(mStop);
     connect(mPlay, &QPushButton::clicked, this, [this] {
@@ -384,7 +386,7 @@ void MainWindow::buildShell() {
     mOperationState->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     t->addWidget(mOperationState, 1);
     auto *refresh = button("Обновить состояние", "refresh", "quiet");
-    auto *show = button("Управление плеером", "eye", "quiet");
+    auto *show = button("Аудиоплеер", "eye", "quiet");
     refresh->setObjectName("refreshPlayerButton");
     show->setObjectName("showPlayerButton");
     refresh->setFixedHeight(29);
@@ -437,6 +439,13 @@ QWidget *MainWindow::buildMediaPage(int page) {
     headingText->addWidget(p.subtitle);
     h->addLayout(headingText);
     h->addStretch();
+    if (page == PAGE_VIDEO) {
+        auto *screens = button("Видеоэкраны", "video");
+        screens->setObjectName("videoScreensButton");
+        screens->setToolTip("Экраны MediaBoxVPlayer, мониторы и отдельные плейлисты");
+        h->addWidget(screens);
+        connect(screens, &QPushButton::clicked, this, &MainWindow::showVideoControls);
+    }
     auto *all = button("Все параметры", "calendar");
     all->setObjectName("allSchedulesButton" + suffix);
     h->addWidget(all);
@@ -699,6 +708,9 @@ QWidget *MainWindow::buildMediaPage(int page) {
                     auto *preview = menu.addAction(Restyle::icon("play"), "Воспроизвести на плеере…");
                     preview->setEnabled(playerAvailable());
                     connect(preview, &QAction::triggered, this, [this, index] { slot_playTrack(index); });
+                } else {
+                    auto *playlist = menu.addAction(Restyle::icon("video"), "В плейлист видеоэкрана…");
+                    connect(playlist, &QAction::triggered, this, &MainWindow::addSelectedVideosToPlaylist);
                 }
                 menu.addSeparator();
                 auto *remove = menu.addAction(Restyle::icon("trash"), "Удалить файл");
@@ -789,10 +801,10 @@ QWidget *MainWindow::buildMediaPage(int page) {
     il->addStretch();
     auto *actions = new QHBoxLayout;
     actions->setSpacing(5);
-    p.preview = button("На плеере…", "play", "quiet");
-    p.preview->setToolTip("Заменить очередь выбранным файлом и воспроизвести");
+    p.preview = button(page == PAGE_VIDEO ? "В плейлист…" : "На плеере…", "play", "quiet");
+    p.preview->setToolTip(page == PAGE_VIDEO ? "Добавить выбранные файлы в плейлист выбранного видеоэкрана"
+                                           : "Заменить очередь выбранным файлом и воспроизвести");
     p.preview->setFont(Restyle::font(10, QFont::DemiBold));
-    p.preview->setVisible(page != 1);
     p.fileInfo = button("Все сведения", "info", "quiet");
     p.fileInfo->setObjectName("fileInfoButton" + suffix);
     p.fileInfo->setFont(Restyle::font(10, QFont::DemiBold));
@@ -800,7 +812,12 @@ QWidget *MainWindow::buildMediaPage(int page) {
     actions->addWidget(p.fileInfo);
     il->addLayout(actions);
     connect(p.preview, &QPushButton::clicked, this,
-            [this, page] { slot_playTrack(mPages[page].files->currentIndex()); });
+            [this, page] {
+                if (page == PAGE_VIDEO)
+                    addSelectedVideosToPlaylist();
+                else
+                    slot_playTrack(mPages[page].files->currentIndex());
+            });
     connect(p.fileInfo, &QPushButton::clicked, this, &MainWindow::showFileInfo);
     grid->addWidget(inspector, 1, 2);
     l->addLayout(grid, 1);
@@ -956,7 +973,7 @@ void MainWindow::updateFileInfo(int page) {
     bool selected = manager && index.isValid() && p.files->selectionModel()->hasSelection() &&
                     index.row() < manager->count();
     p.deleteFiles->setEnabled(p.files->selectionModel()->hasSelection() && (page != 2 || advertWritable()));
-    p.preview->setEnabled(selected && playerAvailable() && page != 1);
+    p.preview->setEnabled(selected && (page == PAGE_VIDEO || playerAvailable()));
     p.fileInfo->setEnabled(selected);
     if (page == 2)
         p.addAdvert->setEnabled(advertWritable() && p.files->selectionModel()->hasSelection());
@@ -1296,6 +1313,52 @@ void MainWindow::showPlayerControls() {
     dialog.resize(QSize(780, 720).boundedTo(screen()->availableGeometry().size() - QSize(40, 60)));
     dialog.exec();
 }
+void MainWindow::showVideoControls() {
+    auto *dialog = findChild<QDialog *>("videoControlDialog");
+    if (!dialog) {
+        dialog = new QDialog(this);
+        dialog->setObjectName("videoControlDialog");
+        dialog->setWindowTitle("Видеоэкраны · MediaBoxVPlayer");
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        auto *layout = new QVBoxLayout(dialog);
+        layout->setContentsMargins(0, 0, 0, 0);
+        auto *controls = new VideoControlWidget(dialog);
+        layout->addWidget(controls);
+        if (auto *settings = findChild<SettingsDialog *>())
+            connect(settings, &SettingsDialog::videoPlayerConnectionChanged,
+                    controls, &VideoControlWidget::reloadConnection);
+        connect(controls, &VideoControlWidget::settingsRequested, dialog, [this, dialog] {
+            dialog->hide();
+            changePage(4);
+        });
+        dialog->resize(QSize(1100, 780).boundedTo(screen()->availableGeometry().size() - QSize(40, 60)));
+    }
+    dialog->show();
+    dialog->raise();
+    dialog->activateWindow();
+}
+void MainWindow::addSelectedVideosToPlaylist() {
+    auto *manager = mediaManager(PAGE_VIDEO);
+    if (!manager)
+        return;
+    auto &page = mPages[PAGE_VIDEO];
+    auto rows = page.files->selectionModel()->selectedRows();
+    std::sort(rows.begin(), rows.end(), [](const QModelIndex &left, const QModelIndex &right) {
+        return left.row() < right.row();
+    });
+    QStringList paths;
+    for (const auto &index : rows) {
+        const auto source = page.proxy->mapToSource(index);
+        if (source.isValid())
+            paths.append(manager->getDirMediaFiles().absoluteFilePath(source.data(MediaModel::FileNameRole).toString()));
+    }
+    if (paths.isEmpty())
+        return;
+    showVideoControls();
+    auto *dialog = findChild<QDialog *>("videoControlDialog");
+    if (auto *controls = dialog->findChild<VideoControlWidget *>())
+        controls->addPlaylistPaths(paths);
+}
 void MainWindow::showFileInfo() {
     auto &p = mPages[mPage];
     auto *manager = mediaManager(mPage);
@@ -1422,7 +1485,7 @@ void MainWindow::adaptLayout(int width) {
         auto *control = findChild<QPushButton *>(name);
         if (!control)
             continue;
-        QString title = name == "refreshPlayerButton" ? "Обновить состояние" : "Управление плеером";
+        QString title = name == "refreshPlayerButton" ? "Обновить состояние" : "Аудиоплеер";
         control->setText(compact ? QString() : title);
         control->setToolTip(title);
         control->setMinimumWidth(compact ? 32 : 0);

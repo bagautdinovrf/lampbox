@@ -83,3 +83,32 @@ endforeach()
 target_compile_definitions(MediaBoxManager_playerclientTests PRIVATE
     PLAYER_EXECUTABLE="$<TARGET_FILE:MediaBoxPlayer>")
 add_dependencies(MediaBoxManager_playerclientTests MediaBoxPlayer)
+
+qt_add_executable(MediaBoxVPlayerProcessTests tst_vplayerprocess.cpp)
+target_link_libraries(MediaBoxVPlayerProcessTests PRIVATE Qt6::Core Qt6::Network Qt6::Test)
+target_compile_definitions(MediaBoxVPlayerProcessTests PRIVATE VPLAYER_EXECUTABLE="$<TARGET_FILE:MediaBoxVPlayer>")
+if(MSVC)
+    target_compile_options(MediaBoxVPlayerProcessTests PRIVATE /utf-8)
+endif()
+add_dependencies(MediaBoxVPlayerProcessTests MediaBoxVPlayer)
+add_test(NAME MediaBoxVPlayer_process COMMAND MediaBoxVPlayerProcessTests)
+set_tests_properties(MediaBoxVPlayer_process PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 60)
+if(WIN32)
+    set_property(TEST MediaBoxVPlayer_process APPEND PROPERTY
+        ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${_qt_bin}")
+endif()
+
+foreach(_suite IN ITEMS vplayerclient videocontrols)
+    qt_add_executable(MediaBoxManager_${_suite}Tests tst_${_suite}.cpp)
+    target_link_libraries(MediaBoxManager_${_suite}Tests PRIVATE MediaBoxManagerCore Qt6::Test)
+    add_test(NAME MediaBoxManager_${_suite} COMMAND "${CMAKE_COMMAND}"
+        "-DTEST_EXECUTABLE=$<TARGET_FILE:MediaBoxManager_${_suite}Tests>"
+        "-DTEST_REPORT=${CMAKE_CURRENT_BINARY_DIR}/${_suite}-results.txt"
+        "-DTEST_TIMEOUT=110"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/run_qt_test.cmake")
+    set_tests_properties(MediaBoxManager_${_suite} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 120)
+    if(WIN32)
+        set_property(TEST MediaBoxManager_${_suite} APPEND PROPERTY
+            ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${_qt_bin}")
+    endif()
+endforeach()

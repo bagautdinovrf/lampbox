@@ -7,6 +7,7 @@
 #include <QQueue>
 #include <QStringList>
 #include <QTimer>
+#include <QVariant>
 
 #include <optional>
 
@@ -100,6 +101,20 @@ signals:
     void commandCancelled(QString id, QString command);
     void connectionError(QString message);
 
+protected:
+    // Reuse the bounded, authenticated transport for players with a different
+    // status schema. Decode without side effects, then apply and publish the
+    // same stable snapshot around connection lifecycle notifications.
+    virtual bool decodeStatus(const QJsonObject &object, QVariant *snapshot) const;
+    virtual void applyStatus(const QVariant &snapshot);
+    virtual void publishStatus(const QVariant &snapshot);
+    virtual void resetStatus();
+    static bool parsePlaybackStatus(const QJsonObject &object, PlayerStatus *status);
+    static bool validMediaPaths(const QStringList &paths);
+    QString submit(const QString &command, const QJsonObject &arguments = {},
+                   bool synchronizing = false);
+    QString reject(const QString &command, const QString &code, const QString &message);
+
 private:
     struct Request {
         QString id;
@@ -114,9 +129,6 @@ private:
                         ConnectionState state = ConnectionState::Reconnecting);
     void readAvailable();
     bool processReply(const QByteArray &line);
-    QString submit(const QString &command, const QJsonObject &arguments = {},
-                   bool synchronizing = false);
-    QString reject(const QString &command, const QString &code, const QString &message);
     void sendNext();
 
     PlayerConnectionSettings m_settings;

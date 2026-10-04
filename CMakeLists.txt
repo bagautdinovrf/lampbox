@@ -63,6 +63,10 @@ add_library(MediaBoxManagerCore OBJECT
     src/mediacontroller.h
     src/mediaboxplayerclient.cpp
     src/mediaboxplayerclient.h
+    src/mediaboxvplayerclient.cpp
+    src/mediaboxvplayerclient.h
+    src/videocontrolwidget.cpp
+    src/videocontrolwidget.h
     src/playercontrolwidget.cpp
     src/playercontrolwidget.h
     src/mediadata.cpp
@@ -199,6 +203,7 @@ qt_generate_deploy_app_script(
 install(SCRIPT "${mediaboxmanager_deploy_script}")
 
 add_subdirectory(MediaBoxPlayer)
+add_subdirectory(MediaBoxVPlayer)
 
 if(BUILD_TESTING)
     add_subdirectory(tests)

@@ -51,12 +51,19 @@ QString rootDirectory(bool configuration)
 QString applicationName(Application application)
 {
 #ifdef Q_OS_WIN
-    return application == Application::Manager ? QStringLiteral("MediaBoxManager")
-                                               : QStringLiteral("MediaBoxPlayer");
+    switch (application) {
+    case Application::Manager: return QStringLiteral("MediaBoxManager");
+    case Application::Player: return QStringLiteral("MediaBoxPlayer");
+    case Application::VideoPlayer: return QStringLiteral("MediaBoxVPlayer");
+    }
 #else
-    return application == Application::Manager ? QStringLiteral("mediaboxmanager")
-                                               : QStringLiteral("mediaboxplayer");
+    switch (application) {
+    case Application::Manager: return QStringLiteral("mediaboxmanager");
+    case Application::Player: return QStringLiteral("mediaboxplayer");
+    case Application::VideoPlayer: return QStringLiteral("mediaboxvplayer");
+    }
 #endif
+    Q_UNREACHABLE();
 }
 } // namespace
 

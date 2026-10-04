@@ -45,6 +45,7 @@ private:
 
 private slots:
     void savePlayerConnection();
+    void saveVideoPlayerConnection();
 
     /**
      * @brief checkItem             - Выбор типов файлов
@@ -67,6 +68,8 @@ private slots:
 signals:
     void doneRequested();
     void playerConnectionChanged();
+    void videoPlayerConnectionChanged();
+    void videoScreensRequested();
     /**
      * @brief fileFormats
      */
@@ -82,6 +85,10 @@ private:
     QSpinBox *mPlayerPort = nullptr;
     QLineEdit *mPlayerToken = nullptr;
     RestyleLabel *mPlayerConnectionMessage = nullptr;
+    QLineEdit *mVideoPlayerHost = nullptr;
+    QSpinBox *mVideoPlayerPort = nullptr;
+    QLineEdit *mVideoPlayerToken = nullptr;
+    RestyleLabel *mVideoPlayerConnectionMessage = nullptr;
 
 };
 

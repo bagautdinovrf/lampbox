@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-Configure, build and test MediaBoxManager and MediaBoxPlayer with the newest installed Qt 6 MSVC kit.
+Configure, build and test MediaBoxManager, MediaBoxPlayer and MediaBoxVPlayer with the newest installed Qt 6 MSVC kit.
 .EXAMPLE
 powershell -ExecutionPolicy Bypass -File .\agent_build\build.ps1
 .EXAMPLE
@@ -365,10 +365,12 @@ try {
             $runInformation.DeployDirectory = $deployDirectory
             Write-Host "Deployed manager: $(Join-Path $deployDirectory 'bin\MediaBoxManager.exe')"
             Write-Host "Deployed player: $(Join-Path $deployDirectory 'bin\MediaBoxPlayer.exe')"
+            Write-Host "Deployed video player: $(Join-Path $deployDirectory 'bin\MediaBoxVPlayer.exe')"
         }
         if ($Installer) {
             $null = Assert-File (Join-Path $deployDirectory 'bin\MediaBoxManager.exe') 'Deployed MediaBoxManager'
             $null = Assert-File (Join-Path $deployDirectory 'bin\MediaBoxPlayer.exe') 'Deployed MediaBoxPlayer'
+            $null = Assert-File (Join-Path $deployDirectory 'bin\MediaBoxVPlayer.exe') 'Deployed MediaBoxVPlayer'
             $runtimeSource = Add-AppLocalMsvcRuntime $msvc.VisualStudio (Join-Path $deployDirectory 'bin')
             $runInformation.MsvcRuntimeDirectory = $runtimeSource
             Write-Host "MSVC runtime: $runtimeSource"
@@ -384,6 +386,7 @@ try {
         }
         Write-Host "Built manager: $(Join-Path $buildDirectory 'bin\MediaBoxManager.exe')"
         Write-Host "Built player: $(Join-Path $buildDirectory 'bin\MediaBoxPlayer.exe')"
+        Write-Host "Built video player: $(Join-Path $buildDirectory 'bin\MediaBoxVPlayer.exe')"
     }
     $runInformation.Status = 'Succeeded'
     Write-Host "`nCompleted successfully. Logs: $logDirectory"

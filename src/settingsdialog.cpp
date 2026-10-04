@@ -241,6 +241,72 @@ SettingsDialog::SettingsDialog(QWidget *parent, Qt::WindowFlags f) :
     page->addWidget(player);
     page->addSpacing(16);
 
+    auto *videoPlayer = new RestylePanel(body);
+    videoPlayer->setObjectName(QStringLiteral("videoPlayerConnectionCard"));
+    videoPlayer->setMaximumWidth(1080);
+    auto *videoPlayerLayout = new QVBoxLayout(videoPlayer);
+    videoPlayerLayout->setContentsMargins(21, 20, 21, 21);
+    videoPlayerLayout->setSpacing(12);
+    videoPlayerLayout->addWidget(new RestyleLabel(tr("MediaBoxVPlayer"), 20, QFont::DemiBold, videoPlayer));
+    videoPlayerLayout->addWidget(caption(tr("MediaBoxVPlayer должен быть запущен на указанной машине. "
+                                       "Пути медиафайлов относятся к машине плеера."), videoPlayer));
+
+    auto *videoFields = new QGridLayout;
+    videoFields->setHorizontalSpacing(12);
+    videoFields->setVerticalSpacing(6);
+    videoFields->setColumnStretch(0, 1);
+    mVideoPlayerHost = new QLineEdit(videoPlayer);
+    mVideoPlayerHost->setObjectName(QStringLiteral("videoPlayerHost"));
+    mVideoPlayerHost->setAccessibleName(tr("Адрес машины плеера"));
+    mVideoPlayerHost->setPlaceholderText(QStringLiteral("127.0.0.1"));
+    mVideoPlayerHost->setMinimumHeight(32);
+    mVideoPlayerPort = new QSpinBox(videoPlayer);
+    mVideoPlayerPort->setObjectName(QStringLiteral("videoPlayerPort"));
+    mVideoPlayerPort->setAccessibleName(tr("TCP-порт плеера"));
+    mVideoPlayerPort->setRange(1, 65535);
+    mVideoPlayerPort->setMinimumHeight(32);
+    mVideoPlayerPort->setFixedWidth(112);
+    mVideoPlayerToken = new QLineEdit(videoPlayer);
+    mVideoPlayerToken->setObjectName(QStringLiteral("videoPlayerToken"));
+    mVideoPlayerToken->setAccessibleName(tr("Токен доступа к плееру"));
+    mVideoPlayerToken->setEchoMode(QLineEdit::Password);
+    mVideoPlayerToken->setPlaceholderText(tr("Токен из control.token"));
+    mVideoPlayerToken->setMinimumHeight(32);
+    auto *videoHostLabel = caption(tr("Адрес / DNS-имя"), videoPlayer);
+    videoHostLabel->setBuddy(mVideoPlayerHost);
+    auto *videoPortLabel = caption(tr("TCP-порт"), videoPlayer);
+    videoPortLabel->setBuddy(mVideoPlayerPort);
+    auto *videoTokenLabel = caption(tr("Токен доступа"), videoPlayer);
+    videoTokenLabel->setBuddy(mVideoPlayerToken);
+    videoFields->addWidget(videoHostLabel, 0, 0);
+    videoFields->addWidget(videoPortLabel, 0, 1);
+    videoFields->addWidget(mVideoPlayerHost, 1, 0);
+    videoFields->addWidget(mVideoPlayerPort, 1, 1);
+    videoFields->addWidget(videoTokenLabel, 2, 0, 1, 2);
+    videoFields->addWidget(mVideoPlayerToken, 3, 0, 1, 2);
+    videoPlayerLayout->addLayout(videoFields);
+    videoPlayerLayout->addWidget(caption(tr("Скопируйте 64 символа из файла control.token видеоплеера в каталоге данных плеера."), videoPlayer));
+    mVideoPlayerConnectionMessage = caption({}, videoPlayer);
+    mVideoPlayerConnectionMessage->setObjectName(QStringLiteral("videoPlayerConnectionMessage"));
+    mVideoPlayerConnectionMessage->setTextFormat(Qt::PlainText);
+    mVideoPlayerConnectionMessage->hide();
+    videoPlayerLayout->addWidget(mVideoPlayerConnectionMessage);
+    auto *saveVideoConnection = new QPushButton(tr("Сохранить подключение"), videoPlayer);
+    saveVideoConnection->setObjectName(QStringLiteral("saveVideoPlayerConnection"));
+    Restyle::button(saveVideoConnection, QStringLiteral("primary"));
+    saveVideoConnection->setAutoDefault(false);
+    saveVideoConnection->setFixedHeight(32);
+    videoPlayerLayout->addWidget(saveVideoConnection, 0, Qt::AlignLeft);
+    auto *videoScreens = new QPushButton(tr("Настроить видеоэкраны и плейлисты"), videoPlayer);
+    videoScreens->setObjectName(QStringLiteral("configureVideoScreens"));
+    Restyle::button(videoScreens);
+    videoScreens->setAutoDefault(false);
+    videoScreens->setMinimumHeight(32);
+    videoPlayerLayout->addWidget(videoScreens, 0, Qt::AlignLeft);
+    connect(videoScreens, &QPushButton::clicked, this, &SettingsDialog::videoScreensRequested);
+    page->addWidget(videoPlayer);
+    page->addSpacing(16);
+
     auto *card = new RestylePanel(body);
     card->setObjectName(QStringLiteral("mediaFormatsCard"));
     card->setMaximumWidth(1080);
@@ -329,6 +395,17 @@ SettingsDialog::SettingsDialog(QWidget *parent, Qt::WindowFlags f) :
     connect(mPlayerHost, &QLineEdit::textEdited, this, connectionEdited);
     connect(mPlayerPort, &QSpinBox::valueChanged, this, connectionEdited);
     connect(mPlayerToken, &QLineEdit::textEdited, this, connectionEdited);
+    connect(saveVideoConnection, &QPushButton::clicked, this, &SettingsDialog::saveVideoPlayerConnection);
+    connect(mVideoPlayerHost, &QLineEdit::returnPressed, this, &SettingsDialog::saveVideoPlayerConnection);
+    connect(mVideoPlayerToken, &QLineEdit::returnPressed, this, &SettingsDialog::saveVideoPlayerConnection);
+    const auto videoConnectionEdited = [this] {
+        mVideoPlayerConnectionMessage->setColorRole(QStringLiteral("muted"));
+        mVideoPlayerConnectionMessage->setText(tr("Изменения ещё не сохранены."));
+        mVideoPlayerConnectionMessage->show();
+    };
+    connect(mVideoPlayerHost, &QLineEdit::textEdited, this, videoConnectionEdited);
+    connect(mVideoPlayerPort, &QSpinBox::valueChanged, this, videoConnectionEdited);
+    connect(mVideoPlayerToken, &QLineEdit::textEdited, this, videoConnectionEdited);
     connect(none, &QPushButton::clicked, this, &SettingsDialog::deselectAllFileFormats);
     connect(all, &QPushButton::clicked, this, &SettingsDialog::selectAllFileFormats);
     connect(done, &QPushButton::clicked, this, [this] {
@@ -346,6 +423,10 @@ void SettingsDialog::init()
     mPlayerHost->setText(connection.host);
     mPlayerPort->setValue(connection.port);
     mPlayerToken->setText(connection.token);
+    const PlayerConnectionSettings videoConnection = settings.videoPlayerConnection();
+    mVideoPlayerHost->setText(videoConnection.host);
+    mVideoPlayerPort->setValue(videoConnection.port);
+    mVideoPlayerToken->setText(videoConnection.token);
     const auto fill = [](QListWidget *list, const QMap<QString, bool> &formats, QStringList order) {
         for (auto it = formats.cbegin(); it != formats.cend(); ++it)
             if (!order.contains(it.key())) order.append(it.key());
@@ -398,6 +479,44 @@ void SettingsDialog::savePlayerConnection()
     mPlayerConnectionMessage->setText(tr("Подключение сохранено."));
     mPlayerConnectionMessage->show();
     emit playerConnectionChanged();
+}
+
+void SettingsDialog::saveVideoPlayerConnection()
+{
+    const auto showError = [this](const QString &message, QWidget *field) {
+        mVideoPlayerConnectionMessage->setColorRole(QStringLiteral("error"));
+        mVideoPlayerConnectionMessage->setText(message);
+        mVideoPlayerConnectionMessage->show();
+        if (field)
+            field->setFocus();
+    };
+    PlayerConnectionSettings connection;
+    connection.host = mVideoPlayerHost->text().trimmed();
+    if (connection.host.isEmpty()) {
+        showError(tr("Укажите адрес машины, на которой запущен MediaBoxVPlayer."), mVideoPlayerHost);
+        return;
+    }
+    if (!mVideoPlayerPort->hasAcceptableInput()) {
+        showError(tr("Укажите TCP-порт от 1 до 65535."), mVideoPlayerPort);
+        return;
+    }
+    connection.port = static_cast<quint16>(mVideoPlayerPort->value());
+    connection.token = mVideoPlayerToken->text().trimmed();
+    static const QRegularExpression tokenPattern(QStringLiteral("\\A[0-9a-f]{64}\\z"));
+    if (!tokenPattern.match(connection.token).hasMatch()) {
+        showError(tr("Токен должен содержать 64 символа: цифры 0–9 и строчные буквы a–f."), mVideoPlayerToken);
+        return;
+    }
+    if (!Settings().setVideoPlayerConnection(connection)) {
+        showError(tr("Не удалось сохранить подключение. Проверьте доступ к файлу настроек."), nullptr);
+        return;
+    }
+    mVideoPlayerHost->setText(connection.host);
+    mVideoPlayerToken->setText(connection.token);
+    mVideoPlayerConnectionMessage->setColorRole(QStringLiteral("success"));
+    mVideoPlayerConnectionMessage->setText(tr("Подключение сохранено."));
+    mVideoPlayerConnectionMessage->show();
+    emit videoPlayerConnectionChanged();
 }
 
 void SettingsDialog::checkAudioItem(QListWidgetItem *item)

@@ -56,7 +56,7 @@ WelcomeFontName=Segoe UI
 WelcomeFontSize=14
 
 [Dirs]
-; Do not inherit broad Users permissions into the private player directory.
+; Do not inherit broad Users permissions into the private player directories.
 ; Root permissions are restricted in ConfigureSharedDataAccess below.
 Name: "{commonappdata}\MediaBox"; Flags: uninsneveruninstall
 Name: "{commonappdata}\MediaBox\MediaBoxManager"; Permissions: users-modify; Flags: uninsneveruninstall
@@ -69,12 +69,13 @@ Name: "{commonappdata}\MediaBox\nncronlt"; Permissions: users-modify; Flags: uni
 ; Required entries prevent building a package with missing application binaries.
 Source: "{#PackageDir}\bin\MediaBoxManager.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
 Source: "{#PackageDir}\bin\MediaBoxPlayer.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "{#PackageDir}\bin\MediaBoxVPlayer.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
 Source: "{#PackageDir}\bin\vcruntime140.dll"; DestDir: "{app}\bin"; Flags: ignoreversion
 Source: "{#PackageDir}\bin\vcruntime140_1.dll"; DestDir: "{app}\bin"; Flags: ignoreversion
 Source: "{#PackageDir}\bin\msvcp140.dll"; DestDir: "{app}\bin"; Flags: ignoreversion
 ; Preserve the Qt deploy layout (bin, plugins, translations and bin/qt.conf).
 ; Runtime settings and logs never belong in an installer or its uninstall log.
-Source: "{#PackageDir}\*"; DestDir: "{app}"; Excludes: "bin\MediaBoxManager.exe,bin\MediaBoxPlayer.exe,bin\vcruntime140.dll,bin\vcruntime140_1.dll,bin\msvcp140.dll,lampbox.exe,*.pdb,*.log,lampbox.conf,MediaBoxManager.conf,MediaBoxPlayer.conf,vc_redist*.exe"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#PackageDir}\*"; DestDir: "{app}"; Excludes: "bin\MediaBoxManager.exe,bin\MediaBoxPlayer.exe,bin\MediaBoxVPlayer.exe,bin\vcruntime140.dll,bin\vcruntime140_1.dll,bin\msvcp140.dll,lampbox.exe,*.pdb,*.log,lampbox.conf,MediaBoxManager.conf,MediaBoxPlayer.conf,MediaBoxVPlayer.conf,control.token,windows.json,vc_redist*.exe"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "assets\setup.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [InstallDelete]
@@ -85,6 +86,8 @@ Type: files; Name: "{autodesktop}\{#AppName}.lnk"
 [Icons]
 Name: "{group}\{#AppName} {#AppVersion}"; Filename: "{app}\bin\MediaBoxManager.exe"; WorkingDir: "{app}\bin"
 Name: "{autodesktop}\{#AppName} {#AppVersion}"; Filename: "{app}\bin\MediaBoxManager.exe"; WorkingDir: "{app}\bin"
+Name: "{group}\MediaBoxVPlayer {#AppVersion}"; Filename: "{app}\bin\MediaBoxVPlayer.exe"; WorkingDir: "{app}\bin"
+Name: "{autodesktop}\MediaBoxVPlayer {#AppVersion}"; Filename: "{app}\bin\MediaBoxVPlayer.exe"; WorkingDir: "{app}\bin"
 
 [Run]
 Filename: "{app}\bin\MediaBoxManager.exe"; WorkingDir: "{app}\bin"; Description: "Запустить MediaBoxManager"; Flags: postinstall nowait skipifsilent
@@ -97,7 +100,7 @@ var
 begin
   { Replace the inheritable Users Modify rule from earlier installers only.
     These rights allow reading and creating files/directories on the root, but
-    do not include Delete/DeleteChild and do not propagate to Player. Keep other
+    do not include Delete/DeleteChild and do not propagate to either player. Keep other
     principals' ACL entries and the service's protected directory untouched. }
   Arguments := '"' + ExpandConstant('{commonappdata}\MediaBox') +
     '" /grant:r "*S-1-5-32-545:(RD,WD,AD,REA,X,RA,RC,S)"';
