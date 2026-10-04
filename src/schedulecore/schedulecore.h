@@ -32,6 +32,8 @@ struct ChannelRule {
     QString stableId;
     QString order = QStringLiteral("shuffle_cycle");
     int untilDayOffset = 0;
+    // Manager storage identity; display-name edits never move media files.
+    QString storageDirectory;
 };
 
 struct AdvertRule {

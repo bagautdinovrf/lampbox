@@ -6,6 +6,7 @@
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QSqlError>
 #include <QSqlQuery>
 #include <QTemporaryDir>
 #include <QTest>
@@ -73,6 +74,42 @@ QJsonObject active(const QJsonObject &document, const QByteArray &data)
         {"stationId", document.value("stationId")}, {"publicationId", document.value("publicationId")},
         {"revision", document.value("revision")}, {"snapshotPath", QStringLiteral("snapshots/%1.json").arg(document.value("publicationId").toString())},
         {"sha256", QString::fromLatin1(QCryptographicHash::hash(data, QCryptographicHash::Sha256).toHex())}};
+}
+
+QString executeSql(const QString &path, const QString &statement)
+{
+    QString error;
+    {
+        auto db = QSqlDatabase::addDatabase("QSQLITE", "engine-storage-failure-test");
+        db.setDatabaseName(path);
+        if (!db.open()) {
+            error = db.lastError().text();
+        } else {
+            QSqlQuery query(db);
+            if (!query.exec(statement))
+                error = query.lastError().text();
+        }
+        db.close();
+    }
+    QSqlDatabase::removeDatabase("engine-storage-failure-test");
+    return error;
+}
+
+QVariant storedValue(const QString &path, const QString &statement)
+{
+    QVariant result;
+    {
+        auto db = QSqlDatabase::addDatabase("QSQLITE", "engine-storage-inspection-test");
+        db.setDatabaseName(path);
+        if (db.open()) {
+            QSqlQuery query(db);
+            if (query.exec(statement) && query.next())
+                result = query.value(0);
+        }
+        db.close();
+    }
+    QSqlDatabase::removeDatabase("engine-storage-inspection-test");
+    return result;
 }
 
 class Backend final : public AudioBackend
@@ -201,6 +238,141 @@ private slots:
         QCOMPARE(engine.status().value("playbackMode").toString(), QStringLiteral("manual"));
         QCOMPARE(backend.plays, 0);
         QCOMPARE(engine.status().value("publicationId").toString(), id(3));
+    }
+
+    void stopReportsWriteFailureAndRetriesInManualMode()
+    {
+        QTemporaryDir directory;
+        files(directory);
+        const auto now = at("2026-12-16T11:00:00Z");
+        const QString database = directory.filePath("runtime.sqlite");
+        {
+            Backend backend;
+            PlayerEngine engine(&backend, nullptr, [&] { return now; }, database);
+            QVERIFY(engine.execute({{"command", "schedule"}, {"schedule", schedule()},
+                {"contentRoot", directory.path()}}).value("ok").toBool());
+            backend.playing();
+            QCOMPARE(executeSql(database, "CREATE TRIGGER fail_disable BEFORE INSERT ON preferences "
+                "WHEN NEW.name='scheduledPlayback' AND NEW.value=0 "
+                "BEGIN SELECT RAISE(FAIL,'injected disable failure'); END"), QString());
+
+            const auto response = engine.execute({{"command", "stop"}});
+            QVERIFY(!response.value("ok").toBool());
+            QCOMPARE(response.value("error").toObject().value("code").toString(), QStringLiteral("runtime_error"));
+            QVERIFY(response.value("error").toObject().value("message").toString().contains("injected disable failure"));
+            QCOMPARE(engine.status().value("state").toString(), QStringLiteral("stopped"));
+            QCOMPARE(engine.status().value("playbackMode").toString(), QStringLiteral("manual"));
+            QVERIFY(!engine.status().value("playbackRequested").toBool());
+            const int plays = backend.plays;
+            for (int tick = 1; tick <= 10; ++tick)
+                engine.evaluateSchedule(now.addSecs(tick));
+            QCOMPARE(backend.plays, plays);
+            QCOMPARE(storedValue(database, "SELECT value FROM preferences WHERE name='scheduledPlayback'").toInt(), 1);
+
+            QCOMPARE(executeSql(database, "DROP TRIGGER fail_disable"), QString());
+            // The normal timer continues retrying even though playback is manual.
+            QTRY_COMPARE(storedValue(database, "SELECT value FROM preferences WHERE name='scheduledPlayback'"), QVariant(0));
+            QCOMPARE(engine.status().value("scheduleError").toString(), QString());
+            QCOMPARE(engine.status().value("state").toString(), QStringLiteral("stopped"));
+            QCOMPARE(backend.plays, plays);
+        }
+        Backend backend;
+        PlayerEngine restored(&backend, nullptr, [&] { return now; }, database);
+        QCOMPARE(restored.restoreScheduledPlayback(), QString());
+        QCOMPARE(restored.status().value("playbackMode").toString(), QStringLiteral("manual"));
+        QCOMPARE(backend.plays, 0);
+    }
+
+    void explicitScheduleSupersedesPendingStopPersistence()
+    {
+        QTemporaryDir directory;
+        files(directory);
+        const auto now = at("2026-12-16T11:00:00Z");
+        const QString database = directory.filePath("runtime.sqlite");
+        Backend backend;
+        PlayerEngine engine(&backend, nullptr, [&] { return now; }, database);
+        QVERIFY(engine.execute({{"command", "schedule"}, {"schedule", schedule()},
+            {"contentRoot", directory.path()}}).value("ok").toBool());
+        backend.playing();
+        QCOMPARE(executeSql(database, "CREATE TRIGGER fail_disable BEFORE INSERT ON preferences "
+            "WHEN NEW.value=0 BEGIN SELECT RAISE(FAIL,'injected disable failure'); END"), QString());
+        QVERIFY(!engine.execute({{"command", "stop"}}).value("ok").toBool());
+        QCOMPARE(executeSql(database, "DROP TRIGGER fail_disable"), QString());
+        QVERIFY(engine.execute({{"command", "schedule"}}).value("ok").toBool());
+        backend.playing();
+        for (int tick = 1; tick <= 10; ++tick)
+            engine.evaluateSchedule(now.addSecs(tick));
+        QCOMPARE(storedValue(database, "SELECT value FROM preferences WHERE name='scheduledPlayback'").toInt(), 1);
+        QCOMPARE(engine.status().value("playbackMode").toString(), QStringLiteral("schedule"));
+        QCOMPARE(engine.status().value("state").toString(), QStringLiteral("playing"));
+    }
+
+    void advertStartWriteFailureRecoversWithoutReplay_data()
+    {
+        QTest::addColumn<bool>("interruptMusic");
+        QTest::addColumn<QString>("failureStatement");
+        const QString starts = QStringLiteral("CREATE TRIGGER fail_ack BEFORE INSERT ON starts "
+            "BEGIN SELECT RAISE(FAIL,'injected acknowledgement failure'); END");
+        const QString event = QStringLiteral("CREATE TRIGGER fail_ack BEFORE UPDATE OF state ON events "
+            "WHEN NEW.state='started' BEGIN SELECT RAISE(FAIL,'injected acknowledgement failure'); END");
+        QTest::newRow("initial-start-record") << false << starts;
+        QTest::newRow("interrupted-start-record") << true << starts;
+        QTest::newRow("initial-event-state") << false << event;
+        QTest::newRow("interrupted-event-state") << true << event;
+    }
+
+    void advertStartWriteFailureRecoversWithoutReplay()
+    {
+        QFETCH(bool, interruptMusic);
+        QFETCH(QString, failureStatement);
+        QTemporaryDir directory;
+        files(directory);
+        auto now = at(interruptMusic ? "2026-12-16T11:59:59Z" : "2026-12-16T12:00:00Z");
+        const QString database = directory.filePath("runtime.sqlite");
+        auto document = schedule();
+        addEvent(document, "interrupt");
+        Backend backend;
+        PlayerEngine engine(&backend, nullptr, [&] { return now; }, database);
+        QVERIFY(engine.execute({{"command", "schedule"}, {"schedule", document},
+            {"contentRoot", directory.path()}}).value("ok").toBool());
+        if (interruptMusic) {
+            backend.playing();
+            backend.seek(4000);
+            now = now.addSecs(1);
+            engine.evaluateSchedule(now);
+        }
+        QVERIFY(backend.path.endsWith("5.mp3"));
+        QCOMPARE(executeSql(database, failureStatement), QString());
+        QCOMPARE(executeSql(database, "CREATE TRIGGER fail_retire BEFORE UPDATE OF state ON events "
+            "WHEN NEW.state='failed' BEGIN SELECT RAISE(FAIL,'injected retirement failure'); END"), QString());
+        backend.playing();
+        QCOMPARE(engine.status().value("state").toString(), QStringLiteral("stopped"));
+        QVERIFY(engine.status().value("scheduleError").toString().contains("injected acknowledgement failure"));
+        const int plays = backend.plays;
+        for (int tick = 1; tick <= 10; ++tick)
+            engine.evaluateSchedule(now.addSecs(tick));
+        QCOMPARE(backend.plays, plays);
+        QCOMPARE(storedValue(database, "SELECT state FROM events").toString(), QStringLiteral("starting"));
+        QCOMPARE(storedValue(database, "SELECT COUNT(*) FROM starts WHERE entry_id=''").toInt(), 0);
+        QVERIFY(engine.status().value("scheduleError").toString().contains("injected retirement failure"));
+        QCOMPARE(executeSql(database, "DROP TRIGGER fail_ack"), QString());
+        QCOMPARE(executeSql(database, "DROP TRIGGER fail_retire"), QString());
+        engine.evaluateSchedule(now.addSecs(11));
+        QCOMPARE(backend.plays, plays + 1);
+        QVERIFY(backend.path.endsWith("1.mp3"));
+        backend.playing();
+        QCOMPARE(backend.seekPosition, interruptMusic ? qint64(4000) : qint64(0));
+        QCOMPARE(engine.status().value("state").toString(), QStringLiteral("playing"));
+        QCOMPARE(engine.status().value("scheduleError").toString(), QString());
+        QCOMPARE(storedValue(database, "SELECT state FROM events").toString(), QStringLiteral("failed"));
+        for (int tick = 12; tick <= 20; ++tick)
+            engine.evaluateSchedule(now.addSecs(tick));
+        QCOMPARE(backend.plays, plays + 1);
+        engine.setPlaybackAvailable(false);
+        Backend restartedBackend;
+        PlayerEngine restarted(&restartedBackend, nullptr, [&] { return now; }, database);
+        QCOMPARE(restarted.restoreScheduledPlayback(), QString());
+        QVERIFY(restartedBackend.path.endsWith("3.mp3"));
     }
 
     void shuffleRemainingCycleSurvivesRestart()

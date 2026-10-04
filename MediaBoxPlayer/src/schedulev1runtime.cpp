@@ -306,6 +306,7 @@ QString ScheduleV1Runtime::setScheduledPlayback(bool enabled)
         m_storageError = queryError(query);
         return m_storageError;
     }
+    m_storageError.clear();
     return {};
 }
 
@@ -627,6 +628,7 @@ QString ScheduleV1Runtime::finishEvent(const Track &track, const QString &state)
         m_storageError = queryError(query);
         return m_storageError;
     }
+    m_storageError.clear();
     return {};
 }
 

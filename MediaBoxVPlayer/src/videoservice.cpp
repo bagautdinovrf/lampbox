@@ -65,40 +65,25 @@ qint64 scheduledQueueBytes(const QJsonObject &schedule)
     return maximum;
 }
 
-// Missing media is recoverable during startup. Validate the original path
-// shape, then use the shared legacy validator on the currently readable subset.
-QString restoreSchedule(const QJsonObject &saved, QJsonObject *effective, QStringList *missing)
+// A disconnected drive must not change the saved schedule. Validate the full
+// snapshot independently of current availability, then report missing media.
+QString validateSavedSchedule(const QJsonObject &saved, QStringList *missing = nullptr)
 {
-    QJsonObject filtered = saved;
+    PlaybackSchedule decoded;
+    const QString error = PlaybackSchedule::decode(saved, &decoded, PlaybackSchedule::FileValidation::PathOnly);
+    if (!error.isEmpty() || !missing)
+        return error;
     for (const QString &kind : {QStringLiteral("channels"), QStringLiteral("adverts")}) {
-        if (!saved.value(kind).isArray())
-            return QStringLiteral("Saved video schedule must contain channels and adverts arrays.");
-        QJsonArray rules;
         for (const auto &value : saved.value(kind).toArray()) {
-            QJsonObject rule = value.toObject();
-            if (!value.isObject() || !rule.value("paths").isArray() || rule.value("paths").toArray().size() > 1000)
-                return QStringLiteral("Invalid saved video schedule paths.");
-            QJsonArray paths;
+            const QJsonObject rule = value.toObject();
             for (const auto &entry : rule.value("paths").toArray()) {
                 const QString path = entry.toString();
-                if (!entry.isString() || path.isEmpty() || path.size() > 4096 || path.contains(QChar::Null)
-                    || !QDir::isAbsolutePath(path))
-                    return QStringLiteral("Invalid saved video schedule path.");
-                if (playbackFileError(path).isEmpty())
-                    paths.append(path);
-                else if (missing)
+                if (!playbackFileError(path).isEmpty())
                     missing->append(path);
             }
-            rule.insert("paths", paths);
-            rules.append(rule);
         }
-        filtered.insert(kind, rules);
     }
-    PlaybackSchedule decoded;
-    const QString error = PlaybackSchedule::decode(filtered, &decoded);
-    if (error.isEmpty())
-        *effective = filtered;
-    return error;
+    return {};
 }
 } // namespace
 
@@ -490,9 +475,8 @@ bool VideoService::restore(QString *error)
             && (!item.contains("playbackMode") || item.value("playbackMode").isString())
             && (mode != QStringLiteral("schedule") || item.value("schedule").isObject());
         if (item.contains("schedule")) {
-            QJsonObject effective;
             valid = valid && item.value("schedule").isObject()
-                && restoreSchedule(item.value("schedule").toObject(), &effective, nullptr).isEmpty();
+                && validateSavedSchedule(item.value("schedule").toObject()).isEmpty();
             if (mode == QStringLiteral("schedule"))
                 queueBytes += qMax(pathsBytes(paths), scheduledQueueBytes(item.value("schedule").toObject())) - pathsBytes(paths);
             valid = valid && queueBytes <= MaxQueueBytes;
@@ -544,19 +528,18 @@ bool VideoService::restore(QString *error)
         if (item.value("schedule").isObject()) {
             record.schedule = item.value("schedule").toObject();
             record.scheduleQueueBytes = scheduledQueueBytes(record.schedule);
-            QJsonObject effective;
             QStringList unavailable;
-            const QString scheduleError = restoreSchedule(record.schedule, &effective, &unavailable);
+            const QString scheduleError = validateSavedSchedule(record.schedule, &unavailable);
             if (scheduleError.isEmpty()) {
-                const auto response = record.engine->execute({{"command", item.value("playbackMode").toString() == QStringLiteral("schedule")
-                    ? QStringLiteral("schedule") : QStringLiteral("setSchedule")}, {"schedule", effective}});
+                const auto response = record.engine->restoreLegacySchedule(record.schedule,
+                    item.value("playbackMode").toString() == QStringLiteral("schedule"));
                 if (!response.value("ok").toBool())
                     record.restoreError = response.value("error").toObject().value("message").toString();
             } else {
                 record.restoreError = scheduleError;
             }
             if (!unavailable.isEmpty())
-                record.restoreError = tr("Пропущены недоступные файлы: %1").arg(unavailable.join(QStringLiteral("; ")));
+                record.restoreError = tr("При восстановлении расписания были недоступны файлы: %1").arg(unavailable.join(QStringLiteral("; ")));
         }
     }
     emit statusChanged();

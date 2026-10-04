@@ -166,15 +166,17 @@ void SchedulePublicationTests::renamePreservesEntryIdsAndRevision()
     QString error;
     bool advanced;
     QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), source, &first, &advanced, &error));
+    channel["directory"] = channel.value("name");
     channel["name"] = "Переименованный";
-    channel["paths"] = QJsonArray{QDir(dir.path()).filePath("music/Переименованный/папка/трек.mp3")};
+    QCOMPARE(channel.value("directory").toString(), QStringLiteral("Музыка"));
     source["channels"] = QJsonArray{channel};
     QVERIFY(SchedulePublication::draft(dir.path(), dir.path(), source, &renamed, &advanced, &error));
     const auto before = first["playlists"].toArray().first().toObject();
     const auto after = renamed["playlists"].toArray().first().toObject();
     QCOMPARE(before["entries"], after["entries"]);
     QCOMPARE(before["revision"], after["revision"]);
-    QCOMPARE(first["assets"].toArray().first().toObject()["id"], renamed["assets"].toArray().first().toObject()["id"]);
+    QCOMPARE(first["assets"], renamed["assets"]);
+    QCOMPARE(after["name"].toString(), QStringLiteral("Переименованный"));
 }
 void SchedulePublicationTests::generatedHorizonRenewsButAdvancedRangeRemains()
 {

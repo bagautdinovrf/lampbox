@@ -140,8 +140,11 @@ private slots:
         QCOMPARE(reopened.channel(0).startTime(), QTime(22, 0));
         QCOMPARE(model.index(0, 0).data(ChannelModel::PlaybackOrderRole).toString(), values.order);
         QCOMPARE(model.index(1, 0).data().toString(), QStringLiteral("Б"));
-        QVERIFY(QFileInfo::exists(directory.filePath("media/music/Я")));
-        QVERIFY(!QFileInfo::exists(directory.filePath("media/music/А")));
+        QVERIFY(!QFileInfo::exists(directory.filePath("media/music/Я")));
+        QVERIFY(QFileInfo::exists(directory.filePath("media/music/А")));
+        QCOMPARE(reopened.channel(0).storageDirectory(), QStringLiteral("А"));
+        QCOMPARE(QDir::cleanPath(reopened.channel(0).mediaManager().getDirMediaFiles().absolutePath()),
+                 QDir::cleanPath(directory.filePath("media/music/А")));
 
         QFile saved(path);
         QVERIFY(saved.open(QIODevice::ReadOnly));

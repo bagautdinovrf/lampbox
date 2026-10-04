@@ -132,7 +132,7 @@ bool compile(const QJsonObject &legacy, const QString &contentRoot, const QJsonO
         QHash<QString, int> occurrences;
         for (const auto &path : channel.value("paths").toArray()) {
             QString identity = QDir::fromNativeSeparators(root.relativeFilePath(path.toString()));
-            const QString channelPrefix = "music/" + name + "/";
+            const QString channelPrefix = "music/" + channel.value("directory").toString(name) + "/";
             if (identity.startsWith(channelPrefix)) identity.remove(0, channelPrefix.size());
             const QString assetId = asset(path.toString(), id + ":" + identity);
             if (assetId.isEmpty()) return false;

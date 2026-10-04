@@ -48,11 +48,12 @@ MediaBoxManager — редактор музыкальных и рекламны�
 выходов, останавливают перенос с указанием файла и строки; частичный проект
 при этом не создаётся.
 
-Сохранение использует `QLockFile` и `QSaveFile`. Операции над каталогами каналов
-защищены журналом восстановления: после прерывания согласуется состояние
-каталога и JSON. [Проект schedule-v1](Documentation/schedule-v1/README.md)
-с публикацией неизменяемых снимков и исполнением расписаний плеерами остаётся
-отдельным этапом.
+Сохранение использует `QLockFile` и `QSaveFile`. Имя канала отделено от постоянного
+каталога `directory`: переименование не перемещает файлы и сохраняет ссылки
+расширенного [проекта schedule-v1](Documentation/schedule-v1/README.md) и опубликованных
+снимков. Старые проекты используют прежнее имя каталога без переноса файлов.
+Удаление каталогов защищено журналом восстановления: после прерывания
+согласуется состояние каталога и JSON.
 
 Импорт сканирует файлы, читает метаданные и копирует блоками в рабочем потоке.
 После завершения интерфейс получает один снимок медиатеки. Отмена сохраняет
@@ -272,7 +273,7 @@ Manager копирует `project.json`, его журнал незавершё�
 | --- | --- |
 | `MediaBoxManager.conf` | INI. `FileFormats/AudioFormats` и `FileFormats/VideoFormats` — доступные форматы; `Appearance/style` и `Appearance/theme` — оформление; `Player` и `VideoPlayer` — параметры `Host`, `Port`, `Token`; `VideoPlayer/Profiles` — JSON-массив профилей экранов и именованных плейлистов |
 | `mediabox.conf` | INI. Секция `mediastation`: `mediabox_id`, `mediabox_name`, `media`. Путь `media` может быть относительным к каталогу станции или абсолютным |
-| `project.json` | JSON. `format: "mediabox.manager-project"`, `schemaVersion: 1`, массивы `music`, `video`, `advert`. Правила содержат UUID, имя, календарные условия и громкость; реклама — также режим выходов `timing` и назначенные минуты `preparedMinutes` |
+| `project.json` | JSON. `format: "mediabox.manager-project"`, `schemaVersion: 3` (чтение версий 1 и 2 сохранено), массивы `music`, `video`, `advert`. Правила содержат UUID, имя, календарные условия и громкость; каналы — постоянный каталог `directory`, реклама — режим выходов `timing` и назначенные минуты `preparedMinutes` |
 | `project.json.pending` | JSON-журнал восстановления переименования каталога канала: секция, прежнее и новое имена, снимки проекта до и после операции |
 | `windows.json` | JSON. `version: 1`, массив `windows`; каждое окно содержит `windowId`, `name`, `screen`, `fullscreen`, `paths`, `currentIndex`, `volumePercent`, `muted`, `repeat` |
 | `control.token` | Текстовый токен доступа к TCP API соответствующего плеера |

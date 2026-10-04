@@ -1505,12 +1505,15 @@ QJsonObject MainWindow::playbackSchedule(int page, QString *error) const {
     QJsonArray channels, adverts;
     for (int row = 0; row < manager->channelCount(); ++row) {
         auto &channel = manager->channel(row);
-        channels.append(QJsonObject{{"id", channel.ruleId()}, {"name", channel.channelName()},
+        QJsonObject item{{"id", channel.ruleId()}, {"name", channel.channelName()},
             {"start", channel.startTime().toString("HH:mm")}, {"end", channel.endTime().toString("HH:mm")},
             {"weekdays", channel.daysOfWeek()}, {"days", channel.days()}, {"months", channel.months()},
             {"volume", channel.volume()}, {"order", channel.playbackOrder()},
             {"untilDayOffset", channel.untilDayOffset()},
-            {"paths", QJsonArray::fromStringList(channelFiles(channel.mediaManager()))}});
+            {"paths", QJsonArray::fromStringList(channelFiles(channel.mediaManager()))}};
+        // Compiler metadata only; the video protocol uses absolute paths.
+        if (page == PAGE_MUSIC) item.insert("directory", channel.storageDirectory());
+        channels.append(item);
     }
     const QDir advertDirectory = mMediaAdvertManager->getDirMediaFiles();
     for (int row = 0; row < mAdvertManager->count(); ++row) {

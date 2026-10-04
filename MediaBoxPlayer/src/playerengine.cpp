@@ -4,6 +4,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QRandomGenerator>
+#include <QScopedValueRollback>
 #include <QTimer>
 
 #include <algorithm>
@@ -54,7 +55,18 @@ PlayerEngine::PlayerEngine(AudioBackend *backend, QObject *parent, std::function
                 const QString error = m_v1.confirmStarted(m_v1Track);
                 if (!error.isEmpty()) {
                     m_scheduleError = error;
-                    stopPlayback();
+                    if (m_v1Track.event) {
+                        // Audio may already have reached the output. Retire this
+                        // occurrence without replaying it once storage recovers.
+                        m_v1FailedEvent = m_v1Track;
+                        m_v1Track = {};
+                        m_v1Started = false;
+                        m_runningAdvert = false;
+                        m_runningAdvertId.clear();
+                        m_channelName.clear();
+                        clearPlaybackQueue();
+                    } else
+                        stopPlayback();
                     emit statusChanged();
                     return;
                 }
@@ -129,6 +141,15 @@ QJsonObject PlayerEngine::failure(const QString &code, const QString &message) c
             {QStringLiteral("status"), status()}};
 }
 
+QJsonObject PlayerEngine::restoreLegacySchedule(const QJsonObject &schedule, bool activate)
+{
+    if (schedule.contains(QStringLiteral("format")))
+        return failure(QStringLiteral("invalid_schedule"), QStringLiteral("Expected a legacy video schedule."));
+    QScopedValueRollback<bool> guard(m_restoringLegacySchedule, true);
+    return execute({{QStringLiteral("command"), activate ? QStringLiteral("schedule") : QStringLiteral("setSchedule")},
+                    {QStringLiteral("schedule"), schedule}});
+}
+
 QJsonObject PlayerEngine::execute(const QJsonObject &request)
 {
     const auto invalid = [this](const QString &message) {
@@ -196,6 +217,7 @@ QJsonObject PlayerEngine::execute(const QJsonObject &request)
             const QString persistenceError = m_v1.setScheduledPlayback(true);
             if (!persistenceError.isEmpty())
                 return failure(QStringLiteral("runtime_error"), persistenceError);
+            m_v1DisablePending = false;
             m_playbackMode = QStringLiteral("schedule");
             m_scheduleTimer.start();
         }
@@ -220,6 +242,7 @@ QJsonObject PlayerEngine::execute(const QJsonObject &request)
                 const QString persistenceError = m_v1.setScheduledPlayback(true);
                 if (!persistenceError.isEmpty())
                     return failure(QStringLiteral("runtime_error"), persistenceError);
+                m_v1DisablePending = false;
                 m_playbackMode = QStringLiteral("schedule");
                 m_scheduleTimer.start();
             }
@@ -241,7 +264,9 @@ QJsonObject PlayerEngine::execute(const QJsonObject &request)
         if (replace) {
             if (!request.value(QStringLiteral("schedule")).isObject())
                 return invalid(QStringLiteral("schedule must be an object containing channels and adverts."));
-            const QString error = PlaybackSchedule::decode(request.value(QStringLiteral("schedule")).toObject(), &replacement);
+            const QString error = PlaybackSchedule::decode(request.value(QStringLiteral("schedule")).toObject(), &replacement,
+                m_restoringLegacySchedule ? PlaybackSchedule::FileValidation::PathOnly
+                                          : PlaybackSchedule::FileValidation::RequireReadable);
             if (!error.isEmpty())
                 return failure(QStringLiteral("invalid_schedule"), error);
         } else if (!m_scheduleAvailable) {
@@ -282,6 +307,7 @@ QJsonObject PlayerEngine::execute(const QJsonObject &request)
                 const QString persistenceError = m_v1.setScheduledPlayback(true);
                 if (!persistenceError.isEmpty())
                     return failure(QStringLiteral("runtime_error"), persistenceError);
+                m_v1DisablePending = false;
             }
             m_playbackMode = QStringLiteral("schedule");
             m_scheduleTimer.start();
@@ -337,7 +363,7 @@ QJsonObject PlayerEngine::execute(const QJsonObject &request)
             validated.append(QDir::cleanPath(path));
         }
         // No playback or queue mutation occurs until every entry is validated.
-        switchToManual(true);
+        const QString persistenceError = switchToManual(true);
         if (command == QStringLiteral("playChannel")) {
             m_queue = validated;
             m_failedTracks.clear();
@@ -366,8 +392,9 @@ QJsonObject PlayerEngine::execute(const QJsonObject &request)
             else
                 emit statusChanged();
         }
-        return success();
+        return persistenceError.isEmpty() ? success() : failure(QStringLiteral("runtime_error"), persistenceError);
     }
+    QString persistenceError;
     if (command == QStringLiteral("volume")) {
         qint64 volume = 0;
         if (!integerValue(request.value(QStringLiteral("value")), 0, 100, &volume))
@@ -385,13 +412,13 @@ QJsonObject PlayerEngine::execute(const QJsonObject &request)
             return invalid(QStringLiteral("mode must be off, all or one."));
         m_repeat = mode;
     } else if (command == QStringLiteral("clear")) {
-        switchToManual(true);
+        persistenceError = switchToManual(true);
         clearPlaybackQueue();
     } else if (command == QStringLiteral("stop")) {
-        switchToManual();
         stopPlayback();
+        persistenceError = switchToManual();
     } else if (command == QStringLiteral("pause")) {
-        switchToManual();
+        persistenceError = switchToManual();
         invalidateContinuation();
         m_wantsPlayback = false;
         m_backend->pause();
@@ -450,20 +477,17 @@ QJsonObject PlayerEngine::execute(const QJsonObject &request)
         }
     }
     emit statusChanged();
-    return success();
+    return persistenceError.isEmpty() ? success() : failure(QStringLiteral("runtime_error"), persistenceError);
 }
 
-void PlayerEngine::switchToManual(bool clearChannelName)
+QString PlayerEngine::switchToManual(bool clearChannelName)
 {
-    QString persistenceError;
     if (m_usesV1)
-        persistenceError = m_v1.setScheduledPlayback(false);
-    if (m_usesV1 && m_v1Track.event) {
-        const QString eventError = m_v1.finishEvent(m_v1Track, QStringLiteral("failed"));
-        if (persistenceError.isEmpty())
-            persistenceError = eventError;
-    }
+        m_v1DisablePending = true;
+    if (m_usesV1 && m_v1Track.event)
+        m_v1FailedEvent = m_v1Track;
     m_v1Track = {};
+    m_v1Started = false;
     m_v1Suspended = {};
     m_v1FailedAssets.clear();
     m_playbackMode = QStringLiteral("manual");
@@ -474,9 +498,34 @@ void PlayerEngine::switchToManual(bool clearChannelName)
     m_runningAdvertId.clear();
     m_pendingAdverts.clear();
     m_interruptedChannel = {};
-    m_scheduleError = persistenceError;
     if (clearChannelName)
         m_channelName.clear();
+    m_scheduleError = retryV1Persistence();
+    return m_scheduleError;
+}
+
+QString PlayerEngine::retryV1Persistence()
+{
+    QString error;
+    if (m_v1DisablePending) {
+        error = m_v1.setScheduledPlayback(false);
+        if (error.isEmpty())
+            m_v1DisablePending = false;
+    }
+    if (m_v1FailedEvent.isValid()) {
+        const QString eventError = m_v1.finishEvent(m_v1FailedEvent, QStringLiteral("failed"));
+        if (eventError.isEmpty())
+            m_v1FailedEvent = {};
+        else if (error.isEmpty())
+            error = eventError;
+    }
+    // Manual mode must still persist the operator's intent after a transient
+    // write failure. An explicit later schedule command supersedes that intent.
+    if (m_playbackMode == QStringLiteral("schedule") || m_v1DisablePending || m_v1FailedEvent.isValid())
+        m_scheduleTimer.start();
+    else
+        m_scheduleTimer.stop();
+    return error;
 }
 
 QString PlayerEngine::restoreScheduledPlayback()
@@ -547,6 +596,14 @@ void PlayerEngine::setPlaybackAvailable(bool available)
 
 void PlayerEngine::evaluateSchedule(const QDateTime &at)
 {
+    if (m_v1DisablePending || m_v1FailedEvent.isValid()) {
+        const QString previousError = m_scheduleError;
+        m_scheduleError = retryV1Persistence();
+        if (previousError != m_scheduleError)
+            emit statusChanged();
+        if (!m_scheduleError.isEmpty())
+            return;
+    }
     if (m_playbackMode != QStringLiteral("schedule") || !m_scheduleAvailable || !m_playbackAvailable)
         return;
     if (m_usesV1) {
@@ -723,6 +780,7 @@ void PlayerEngine::applyScheduledChannel(const ScheduleCore::Snapshot &snapshot)
         m_activeChannelId.clear();
         m_activeChannelVolume = -1;
         m_channelName.clear();
+        m_unavailableChannelPaths.clear();
         m_interruptedChannel = {};
         if (changed)
             emit statusChanged();
@@ -740,11 +798,29 @@ void PlayerEngine::applyScheduledChannel(const ScheduleCore::Snapshot &snapshot)
         m_backend->setVolume(m_volumePercent);
     }
     if (sameQueue) {
+        // Keep the original queue intact. Retry only paths that failed a file
+        // availability check, so a returning drive resumes an exhausted queue
+        // without restarting a video already playing or retrying decoder errors.
+        int recoveredIndex = -1;
+        for (int index = 0; index < m_queue.size(); ++index) {
+            const QString &path = m_queue.at(index);
+            if (!m_unavailableChannelPaths.contains(path) || !fileError(path).isEmpty())
+                continue;
+            m_unavailableChannelPaths.remove(path);
+            for (int candidate = index; candidate < m_queue.size(); ++candidate)
+                if (m_queue.at(candidate) == path)
+                    m_failedTracks.remove(candidate);
+            if (recoveredIndex < 0)
+                recoveredIndex = index;
+        }
+        if (recoveredIndex >= 0 && !m_wantsPlayback && !m_pendingAdvance && m_state == QStringLiteral("error"))
+            selectTrack(recoveredIndex, true);
         if (nameChanged || volumeChanged)
             emit statusChanged();
         return;
     }
     m_activeChannelId = channel.rule.stableId;
+    m_unavailableChannelPaths.clear();
     if (channel.paths.isEmpty()) {
         m_interruptedChannel = {};
         clearPlaybackQueue();
@@ -833,6 +909,8 @@ void PlayerEngine::selectTrack(int index, bool autoplay, qint64 resumePositionMs
     m_sourceLoaded = false;
     const QString error = fileError(m_queue.at(index));
     if (!error.isEmpty()) {
+        if (m_playbackMode == QStringLiteral("schedule") && !m_usesV1 && !m_runningAdvert)
+            m_unavailableChannelPaths.insert(m_queue.at(index));
         m_backend->setSource(QUrl());
         m_settingSource = false;
         handleError(error);

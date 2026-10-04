@@ -30,6 +30,9 @@ public:
     void setPlaybackAvailable(bool available);
     // Called by the actual audio process after output and status observers exist.
     QString restoreScheduledPlayback();
+    // Saved video snapshots retain temporarily unavailable media. New commands
+    // still require readable files and cannot opt out of that validation.
+    QJsonObject restoreLegacySchedule(const QJsonObject &schedule, bool activate);
 
 signals:
     void statusChanged();
@@ -46,7 +49,8 @@ private:
     void advanceAfterError();
     int nextIndex(bool automatic);
     int randomIndex();
-    void switchToManual(bool clearChannelName = false);
+    QString switchToManual(bool clearChannelName = false);
+    QString retryV1Persistence();
     void clearPlaybackQueue();
     void applyScheduledChannel(const ScheduleCore::Snapshot &snapshot);
     void startNextAdvert();
@@ -80,6 +84,8 @@ private:
     std::function<QDateTime()> m_clock;
     QTimer m_scheduleTimer;
     PlaybackSchedule m_schedule;
+    bool m_restoringLegacySchedule = false;
+    QSet<QString> m_unavailableChannelPaths;
     bool m_scheduleAvailable = false;
     bool m_playbackAvailable = true;
     QString m_playbackMode = QStringLiteral("manual");
@@ -104,6 +110,8 @@ private:
     ScheduleV1Runtime m_v1;
     bool m_usesV1 = false;
     bool m_v1Started = false;
+    bool m_v1DisablePending = false;
+    ScheduleV1Runtime::Track m_v1FailedEvent;
     ScheduleV1Runtime::Track m_v1Track, m_v1Suspended;
     qint64 m_v1SuspendedPosition = 0;
     QSet<QString> m_v1FailedAssets;

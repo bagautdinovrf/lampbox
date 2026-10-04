@@ -55,7 +55,15 @@ bool identity(const QJsonObject &object, QString *id, QString *name, QSet<QStrin
     return true;
 }
 
-QString paths(const QJsonValue &value, QStringList *result)
+QString pathShapeError(const QString &path)
+{
+    if (path.isEmpty() || path.size() > 4096 || path.contains(QChar::Null)
+        || !QDir::isAbsolutePath(path))
+        return QStringLiteral("Each path must be an absolute local path of at most 4096 characters.");
+    return {};
+}
+
+QString paths(const QJsonValue &value, QStringList *result, PlaybackSchedule::FileValidation files)
 {
     if (!value.isArray() || value.toArray().size() > 1000)
         return QStringLiteral("paths must be an array of at most 1000 absolute local file paths.");
@@ -63,7 +71,8 @@ QString paths(const QJsonValue &value, QStringList *result)
         if (!entry.isString())
             return QStringLiteral("Every entry in paths must be a string.");
         const QString path = entry.toString();
-        const QString error = playbackFileError(path);
+        const QString error = files == PlaybackSchedule::FileValidation::RequireReadable
+            ? playbackFileError(path) : pathShapeError(path);
         if (!error.isEmpty())
             return error;
         result->append(QDir::cleanPath(path));
@@ -75,9 +84,9 @@ QString paths(const QJsonValue &value, QStringList *result)
 
 QString playbackFileError(const QString &path)
 {
-    if (path.isEmpty() || path.size() > 4096 || path.contains(QChar::Null)
-        || !QDir::isAbsolutePath(path))
-        return QStringLiteral("Each path must be an absolute local path of at most 4096 characters.");
+    const QString shapeError = pathShapeError(path);
+    if (!shapeError.isEmpty())
+        return shapeError;
     const QFileInfo info(path);
     if (!info.exists() || !info.isFile() || !info.isReadable())
         return QStringLiteral("Media file does not exist or is not a readable regular file: %1").arg(path);
@@ -103,7 +112,7 @@ QList<ScheduleCore::AdvertRule> PlaybackSchedule::advertRules() const
     return rules;
 }
 
-QString PlaybackSchedule::decode(const QJsonObject &object, PlaybackSchedule *result)
+QString PlaybackSchedule::decode(const QJsonObject &object, PlaybackSchedule *result, FileValidation files)
 {
     if (!fields(object, {"channels", "adverts"}) || !object.value("channels").isArray()
         || !object.value("adverts").isArray() || object.value("channels").toArray().size() > 1000
@@ -143,7 +152,7 @@ QString PlaybackSchedule::decode(const QJsonObject &object, PlaybackSchedule *re
         const QString validation = ScheduleCore::validateChannel(rule);
         if (!validation.isEmpty())
             return validation;
-        const QString pathError = paths(item.value("paths"), &channel.paths);
+        const QString pathError = paths(item.value("paths"), &channel.paths, files);
         if (!pathError.isEmpty())
             return pathError;
         replacement.channels.append(channel);
@@ -185,7 +194,7 @@ QString PlaybackSchedule::decode(const QJsonObject &object, PlaybackSchedule *re
         const QString validation = ScheduleCore::validateAdvert(rule);
         if (!validation.isEmpty())
             return validation;
-        const QString pathError = paths(item.value("paths"), &advert.paths);
+        const QString pathError = paths(item.value("paths"), &advert.paths, files);
         if (!pathError.isEmpty())
             return pathError;
         replacement.adverts.append(advert);

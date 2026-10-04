@@ -30,6 +30,8 @@ public:
      * @param name
      */
     void setChannelName(const QString &name );
+    void setStorageDirectory(const QString &directory);
+    QString storageDirectory() const { return mStorageDirectory; }
     void setRuleId(const QString &id) { mRuleId = id; }
     QString ruleId() const { return mRuleId; }
     void setPlaybackOrder(const QString &order) { mPlaybackOrder = order; }
@@ -135,6 +137,7 @@ private:
 
     /// Наименование
     QString                             mChannelName;
+    QString                             mStorageDirectory;
     QString                             mRuleId;
     QString                             mPlaybackOrder = QStringLiteral("shuffle_cycle");
 

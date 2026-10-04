@@ -11,6 +11,7 @@ namespace {
 void apply(ChannelData &data, const ScheduleCore::ChannelRule &rule)
 {
     data.setChannelName(rule.name);
+    data.setStorageDirectory(rule.storageDirectory.isEmpty() ? rule.name : rule.storageDirectory);
     data.setRuleId(rule.stableId);
     data.setStartTime(rule.start); data.setEndTime(rule.end);
     data.setDaysOfWeek(rule.weekdays); data.setDays(rule.days); data.setMonths(rule.months);
@@ -65,6 +66,7 @@ QList<ScheduleCore::ChannelRule> ChannelManager::rules() const
         ScheduleCore::ChannelRule rule;
         rule.name = data.channelName(); rule.start = data.startTime(); rule.end = data.endTime();
         rule.stableId = data.ruleId();
+        rule.storageDirectory = data.storageDirectory();
         rule.weekdays = data.daysOfWeek(); rule.days = data.days(); rule.months = data.months();
         rule.volume = data.volume(); rule.order = data.playbackOrder();
         rule.untilDayOffset = data.untilDayOffset(); result.append(rule);
@@ -101,6 +103,7 @@ bool ChannelManager::setRule(int row, const QVariantList &fields)
     if (!decodeRule(fields, &rule)) return false;
     auto snapshot = rules();
     rule.stableId = snapshot[row].stableId;
+    rule.storageDirectory = snapshot[row].storageDirectory;
     if (fields.size() == 7) rule.order = snapshot[row].order;
     if (fields.size() < 9) rule.untilDayOffset = snapshot[row].untilDayOffset;
     const QString errorAfterMerge = ScheduleCore::validateChannel(rule);
@@ -108,12 +111,9 @@ bool ChannelManager::setRule(int row, const QVariantList &fields)
     for (int i = 0; i < snapshot.size(); ++i)
         if (i != row && snapshot[i].name.compare(rule.name, Qt::CaseInsensitive) == 0)
             return fail(QStringLiteral("Канал с таким именем уже существует"));
-    const QString oldName = snapshot[row].name;
-    const bool renamed = oldName != rule.name;
     snapshot[row] = rule;
     QString error;
-    if (!ProjectRepository::replaceChannels(mProjectPaths, mManagerType == VIDEO, snapshot,
-                renamed ? oldName : QString(), renamed ? rule.name : QString(), &error)) {
+    if (!ProjectRepository::replaceChannels(mProjectPaths, mManagerType == VIDEO, snapshot, {}, {}, &error)) {
         return fail(error);
     }
     apply(mChannelList[row], rule);
@@ -131,12 +131,19 @@ bool ChannelManager::createChannel(const QVariantList &fields)
     rule.stableId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     if (containsChannel(rule.name)) return fail(QStringLiteral("Канал с таким именем уже существует"));
     QDir root(mChannelDir);
-    if (root.exists(rule.name) || !QDir().mkpath(root.absolutePath()) || !root.mkdir(rule.name))
+    auto snapshot = rules();
+    rule.storageDirectory = rule.name;
+    // A renamed channel still owns its original folder, even while offline.
+    bool reserved = root.exists(rule.storageDirectory);
+    for (const auto &existing : snapshot)
+        reserved |= existing.storageDirectory.compare(rule.storageDirectory, Qt::CaseInsensitive) == 0;
+    if (reserved) rule.storageDirectory = rule.stableId;
+    if (!QDir().mkpath(root.absolutePath()) || !root.mkdir(rule.storageDirectory))
         return fail(QStringLiteral("Не удалось создать каталог канала %1").arg(rule.name));
-    auto snapshot = rules(); snapshot.append(rule);
+    snapshot.append(rule);
     QString error;
     if (!ProjectRepository::replaceChannels(mProjectPaths, mManagerType == VIDEO, snapshot, {}, {}, &error)) {
-        root.rmdir(rule.name); // Only our newly created empty directory.
+        root.rmdir(rule.storageDirectory); // Only our newly created empty directory.
         return fail(error);
     }
     if (mParent) mParent->beginCollect();
@@ -152,7 +159,7 @@ bool ChannelManager::deleteChannel(int row)
     if (mLoadFailed) return fail(QStringLiteral("Удаление запрещено после ошибки загрузки. ") + mLastError);
     if (row < 0 || row >= mChannelList.size()) return fail(QStringLiteral("Канал не найден"));
     auto snapshot = rules();
-    const QString name = snapshot[row].name;
+    const QString name = snapshot[row].storageDirectory;
     if (!ProjectRepository::validFileName(name, true)) return fail(QStringLiteral("Небезопасное имя каталога"));
     QDir root(mChannelDir);
     const QString tombstone = QStringLiteral(".deleted-") + QUuid::createUuid().toString(QUuid::WithoutBraces);

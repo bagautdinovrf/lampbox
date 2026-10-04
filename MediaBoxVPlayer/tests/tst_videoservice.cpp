@@ -93,6 +93,15 @@ private:
         return windowStatus(service, id).value("playback").toObject();
     }
 
+    static QJsonObject allDaySchedule(const QJsonArray &paths, const QString &order = QStringLiteral("sequential"))
+    {
+        const QJsonObject channel{{"id", "all-day"}, {"name", "Полные сутки"},
+            {"start", "00:00"}, {"end", "00:00"}, {"untilDayOffset", 1},
+            {"weekdays", "*"}, {"days", "*"}, {"months", "*"}, {"volume", 65},
+            {"order", order}, {"paths", paths}};
+        return {{"channels", QJsonArray{channel}}, {"adverts", QJsonArray{}}};
+    }
+
 private slots:
     void channelAndScheduleModesTargetOneWindowAndRestartStopped()
     {
@@ -175,7 +184,7 @@ private slots:
         QVERIFY(running.value("supportedCapabilities").toArray().isEmpty());
         QCOMPARE(running.value("playbackMode").toString(), QStringLiteral("schedule"));
         QCOMPARE(running.value("state").toString(), QStringLiteral("playing"));
-        QCOMPARE(running.value("queue").toArray(), QJsonArray{first});
+        QCOMPARE(running.value("queue").toArray(), (QJsonArray{first, missing}));
         QVERIFY(running.value("muted").toBool());
         QCOMPARE(running.value("volumePercent").toInt(), 65);
         QCOMPARE(running.value("positionMs").toInteger(), 0);
@@ -184,6 +193,132 @@ private slots:
         QCOMPARE(stopped.value("playbackMode").toString(), QStringLiteral("manual"));
         QCOMPARE(stopped.value("state").toString(), QStringLiteral("stopped"));
         QVERIFY(stopped.value("scheduleAvailable").toBool());
+    }
+
+    void restoredScheduleRecoversWhenAllFilesReturn_data()
+    {
+        QTest::addColumn<QString>("order");
+        QTest::newRow("sequential") << QStringLiteral("sequential");
+        QTest::newRow("shuffle-cycle") << QStringLiteral("shuffle_cycle");
+    }
+
+    void restoredScheduleRecoversWhenAllFilesReturn()
+    {
+        QFETCH(QString, order);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString first = createVideo(directory, "first.mp4");
+        const QString second = createVideo(directory, "second.mp4");
+        QVERIFY(!first.isEmpty() && !second.isEmpty());
+        const QJsonObject schedule = allDaySchedule({first, second}, order);
+        {
+            VideoService service(directory.path(), createBackend);
+            QVERIFY(service.execute(configureRequest("main")).value("ok").toBool());
+            QVERIFY(command(service, "schedule", "main", {{"schedule", schedule}}).value("ok").toBool());
+        }
+        QVERIFY(QFile::remove(first));
+        QVERIFY(QFile::remove(second));
+        QPointer<FakeVideoBackend> backend;
+        VideoService restored(directory.path(), [&backend](QVideoWidget *, QObject *parent) {
+            backend = new FakeVideoBackend(parent);
+            return backend.data();
+        });
+        QString error;
+        QVERIFY2(restored.restore(&error), qPrintable(error));
+        QCOMPARE(playback(restored, "main").value("queue").toArray(), (QJsonArray{first, second}));
+        QCOMPARE(playback(restored, "main").value("playbackMode").toString(), QStringLiteral("schedule"));
+        QTRY_VERIFY(!playback(restored, "main").value("playbackRequested").toBool());
+        QCOMPARE(playback(restored, "main").value("state").toString(), QStringLiteral("error"));
+        QCOMPARE(backend->playCalls, 0);
+
+        // A normal save while the drive is unavailable must retain every path.
+        QVERIFY(command(restored, "volume", "main", {{"value", 42}}).value("ok").toBool());
+        QFile saved(directory.filePath("windows.json"));
+        QVERIFY(saved.open(QIODevice::ReadOnly));
+        const auto item = QJsonDocument::fromJson(saved.readAll()).object().value("windows").toArray().first().toObject();
+        QCOMPARE(item.value("schedule").toObject(), schedule);
+        QCOMPARE(item.value("paths").toArray(), (QJsonArray{first, second}));
+        saved.close();
+
+        // Only the second file returns. Recovery must choose it and start once.
+        QCOMPARE(createVideo(directory, "second.mp4"), second);
+        QTRY_COMPARE(backend->playCalls, 1);
+        QCOMPARE(backend->source.toLocalFile(), second);
+        QCOMPARE(playback(restored, "main").value("state").toString(), QStringLiteral("playing"));
+        QTest::qWait(1200);
+        QCOMPARE(backend->playCalls, 1);
+        QCOMPARE(playback(restored, "main").value("queue").toArray(), (QJsonArray{first, second}));
+
+        // The internal restore exception must not weaken ordinary command validation.
+        const auto rejected = command(restored, "setSchedule", "main", {{"schedule", schedule}});
+        QVERIFY(!rejected.value("ok").toBool());
+        QCOMPARE(rejected.value("error").toObject().value("code").toString(), QStringLiteral("invalid_schedule"));
+        QCOMPARE(backend->playCalls, 1);
+    }
+
+    void returningScheduledFileDoesNotRestartCurrentVideo()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString missing = createVideo(directory, "missing.mp4");
+        const QString current = createVideo(directory, "current.mp4");
+        QVERIFY(!missing.isEmpty() && !current.isEmpty());
+        const QJsonObject schedule = allDaySchedule({missing, current});
+        {
+            VideoService service(directory.path(), createBackend);
+            QVERIFY(service.execute(configureRequest("main")).value("ok").toBool());
+            QVERIFY(command(service, "schedule", "main", {{"schedule", schedule}}).value("ok").toBool());
+        }
+        QVERIFY(QFile::remove(missing));
+        QPointer<FakeVideoBackend> backend;
+        VideoService restored(directory.path(), [&backend](QVideoWidget *, QObject *parent) {
+            backend = new FakeVideoBackend(parent);
+            return backend.data();
+        });
+        QString error;
+        QVERIFY2(restored.restore(&error), qPrintable(error));
+        QTRY_COMPARE(backend->playCalls, 1);
+        QCOMPARE(backend->source.toLocalFile(), current);
+        QVERIFY(command(restored, "seek", "main", {{"positionMs", 1234}}).value("ok").toBool());
+        QCOMPARE(createVideo(directory, "missing.mp4"), missing);
+        QTest::qWait(1200);
+        QCOMPARE(backend->playCalls, 1);
+        QCOMPARE(backend->source.toLocalFile(), current);
+        QCOMPARE(playback(restored, "main").value("positionMs").toInteger(), 1234);
+
+        backend->finish();
+        QTRY_COMPARE(backend->playCalls, 2);
+        QCOMPARE(backend->source.toLocalFile(), missing);
+        QCOMPARE(playback(restored, "main").value("queue").toArray(), (QJsonArray{missing, current}));
+    }
+
+    void stoppedRestoredScheduleWaitsForOperatorAfterMediaReturns()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString video = createVideo(directory, "video.mp4");
+        QVERIFY(!video.isEmpty());
+        {
+            VideoService service(directory.path(), createBackend);
+            QVERIFY(service.execute(configureRequest("main")).value("ok").toBool());
+            QVERIFY(command(service, "schedule", "main", {{"schedule", allDaySchedule({video})}}).value("ok").toBool());
+            QVERIFY(command(service, "stop", "main").value("ok").toBool());
+        }
+        QVERIFY(QFile::remove(video));
+        QPointer<FakeVideoBackend> backend;
+        VideoService restored(directory.path(), [&backend](QVideoWidget *, QObject *parent) {
+            backend = new FakeVideoBackend(parent);
+            return backend.data();
+        });
+        QString error;
+        QVERIFY2(restored.restore(&error), qPrintable(error));
+        QCOMPARE(createVideo(directory, "video.mp4"), video);
+        QTest::qWait(1200);
+        QCOMPARE(backend->playCalls, 0);
+        QCOMPARE(playback(restored, "main").value("playbackMode").toString(), QStringLiteral("manual"));
+        QVERIFY(command(restored, "schedule", "main").value("ok").toBool());
+        QCOMPARE(backend->playCalls, 1);
+        QCOMPARE(backend->source.toLocalFile(), video);
     }
 
     void unavailableSavedDisplayRejectsScheduledAndChannelPlayback()
@@ -364,23 +499,32 @@ private slots:
             backends.append(backend);
             return backend;
         });
-        for (int i = 0; i < 16; ++i)
-            QVERIFY(service.execute(configureRequest(QString::number(i))).value("ok").toBool());
+        for (int i = 0; i < 16; ++i) {
+            const auto configured = service.execute(configureRequest(QString::number(i)));
+            QVERIFY2(configured.value("ok").toBool(), qPrintable(QString::fromUtf8(
+                QJsonDocument(configured).toJson(QJsonDocument::Compact))));
+        }
         QCOMPARE(service.status().value("windows").toArray().size(), 16);
         const QJsonObject before = service.status();
         QVERIFY(!service.execute(configureRequest("overflow")).value("ok").toBool());
         QCOMPARE(service.status(), before);
         QCOMPARE(backends.size(), 16);
         // Updating a window at the limit must not consume another slot.
-        QVERIFY(service.execute(configureRequest("0", "Renamed")).value("ok").toBool());
+        const auto renamed = service.execute(configureRequest("0", "Renamed"));
+        QVERIFY2(renamed.value("ok").toBool(), qPrintable(QString::fromUtf8(
+            QJsonDocument(renamed).toJson(QJsonDocument::Compact))));
         QCOMPARE(backends.size(), 16);
         QPointer<VideoWindow> removed = service.window("0");
-        QVERIFY(command(service, "removeWindow", "0").value("ok").toBool());
+        const auto removal = command(service, "removeWindow", "0");
+        QVERIFY2(removal.value("ok").toBool(), qPrintable(QString::fromUtf8(
+            QJsonDocument(removal).toJson(QJsonDocument::Compact))));
         QVERIFY(!service.window("0"));
         QTRY_VERIFY(removed.isNull());
         QTRY_VERIFY(backends.at(0).isNull());
         QCOMPARE(service.status().value("windows").toArray().size(), 15);
-        QVERIFY(service.execute(configureRequest("replacement")).value("ok").toBool());
+        const auto replacement = service.execute(configureRequest("replacement"));
+        QVERIFY2(replacement.value("ok").toBool(), qPrintable(QString::fromUtf8(
+            QJsonDocument(replacement).toJson(QJsonDocument::Compact))));
         QCOMPARE(service.status().value("windows").toArray().size(), 16);
     }
 

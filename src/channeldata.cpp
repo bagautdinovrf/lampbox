@@ -38,7 +38,12 @@ bool ChannelData::isValid()
 void ChannelData::setChannelName( const QString& name )
 {
     mChannelName = name;
-    mMediaManager.bindDirectory(name);
+}
+
+void ChannelData::setStorageDirectory(const QString &directory)
+{
+    mStorageDirectory = directory;
+    mMediaManager.bindDirectory(directory);
 }
 
 /**

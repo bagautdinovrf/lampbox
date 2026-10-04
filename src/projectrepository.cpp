@@ -92,14 +92,23 @@ bool identity(const QJsonObject &object, QString *id, QString *name, QSet<QStrin
     if (uuid.isNull() || uuid.toString(QUuid::WithoutBraces) != *id || used->contains(*id) || !validFileName(*name, false)) return false;
     used->insert(*id); return true;
 }
-bool decodeChannels(const QJsonValue &value, QList<ScheduleCore::ChannelRule> *rules, QSet<QString> *ids)
+bool decodeChannels(const QJsonValue &value, QList<ScheduleCore::ChannelRule> *rules, QSet<QString> *ids,
+                    bool requireDirectory)
 {
     if (!value.isArray()) return false;
     QSet<QString> names;
+    QSet<QString> directories;
     for (const auto &item : value.toArray()) {
         if (!item.isObject()) return false;
         auto object = item.toObject();
         ScheduleCore::ChannelRule rule;
+        const bool hasDirectory = object.contains("directory");
+        if (requireDirectory && !hasDirectory) return false;
+        if (hasDirectory) {
+            const auto directory = object.take("directory");
+            if (!directory.isString() || !validFileName(directory.toString(), true)) return false;
+            rule.storageDirectory = directory.toString();
+        }
         // Projects saved before per-channel ordering keep the previous shuffle default.
         if (object.contains("order")) {
             if (!object.value("order").isString()) return false;
@@ -116,9 +125,12 @@ bool decodeChannels(const QJsonValue &value, QList<ScheduleCore::ChannelRule> *r
                 || !integer(object.value("volume"), 0, 100, &rule.volume)) return false;
         rule.start = QTime::fromString(object.value("start").toString(), "HH:mm");
         rule.end = QTime::fromString(object.value("end").toString(), "HH:mm");
+        if (!hasDirectory) rule.storageDirectory = rule.name;
         if (rule.start.toString("HH:mm") != object.value("start").toString()
                 || rule.end.toString("HH:mm") != object.value("end").toString()
-                || names.contains(rule.name.toCaseFolded()) || !ScheduleCore::validateChannel(rule).isEmpty()) return false;
+                || names.contains(rule.name.toCaseFolded()) || directories.contains(rule.storageDirectory.toCaseFolded())
+                || !ScheduleCore::validateChannel(rule).isEmpty()) return false;
+        directories.insert(rule.storageDirectory.toCaseFolded());
         names.insert(rule.name.toCaseFolded()); rules->append(rule);
     }
     return true;
@@ -169,7 +181,8 @@ QJsonArray encodeChannels(const QList<ScheduleCore::ChannelRule> &rules)
 {
     QJsonArray array;
     for (const auto &r : rules)
-        array.append(QJsonObject{{"id", r.stableId}, {"name", r.name}, {"start", r.start.toString("HH:mm")},
+        array.append(QJsonObject{{"id", r.stableId}, {"name", r.name},
+                     {"directory", r.storageDirectory.isEmpty() ? r.name : r.storageDirectory}, {"start", r.start.toString("HH:mm")},
                      {"end", r.end.toString("HH:mm")}, {"weekdays", calendarJson(r.weekdays, 0, 6)},
                      {"days", calendarJson(r.days, 1, 31)}, {"months", calendarJson(r.months, 1, 12)},
                      {"volume", r.volume}, {"order", r.order}, {"untilDayOffset", r.untilDayOffset}});
@@ -262,18 +275,20 @@ bool decode(const QByteArray &bytes, Project *project, QString *error)
     const auto root = document.object();
     if (!keys(root, {"format", "schemaVersion", "music", "video", "advert"})
             || root.value("format") != QJsonValue("mediabox.manager-project")
-            || (root.value("schemaVersion") != QJsonValue(1) && root.value("schemaVersion") != QJsonValue(2)))
+            || (root.value("schemaVersion") != QJsonValue(1) && root.value("schemaVersion") != QJsonValue(2)
+                && root.value("schemaVersion") != QJsonValue(3)))
         return fail(error, QStringLiteral("Неподдерживаемый формат, версия или поля проекта"));
     Project result; QSet<QString> ids;
-    if (!decodeChannels(root.value("music"), &result.music, &ids)) return fail(error, QStringLiteral("Некорректные музыкальные правила проекта"));
-    if (!decodeChannels(root.value("video"), &result.video, &ids)) return fail(error, QStringLiteral("Некорректные видеоправила проекта"));
+    const bool requireDirectory = root.value("schemaVersion") == QJsonValue(3);
+    if (!decodeChannels(root.value("music"), &result.music, &ids, requireDirectory)) return fail(error, QStringLiteral("Некорректные музыкальные правила проекта"));
+    if (!decodeChannels(root.value("video"), &result.video, &ids, requireDirectory)) return fail(error, QStringLiteral("Некорректные видеоправила проекта"));
     if (!decodeAdverts(root.value("advert"), &result.advert, &ids)) return fail(error, QStringLiteral("Некорректные рекламные правила проекта"));
     *project = result;
     return true;
 }
 QByteArray encode(const Project &project)
 {
-    return QJsonDocument(QJsonObject{{"format", "mediabox.manager-project"}, {"schemaVersion", 2},
+    return QJsonDocument(QJsonObject{{"format", "mediabox.manager-project"}, {"schemaVersion", 3},
         {"music", encodeChannels(project.music)}, {"video", encodeChannels(project.video)},
         {"advert", encodeAdverts(project.advert)}}).toJson(QJsonDocument::Indented);
 }

@@ -56,6 +56,7 @@ bool channels(const QString &path, QList<ScheduleCore::ChannelRule> *result, QSt
         const QString reason = ScheduleCore::validateChannel(r);
         if (!reason.isEmpty()) return lineError(path, row + 1, reason, error);
         r.stableId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        r.storageDirectory = r.name;
         names.insert(r.name.toCaseFolded()); result->append(r);
     }
     return true;

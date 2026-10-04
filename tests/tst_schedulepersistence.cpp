@@ -14,6 +14,8 @@
 #include "channelmanager.h"
 #include "channelmodel.h"
 #include "projectrepository.h"
+#include "schedulepublication.h"
+#include "schedulev1runtime.h"
 #include "stationmanager.h"
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -141,13 +143,14 @@ private slots:
     {
         const auto original = readProject();
         auto json = QJsonDocument::fromJson(ProjectRepository::encode(original)).object();
-        QCOMPARE(json.value("schemaVersion"), QJsonValue(2));
+        QCOMPARE(json.value("schemaVersion"), QJsonValue(3));
         json.insert("schemaVersion", 1);
         for (const auto &section : {QStringLiteral("music"), QStringLiteral("video")}) {
             auto rows = json.value(section).toArray();
             for (qsizetype i = 0; i < rows.size(); ++i) {
                 auto row = rows.at(i).toObject();
                 row.remove("untilDayOffset");
+                row.remove("directory");
                 rows.replace(i, row);
             }
             json.insert(section, rows);
@@ -158,6 +161,33 @@ private slots:
         QCOMPARE(migrated.music.first().untilDayOffset, 0);
         QCOMPARE(migrated.music.first().start, original.music.first().start);
         QCOMPARE(migrated.music.first().end, original.music.first().end);
+        QCOMPARE(migrated.music.first().storageDirectory, original.music.first().name);
+    }
+    void oldProjectDirectoryDefaultsToName()
+    {
+        const auto original = readProject();
+        for (int version : {1, 2}) {
+            auto object = QJsonDocument::fromJson(ProjectRepository::encode(original)).object();
+            object["schemaVersion"] = version;
+            for (const QString &section : {QStringLiteral("music"), QStringLiteral("video")}) {
+                auto rows = object[section].toArray();
+                for (qsizetype index = 0; index < rows.size(); ++index) {
+                    auto row = rows[index].toObject();
+                    row.remove("directory");
+                    rows[index] = row;
+                }
+                object[section] = rows;
+            }
+            put(projectFile(), QJsonDocument(object).toJson());
+            ChannelManager manager(MediaBoxManager::MUSIC);
+            QVERIFY2(manager.collectChannels(), qPrintable(manager.lastError()));
+            QCOMPARE(manager.channel(0).storageDirectory(), QStringLiteral("One"));
+            QVERIFY2(manager.setRule(0, channelFields("Migrated")), qPrintable(manager.lastError()));
+            const auto saved = readProject();
+            QCOMPARE(saved.music[0].name, QStringLiteral("Migrated"));
+            QCOMPARE(saved.music[0].storageDirectory, QStringLiteral("One"));
+            QCOMPARE(QJsonDocument::fromJson(get(projectFile())).object()["schemaVersion"], QJsonValue(3));
+        }
     }
     void failedWholeImportCanRetryWithoutPartialProject()
     {
@@ -212,7 +242,7 @@ private slots:
         readProject();
         const auto original = QJsonDocument::fromJson(get(projectFile())).object();
         QList<QJsonObject> invalid;
-        auto changed = original; changed["schemaVersion"] = 3; invalid.append(changed);
+        auto changed = original; changed["schemaVersion"] = 4; invalid.append(changed);
         changed = original; changed["schemaVersion"] = "1"; invalid.append(changed);
         changed = original; changed["unexpected"] = true; invalid.append(changed);
         auto music = original.value("music").toArray();
@@ -222,6 +252,18 @@ private slots:
             music = original.value("music").toArray(); row = music[0].toObject(); row["order"] = order; music[0] = row;
             changed = original; changed["music"] = music; invalid.append(changed);
         }
+        for (const QJsonValue &directory : {QJsonValue(""), QJsonValue(".."), QJsonValue("../outside"),
+                 QJsonValue("C:/outside"), QJsonValue("CON"), QJsonValue(true), QJsonValue(QJsonValue::Null)}) {
+            music = original["music"].toArray(); row = music[0].toObject(); row["directory"] = directory; music[0] = row;
+            changed = original; changed["music"] = music; invalid.append(changed);
+        }
+        music = original["music"].toArray(); row = music[0].toObject();
+        row.remove("directory"); music[0] = row;
+        changed = original; changed["music"] = music; invalid.append(changed);
+        music = original["music"].toArray(); row = music[0].toObject();
+        row["id"] = "00000000-0000-4000-8000-000000000999";
+        row["name"] = "Other"; row["directory"] = "one"; music.append(row);
+        changed = original; changed["music"] = music; invalid.append(changed);
         music = original.value("music").toArray(); row = music[0].toObject(); row["weekdays"] = "*"; music[0] = row;
         changed = original; changed["music"] = music; invalid.append(changed);
         auto ads = original.value("advert").toArray(); row = ads[0].toObject(); row["preparedMinutes"] = QJsonArray{1, 22, 42}; ads[0] = row;
@@ -341,10 +383,87 @@ private slots:
         QVERIFY(!QFileInfo::exists(projectFile()));
         QVERIFY(!error.isEmpty());
     }
+    void renamePreservesAdvancedPublicationAndOwnsItsOriginalDirectory()
+    {
+        const QString track = station.filePath("media/music/One/rename-regression.mp3");
+        put(track, "audio");
+        ChannelManager manager(MediaBoxManager::MUSIC);
+        QVERIFY2(manager.collectChannels(), qPrintable(manager.lastError()));
+        const QString channelId = manager.channel(0).ruleId();
+        QJsonObject source{{"channels", QJsonArray{QJsonObject{{"id", channelId}, {"name", "One"},
+            {"directory", "One"}, {"start", "08:00"}, {"end", "18:00"}, {"untilDayOffset", 0},
+            {"weekdays", "*"}, {"days", "*"}, {"months", "*"}, {"volume", 70}, {"order", "sequential"},
+            {"paths", QJsonArray{track}}}}}, {"adverts", QJsonArray{}}};
+        QTemporaryDir publicationDirectory;
+        QVERIFY(publicationDirectory.isValid());
+        const QString contentRoot = station.filePath("media");
+        const QDateTime now = QDateTime::fromString("2026-10-04T10:00:00Z", Qt::ISODate);
+        QJsonObject document;
+        QString error;
+        bool advanced = false;
+        QVERIFY2(SchedulePublication::draft(publicationDirectory.path(), contentRoot, source,
+                                           &document, &advanced, &error), qPrintable(error));
+        document["timeZone"] = "UTC";
+        document["validity"] = QJsonObject{{"from", "2026-10-01"}, {"until", "2027-10-01"}};
+        QVERIFY2(SchedulePublication::saveDraft(publicationDirectory.path(), document, &error), qPrintable(error));
+        SchedulePublication::Publication publication;
+        QVERIFY2(SchedulePublication::publish(publicationDirectory.path(), contentRoot, document,
+                                             &publication, &error), qPrintable(error));
+        const QString database = publicationDirectory.filePath("runtime.sqlite");
+        {
+            MediaBox::ScheduleV1Runtime runtime(database);
+            QCOMPARE(runtime.accept(publication.bytes, contentRoot, publication.active, now), QString());
+            QCOMPARE(QDir::cleanPath(runtime.selectMusic(now).path), QDir::cleanPath(track));
+            QVERIFY2(manager.setRule(0, channelFields("Renamed")), qPrintable(manager.lastError()));
+            QCOMPARE(manager.channel(0).channelName(), QStringLiteral("Renamed"));
+            QCOMPARE(manager.channel(0).storageDirectory(), QStringLiteral("One"));
+            QCOMPARE(manager.channel(0).ruleId(), channelId);
+            QCOMPARE(QDir::cleanPath(manager.channel(0).mediaManager().getDirMediaFiles().absolutePath()),
+                     QDir::cleanPath(station.filePath("media/music/One")));
+            QCOMPARE(get(track), QByteArray("audio"));
+            QVERIFY(!QFileInfo::exists(station.filePath("media/music/Renamed")));
+            QCOMPARE(QDir::cleanPath(runtime.selectMusic(now).path), QDir::cleanPath(track));
+        }
+        auto renamed = source["channels"].toArray().first().toObject();
+        renamed["name"] = "Renamed"; source["channels"] = QJsonArray{renamed};
+        QJsonObject saved;
+        QVERIFY2(SchedulePublication::draft(publicationDirectory.path(), contentRoot, source,
+                                           &saved, &advanced, &error), qPrintable(error));
+        QVERIFY(advanced);
+        QCOMPARE(saved["assets"], document["assets"]);
+        QCOMPARE(saved["playlists"], document["playlists"]);
+        SchedulePublication::Publication unchanged;
+        QVERIFY2(SchedulePublication::publish(publicationDirectory.path(), contentRoot, saved,
+                                             &unchanged, &error), qPrintable(error));
+        QCOMPARE(unchanged.bytes, publication.bytes);
+        {
+            MediaBox::ScheduleV1Runtime restored(database);
+            QCOMPARE(restored.restore(), QString());
+            QCOMPARE(QDir::cleanPath(restored.selectMusic(now).path), QDir::cleanPath(track));
+        }
+        QVERIFY2(manager.collectChannels(), qPrintable(manager.lastError()));
+        QCOMPARE(manager.channel(0).channelName(), QStringLiteral("Renamed"));
+        QCOMPARE(manager.channel(0).storageDirectory(), QStringLiteral("One"));
+        QVERIFY2(manager.createChannel(channelFields("One")), qPrintable(manager.lastError()));
+        QCOMPARE(manager.channelCount(), 2);
+        const QString replacementDirectory = manager.channel(1).storageDirectory();
+        QVERIFY(replacementDirectory.compare(QStringLiteral("One"), Qt::CaseInsensitive) != 0);
+        const QString replacementTrack = manager.channel(1).mediaManager().getDirMediaFiles().filePath("replacement.mp3");
+        put(replacementTrack, "replacement");
+        QVERIFY2(manager.deleteChannel(0), qPrintable(manager.lastError()));
+        QVERIFY(!QFileInfo::exists(track));
+        QCOMPARE(get(replacementTrack), QByteArray("replacement"));
+        QVERIFY2(manager.collectChannels(), qPrintable(manager.lastError()));
+        QCOMPARE(manager.channelCount(), 1);
+        QCOMPARE(manager.channel(0).channelName(), QStringLiteral("One"));
+        QCOMPARE(manager.channel(0).storageDirectory(), replacementDirectory);
+        QCOMPARE(get(replacementTrack), QByteArray("replacement"));
+    }
     void directoryJournalRollsBackOrCompletes()
     {
         auto project = readProject(); const QByteArray before = get(projectFile());
-        project.music[0].name = "Renamed"; const QByteArray after = ProjectRepository::encode(project);
+        project.music[0].name = "Renamed"; project.music[0].storageDirectory = "Renamed";
+        const QByteArray after = ProjectRepository::encode(project);
         put(station.filePath("media/music/One/recovery.mp3"), "audio");
         const QJsonObject journal{{"version", 1}, {"section", "music"}, {"from", "One"}, {"to", "Renamed"},
                 {"before", QString::fromLatin1(before.toBase64())}, {"after", QString::fromLatin1(after.toBase64())}};

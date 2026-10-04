@@ -23,12 +23,15 @@ struct ScheduledAdvert {
 // An immutable, validated snapshot received from the manager. All temporal
 // interpretation remains in ScheduleCore, shared with the manager's preview.
 struct PlaybackSchedule {
+    enum class FileValidation { RequireReadable, PathOnly };
+
     QList<ScheduledChannel> channels;
     QList<ScheduledAdvert> adverts;
 
     QList<ScheduleCore::ChannelRule> channelRules() const;
     QList<ScheduleCore::AdvertRule> advertRules() const;
-    static QString decode(const QJsonObject &object, PlaybackSchedule *result);
+    static QString decode(const QJsonObject &object, PlaybackSchedule *result,
+                          FileValidation files = FileValidation::RequireReadable);
 };
 
 } // namespace MediaBox

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
 
-project(MediaBoxManager VERSION 1.2.1 LANGUAGES C CXX)
+project(MediaBoxManager VERSION 1.2.2 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

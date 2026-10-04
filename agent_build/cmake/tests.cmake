@@ -201,7 +201,7 @@ set_tests_properties(MediaBoxVPlayer_service PROPERTIES TIMEOUT 45
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME MediaBoxVPlayer_version COMMAND MediaBoxVPlayer --version)
 set_tests_properties(MediaBoxVPlayer_version PROPERTIES TIMEOUT 10
-    PASS_REGULAR_EXPRESSION "MediaBoxVPlayer 0\\.2\\.0"
+    PASS_REGULAR_EXPRESSION "MediaBoxVPlayer 0\\.2\\.1"
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 if(WIN32)
     get_target_property(_vplayer_qmake Qt6::qmake IMPORTED_LOCATION)
