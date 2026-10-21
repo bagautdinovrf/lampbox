@@ -458,7 +458,7 @@ void SettingsDialog::init()
             item->setCheckState(formats.value(key) ? Qt::Checked : Qt::Unchecked);
         }
     };
-    fill(mAudioFormats, settings.fileFormatsAudio(), {"mp3", "flac", "ogg", "wma", "acc"});
+    fill(mAudioFormats, settings.fileFormatsAudio(), {"mp3", "flac", "ogg", "wma", "aac"});
     fill(mVideoFormats, settings.fileFormatsVideo(), {"mp4", "avi", "mkv", "wmv"});
     connect(mAudioFormats, &QListWidget::itemChanged, this, &SettingsDialog::checkAudioItem);
     connect(mVideoFormats, &QListWidget::itemChanged, this, &SettingsDialog::checkVideoItem);

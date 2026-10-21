@@ -24,6 +24,20 @@ bool syncSettings(QSettings &settings)
     }
     return settings.status() == QSettings::NoError;
 }
+
+// Earlier releases stored the AAC filter under the misspelt key "acc", so imports looked
+// for *.acc. Move the user's choice to "aac" once; an existing "aac" value wins.
+void migrateMisspeltAacFormat(QSettings &settings)
+{
+    const QString legacy = QStringLiteral("FileFormats/AudioFormats/acc");
+    if (!settings.contains(legacy))
+        return;
+    const QString current = QStringLiteral("FileFormats/AudioFormats/aac");
+    if (!settings.contains(current))
+        settings.setValue(current, settings.value(legacy));
+    settings.remove(legacy);
+    syncSettings(settings);
+}
 }
 
 
@@ -64,7 +78,7 @@ void Settings::initSettings()
     QFile file(mConfigFile);
 //    file.remove();
     if( !file.exists() ) {
-        writeFileFormatAudioValue( "acc",  false  );
+        writeFileFormatAudioValue( "aac",  false  );
         writeFileFormatAudioValue( "flac", false  );
         writeFileFormatAudioValue( "mp3",  true   ); ///
         writeFileFormatAudioValue( "ogg",  false  );
@@ -82,6 +96,7 @@ void Settings::readSettings()
     initSettings();
 
     QSettings settings(mConfigFile, QSettings::IniFormat );
+    migrateMisspeltAacFormat(settings);
 
     // Форматы файлов
     mFileFormats.clear();

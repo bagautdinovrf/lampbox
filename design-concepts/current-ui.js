@@ -5,7 +5,7 @@
   const allMonths = Array.from({length: 12}, (_, i) => i + 1);
   const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
   const monthNames = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
-  const formats = {audio: ['mp3', 'flac', 'ogg', 'wma', 'acc'], video: ['mp4', 'avi', 'mkv', 'wmv']};
+  const formats = {audio: ['mp3', 'flac', 'ogg', 'wma', 'aac'], video: ['mp4', 'avi', 'mkv', 'wmv']};
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
   const field = (label, name, value, attrs = '') => `<label class="field"><span class="field-label">${esc(label)}</span><input class="field-control" name="${esc(name)}" value="${esc(value)}" ${attrs}></label>`;
   const select = (label, name, value, options) => `<label class="field"><span class="field-label">${esc(label)}</span><select class="field-control" name="${esc(name)}">${options.map(o => `<option value="${esc(o.value)}" ${String(value) === String(o.value) ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select></label>`;
