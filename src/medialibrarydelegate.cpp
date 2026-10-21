@@ -214,8 +214,13 @@ bool MediaLibraryDelegate::editorEvent(QEvent *event, QAbstractItemModel *,
 bool MediaLibraryDelegate::eventFilter(QObject *object, QEvent *event)
 {
     auto *view = qobject_cast<QAbstractItemView *>(parent());
-    if (!view || !view->isEnabled())
+    // The view and its viewport are watched for the inline controls only. The
+    // base filter takes every watched object for an editor: it would commit and
+    // close the view itself on focus loss or Enter, and swallow Escape.
+    if (!view || (object != view && object != view->viewport()))
         return QStyledItemDelegate::eventFilter(object, event);
+    if (!view->isEnabled())
+        return false;
     if (object == view->viewport() && event->type() == QEvent::MouseButtonRelease && mSuppressRelease) {
         mSuppressRelease = false;
         return true;
@@ -266,7 +271,7 @@ bool MediaLibraryDelegate::eventFilter(QObject *object, QEvent *event)
             return true;
         }
     }
-    return QStyledItemDelegate::eventFilter(object, event);
+    return false;
 }
 
 bool MediaLibraryDelegate::helpEvent(QHelpEvent *event, QAbstractItemView *view,

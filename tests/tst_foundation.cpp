@@ -21,8 +21,10 @@ private slots:
         const auto *months = report.findChild<QComboBox *>("cbMonth");
         QVERIFY(months);
         QCOMPARE(months->count(), 12);
-        QCOMPARE(months->itemText(0), QLocale::system().monthName(1, QLocale::LongFormat));
-        QCOMPARE(months->itemText(11), QLocale::system().monthName(12, QLocale::LongFormat));
+        for (int month : {1, 12}) {
+            const QString name = QLocale::system().standaloneMonthName(month, QLocale::LongFormat);
+            QCOMPARE(months->itemText(month - 1), name.left(1).toUpper() + name.mid(1));
+        }
     }
 
     void resources()

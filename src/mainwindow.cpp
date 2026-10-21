@@ -47,6 +47,7 @@
 #include <QPushButton>
 #include <QScreen>
 #include <QScrollArea>
+#include <QShortcut>
 #include <QSignalBlocker>
 #include <QSortFilterProxyModel>
 #include <QSplitter>
@@ -59,6 +60,7 @@
 #include <QToolTip>
 #include <QUrl>
 #include <algorithm>
+#include <functional>
 
 namespace {
 QLabel *label(const QString &text, int size = 11, int weight = QFont::Normal, QWidget *parent = nullptr) {
@@ -373,7 +375,56 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     advertClock->setInterval(60 * 1000);
     connect(advertClock, &QTimer::timeout, this, [this] { updateSummary(PAGE_ADVERT); });
     advertClock->start();
+    setupShortcuts();
     QTimer::singleShot(0, this, &MainWindow::updateScheduleDocumentPreview);
+}
+
+void MainWindow::setupShortcuts() {
+    const auto shortcut = [this](const QKeySequence &keys, QWidget *owner, Qt::ShortcutContext context,
+                                 const std::function<void()> &action) {
+        auto *s = new QShortcut(keys, owner);
+        s->setContext(context);
+        connect(s, &QShortcut::activated, this, action);
+    };
+    // Library and rule commands act on the media page that is on screen. They
+    // click the visible control, so its enabled state and checks stay in one place.
+    const auto onMediaPage = [this](const std::function<void(MediaPage &)> &action) {
+        return [this, action] {
+            if (mStack->currentIndex() == mPage)
+                action(mPages[mPage]);
+        };
+    };
+    shortcut(QKeySequence(Qt::CTRL | Qt::Key_F), this, Qt::WindowShortcut, onMediaPage([](MediaPage &p) {
+        p.search->setFocus(Qt::ShortcutFocusReason);
+        p.search->selectAll();
+    }));
+    shortcut(QKeySequence(Qt::CTRL | Qt::Key_N), this, Qt::WindowShortcut, onMediaPage([](MediaPage &p) {
+        (p.createChannel ? p.createChannel : p.addAdvert)->click();
+    }));
+    shortcut(QKeySequence(Qt::CTRL | Qt::Key_O), this, Qt::WindowShortcut, onMediaPage([](MediaPage &p) {
+        if (p.addFiles->isEnabled())
+            p.addFilesAction->trigger();
+    }));
+    for (int page = 0; page < 3; ++page)
+        shortcut(QKeySequence(Qt::CTRL | Qt::Key(Qt::Key_1 + page)), this, Qt::WindowShortcut, [this, page] { changePage(page); });
+    shortcut(QKeySequence(Qt::CTRL | Qt::Key_Comma), this, Qt::WindowShortcut, [this] { changePage(4); });
+    shortcut(QKeySequence(Qt::Key_F5), this, Qt::WindowShortcut, [this] {
+        if (playerAvailable())
+            mMediaController->refreshPlayer();
+        updateScheduleDocumentPreview();
+    });
+    // Del, F2 and Enter belong to the list that has focus.
+    for (int page = 0; page < 3; ++page) {
+        auto &p = mPages[page];
+        shortcut(QKeySequence(Qt::Key_Delete), p.files, Qt::WidgetWithChildrenShortcut,
+                 [this, page] { mPages[page].deleteFiles->click(); });
+        QAbstractItemView *rules = p.channels ? static_cast<QAbstractItemView *>(p.channels) : p.adverts;
+        QPushButton *edit = p.channels ? p.editChannel : p.editAdvert;
+        QPushButton *remove = p.channels ? p.deleteChannel : p.deleteAdvert;
+        shortcut(QKeySequence(Qt::Key_Delete), rules, Qt::WidgetWithChildrenShortcut, [remove] { remove->click(); });
+        for (const auto key : {Qt::Key_F2, Qt::Key_Return, Qt::Key_Enter})
+            shortcut(QKeySequence(key), rules, Qt::WidgetWithChildrenShortcut, [edit] { edit->click(); });
+    }
 }
 MainWindow::~MainWindow() {
     if (mMediaImport)
@@ -449,6 +500,7 @@ void MainWindow::buildShell() {
     QStringList titles = {"Музыка", "Видео", "Реклама", "Отчёты", "Настройки", "О программе"};
     QStringList icons = {"music", "video", "ads", "report", "settings", "info"};
     QStringList objectNames = {"music", "video", "advert", "reports", "settings", "about"};
+    QStringList keys = {"Ctrl+1", "Ctrl+2", "Ctrl+3", {}, "Ctrl+,", {}};
     for (int i = 0; i < 6; ++i) {
         if (i == 3)
             n->addStretch();
@@ -456,7 +508,7 @@ void MainWindow::buildShell() {
         b->setCheckable(true);
         b->setObjectName("nav_" + objectNames[i]);
         b->setProperty("fullText", titles[i]);
-        b->setToolTip(titles[i]);
+        b->setToolTip(keys[i].isEmpty() ? titles[i] : QStringLiteral("%1 (%2)").arg(titles[i], keys[i]));
         mNavigation[i] = b;
         n->addWidget(b);
         connect(b, &QPushButton::clicked, this, [this, i] { changePage(i); });
@@ -627,8 +679,12 @@ QWidget *MainWindow::buildMediaPage(int page) {
     h->addWidget(create);
     connect(create, &QPushButton::clicked, this,
             ads ? &MainWindow::slot_addAdvert : &MainWindow::slot_addChannel);
-    if (ads)
+    if (ads) {
         p.addAdvert = create;
+    } else {
+        p.createChannel = create;
+        create->setToolTip("Создать канал (Ctrl+N)");
+    }
     l->addWidget(heading);
     l->addSpacing(12);
     // One date picker per page: the schedule panel. Adverts use the current time.
@@ -644,7 +700,8 @@ QWidget *MainWindow::buildMediaPage(int page) {
     sum->setSpacing(18);
     const QStringList captions = {"По расписанию", "Следующая смена канала", "Следующий точный выход рекламы"};
     QLabel **fields[] = {&p.planNow, &p.planNext, &p.planAd};
-    for (int i = 0; i < 3; ++i) {
+    // The advert page has no channels to plan: only the advert column applies.
+    for (int i = ads ? 2 : 0; i < 3; ++i) {
         auto *col = new QVBoxLayout;
         col->setSpacing(3);
         col->addWidget(label(captions[i], 10));
@@ -687,10 +744,12 @@ QWidget *MainWindow::buildMediaPage(int page) {
         connect(p.playChannel, &QPushButton::clicked, this, [this, page] { playSelectedChannel(page); });
         p.editChannel = iconButton("edit", "Редактировать канал");
         p.editChannel->setObjectName("editChannelButton" + suffix);
+        p.editChannel->setToolTip("Редактировать канал (F2)");
         ch->addWidget(p.editChannel);
         connect(p.editChannel, &QPushButton::clicked, this, &MainWindow::openChannelEditor);
         p.deleteChannel = iconButton("trash", "Удалить канал");
         p.deleteChannel->setObjectName("deleteChannelButton" + suffix);
+        p.deleteChannel->setToolTip("Удалить канал (Del)");
         ch->addWidget(p.deleteChannel);
         connect(p.deleteChannel, &QPushButton::clicked, this, &MainWindow::slot_deleteChannel);
         cl->addLayout(ch);
@@ -720,15 +779,15 @@ QWidget *MainWindow::buildMediaPage(int page) {
                 auto *play = menu.addAction(Restyle::icon("play"), "Играть канал");
                 play->setEnabled(pageUi.playChannel->isEnabled());
                 connect(play, &QAction::triggered, this, [this, page] { playSelectedChannel(page); });
-                auto *edit = menu.addAction(Restyle::icon("edit"), "Редактировать…");
+                auto *edit = menu.addAction(Restyle::icon("edit"), "Редактировать…\tF2");
                 edit->setEnabled(pageUi.editChannel->isEnabled());
                 connect(edit, &QAction::triggered, this, &MainWindow::openChannelEditor);
-                auto *remove = menu.addAction(Restyle::icon("trash"), "Удалить канал…");
+                auto *remove = menu.addAction(Restyle::icon("trash"), "Удалить канал…\tDel");
                 remove->setEnabled(pageUi.deleteChannel->isEnabled());
                 connect(remove, &QAction::triggered, this, &MainWindow::slot_deleteChannel);
                 menu.addSeparator();
             }
-            auto *create = menu.addAction(Restyle::icon("plus"), "Создать канал…");
+            auto *create = menu.addAction(Restyle::icon("plus"), "Создать канал…\tCtrl+N");
             create->setEnabled(!mMediaImport);
             connect(create, &QAction::triggered, this, &MainWindow::slot_addChannel);
             menu.exec(pageUi.channels->viewport()->mapToGlobal(position));
@@ -759,7 +818,9 @@ QWidget *MainWindow::buildMediaPage(int page) {
         rh->addWidget(label("Правила выхода рекламы", 14, QFont::DemiBold));
         rh->addStretch();
         p.editAdvert = button("Редактировать правило", "edit");
+        p.editAdvert->setToolTip("Редактировать выбранное правило (F2)");
         p.deleteAdvert = iconButton("trash", "Удалить выбранные правила");
+        p.deleteAdvert->setToolTip("Удалить выбранные правила (Del)");
         rh->addWidget(p.editAdvert);
         rh->addWidget(p.deleteAdvert);
         connect(p.editAdvert, &QPushButton::clicked, this, &MainWindow::openAdvertEditor);
@@ -802,11 +863,11 @@ QWidget *MainWindow::buildMediaPage(int page) {
     lh->addStretch();
     p.addFiles = button("Добавить", "plus", "quiet");
     p.addFiles->setObjectName("addFilesButton" + suffix);
-    p.addFiles->setToolTip("Добавить файлы или целую папку. Можно перетащить файлы в таблицу.");
+    p.addFiles->setToolTip("Добавить файлы (Ctrl+O) или целую папку. Можно перетащить файлы в таблицу.");
     auto *addMenu = new QMenu(p.addFiles);
-    auto *addFilesAction = addMenu->addAction(Restyle::icon("note"), "Файлы…");
-    addFilesAction->setObjectName("addFilesAction" + suffix);
-    connect(addFilesAction, &QAction::triggered, this, &MainWindow::slot_addMediaFiles);
+    p.addFilesAction = addMenu->addAction(Restyle::icon("note"), "Файлы…\tCtrl+O");
+    p.addFilesAction->setObjectName("addFilesAction" + suffix);
+    connect(p.addFilesAction, &QAction::triggered, this, &MainWindow::slot_addMediaFiles);
     auto *addFolderAction = addMenu->addAction(Restyle::icon("folder"), "Все файлы из папки…");
     addFolderAction->setObjectName("addFolderAction" + suffix);
     connect(addFolderAction, &QAction::triggered, this, [this] {
@@ -837,7 +898,7 @@ QWidget *MainWindow::buildMediaPage(int page) {
     }
     p.search = new QLineEdit;
     p.search->setObjectName("searchEdit" + suffix);
-    p.search->setPlaceholderText("Найти в медиатеке");
+    p.search->setPlaceholderText("Найти в медиатеке (Ctrl+F)");
     p.search->setFixedHeight(32);
     p.search->setMinimumWidth(120);
     p.search->setMaximumWidth(425);
@@ -846,6 +907,7 @@ QWidget *MainWindow::buildMediaPage(int page) {
     lh->addWidget(p.search, 1);
     p.deleteFiles = iconButton("trash", "Удалить выбранные файлы");
     p.deleteFiles->setObjectName("deleteFilesButton" + suffix);
+    p.deleteFiles->setToolTip("Удалить выбранные файлы (Del)");
     lh->addWidget(p.deleteFiles);
     connect(p.deleteFiles, &QPushButton::clicked, this, &MainWindow::slot_removeMediaFiles);
     ll->addLayout(lh);
@@ -894,7 +956,7 @@ QWidget *MainWindow::buildMediaPage(int page) {
                     connect(playlist, &QAction::triggered, this, &MainWindow::addSelectedVideosToPlaylist);
                 }
                 menu.addSeparator();
-                auto *remove = menu.addAction(Restyle::icon("trash"), "Удалить файл");
+                auto *remove = menu.addAction(Restyle::icon("trash"), "Удалить файл\tDel");
                 remove->setEnabled(page != 2 || advertWritable());
                 connect(remove, &QAction::triggered, this, &MainWindow::slot_removeMediaFiles);
                 menu.exec(position);
@@ -1075,10 +1137,9 @@ void MainWindow::updatePage(int page) {
     p.fileCount->setText(QStringLiteral("%1 файлов").arg(count));
     p.libraryEmpty->setVisible(count == 0);
     p.addFiles->setEnabled(!mMediaImport && manager && (page != 2 || advertWritable()));
-    const QString suffix = page == 0 ? QString() : page == 1 ? "_video" : "_advert";
     p.files->setEnabled(manager);
     if (page < 2) {
-        p.root->findChild<QPushButton *>("createChannelButton" + suffix)->setEnabled(!mMediaImport);
+        p.createChannel->setEnabled(!mMediaImport);
         int row = mChannelManagers[page]->currentChannelNum();
         bool selected = row >= 0 && row < mChannelModels[page]->rowCount();
         p.subtitle->setText(QStringLiteral("%1 каналов · расписание, условия выхода и содержимое")
@@ -1101,7 +1162,7 @@ void MainWindow::updatePage(int page) {
 }
 void MainWindow::updateSummary(int page) {
     auto &p = mPages[page];
-    if (!p.planNow)
+    if (!p.planAd)
         return;
     const SchedulePreview::Snapshot snapshot = p.schedule
         ? p.schedule->snapshot()
@@ -1123,10 +1184,12 @@ void MainWindow::updateSummary(int page) {
         p.channels->setProperty("channelActive", active);
         p.channels->viewport()->update();
     }
-    p.planNow->setText(snapshot.currentSummary);
-    p.planNow->setToolTip(snapshot.currentSummary);
-    p.planNext->setText(snapshot.nextChannelSummary);
-    p.planNext->setToolTip(snapshot.nextChannelSummary);
+    if (p.planNow) {
+        p.planNow->setText(snapshot.currentSummary);
+        p.planNow->setToolTip(snapshot.currentSummary);
+        p.planNext->setText(snapshot.nextChannelSummary);
+        p.planNext->setToolTip(snapshot.nextChannelSummary);
+    }
     p.planAd->setText(snapshot.nextAdvertSummary);
     p.planAd->setToolTip(snapshot.nextAdvertSummary);
 }
@@ -1146,7 +1209,7 @@ void MainWindow::updateFileInfo(int page) {
         const bool files = manager && manager->mediaCount() > 0;
         p.addAdvert->setEnabled(!mMediaImport && advertWritable() && files);
         p.addAdvert->setToolTip(!advertWritable() ? "Рекламой сетевой станции управляют централизованно"
-                                : files ? "Новое правило выхода для ролика из рекламной медиатеки"
+                                : files ? "Новое правило выхода для ролика из рекламной медиатеки (Ctrl+N)"
                                         : "Сначала добавьте ролики в рекламную медиатеку");
     }
     if (!selected) {
@@ -1946,7 +2009,7 @@ void MainWindow::adaptLayout(int width) {
             continue;
         QString title = name == "refreshPlayerButton" ? "Обновить состояние" : "Аудиоплеер";
         control->setText(compact ? QString() : title);
-        control->setToolTip(title);
+        control->setToolTip(name == "refreshPlayerButton" ? "Обновить состояние плеера и расписание (F5)" : title);
         control->setMinimumWidth(compact ? 32 : 0);
         control->setMaximumWidth(compact ? 32 : QWIDGETSIZE_MAX);
     }

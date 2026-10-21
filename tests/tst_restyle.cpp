@@ -11,6 +11,7 @@
 #include <QDirIterator>
 #include <QFile>
 #include <QFontInfo>
+#include <QHeaderView>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -22,11 +23,16 @@
 #include <QPainter>
 #include <QProcess>
 #include <QPushButton>
+#include <QRegularExpression>
 #include <QScreen>
+#include <QScrollArea>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QSortFilterProxyModel>
+#include <QStackedWidget>
+#include <QStandardItemModel>
 #include <QStandardPaths>
+#include <QStyleOption>
 #include <QTableView>
 #include <QTemporaryDir>
 #include <QTest>
@@ -72,12 +78,16 @@ void resetStation()
     }
     for (const QString &folder : {"media/music", "media/video", "media/ads"})
         QDir().mkpath(fixtureRoot + '/' + folder);
+    // The compiled schedule starts its validity today: keep the campaign around it.
+    const QDate today = QDate::currentDate();
+    const QDate monthStart(today.year(), today.month(), 1);
+    const QDate monthEnd = monthStart.addMonths(1).addDays(-1);
     ProjectRepository::Project fixture;
     fixture.advert = {
         ProjectFixture::advert("Осенняя коллекция.mp3", "9,10,11,12,13,14,15,16,17,18,19,20", "00m,30m",
-            QDate(2026, 10, 1), QDate(2026, 10, 31), 75),
+            monthStart, monthEnd, 75),
         ProjectFixture::advert("Кофе с собой.mp3", "8,9,10,11,12", "3",
-            QDate(2026, 10, 1), QDate(2026, 10, 31), 70, {}, "1,2,3,4,5")};
+            monthStart, monthEnd, 70, {}, "1,2,3,4,5")};
     writeFile(project, ProjectRepository::encode(fixture));
 }
 
@@ -131,13 +141,11 @@ void choose(QComboBox *picker, const QString &id)
     settle();
 }
 
+// The schedule panels' previewDate / previewTime are the window's only date pickers.
 void planFixture(QWidget &window)
 {
-    for (auto *edit : window.findChildren<QDateTimeEdit *>())
-        if (edit->objectName().startsWith("planDateTime"))
-            edit->setDateTime(QDateTime(QDate(2026, 10, 3), QTime(10, 24)));
     for (auto *edit : window.findChildren<QDateEdit *>())
-        edit->setDate(QDate(2026, 10, 3));
+        edit->setDate(QDate::currentDate());
     for (auto *edit : window.findChildren<QTimeEdit *>())
         edit->setTime(QTime(10, 24));
     settle();
@@ -266,7 +274,7 @@ private slots:
                 QCOMPARE(selected.data(), selectedName);
                 QCOMPARE(search->geometry(), searchRect);
                 for (auto *spin : window.findChildren<QDateTimeEdit *>()) {
-                    if (!spin->objectName().startsWith("plan"))
+                    if (!spin->objectName().startsWith("preview"))
                         continue;
                     auto *field = spin->findChild<QLineEdit *>();
                     QVERIFY(field);
@@ -313,6 +321,35 @@ private slots:
         dialog.reject();
         QCOMPARE(dialog.result(), int(QDialog::Rejected));
         QCOMPARE(stationDigest(), before);
+    }
+
+    void resizedHeadersKeepTheirTitles()
+    {
+        // Short cells must not squeeze the header title into «Нач…».
+        const QStringList titles = {"Начало", "Месяцы", "Часы", "Когда в часе", "Громкость"};
+        QStandardItemModel model(1, titles.size());
+        model.setHorizontalHeaderLabels(titles);
+        for (int column = 0; column < titles.size(); ++column)
+            model.setItem(0, column, new QStandardItem("08:00"));
+        QTableView view;
+        view.setModel(&model);
+        auto *header = view.horizontalHeader();
+        header->setFont(Restyle::font(10));
+        header->setSectionResizeMode(QHeaderView::ResizeToContents);
+        view.show();
+        settle();
+        for (int section = 0; section < titles.size(); ++section) {
+            QStyleOptionHeader option;
+            option.initFrom(header);
+            option.state |= QStyle::State_Horizontal;
+            option.rect = QRect(0, 0, header->sectionSize(section), header->height());
+            option.text = model.headerData(section, Qt::Horizontal).toString();
+            // CE_HeaderLabel draws inside SE_HeaderLabel with 8 px more per side. The
+            // fractional advance plus 2 px must fit: at 125 % rounding alone elides «Часы».
+            const QRect label = header->style()->subElementRect(QStyle::SE_HeaderLabel, &option, header);
+            QVERIFY2(QFontMetricsF(Restyle::font(10)).horizontalAdvance(option.text) + 2 <= label.width() - 16,
+                     qPrintable(option.text));
+        }
     }
 
     void cyrillicFont()
@@ -602,12 +639,150 @@ private slots:
         QVERIFY(window.findChildren<MediaController *>().isEmpty());
         QVERIFY(window.findChildren<QProcess *>().isEmpty());
     }
+
+    void narrowScheduleHeadingHidesWeekStrip()
+    {
+        resetStation();
+        MainWindow window;
+        seedRestyleWindow(window);
+        window.resize(1440, 900);
+        window.show();
+        settle();
+        auto *panel = window.findChild<SchedulePreviewWidget *>("schedulePanel");
+        QVERIFY(panel);
+        auto *week = panel->findChild<QWidget *>("previewWeek");
+        auto *next = panel->findChild<QWidget *>("nextDayButton");
+        auto *today = panel->findChild<QWidget *>("todayButton");
+        QVERIFY(week);
+        QVERIFY(next);
+        QVERIFY(today);
+        QVERIFY(week->isVisible());
+        // Below 1100 px the page keeps its fixed minimum width: the strip gives way.
+        window.resize(1024, 700);
+        settle();
+        QVERIFY(!week->isVisible());
+        const QRect nextRect(next->mapTo(panel, QPoint()), next->size());
+        const QRect todayRect(today->mapTo(panel, QPoint()), today->size());
+        QVERIFY(!nextRect.intersects(todayRect));
+        QVERIFY(todayRect.right() < panel->width());
+        window.resize(1440, 900);
+        settle();
+        QVERIFY(week->isVisible());
+    }
+
+    void keyboardShortcuts()
+    {
+        // The media table loses focus to dialogs here; its delegate must not treat it as an editor.
+        QTest::failOnWarning(QRegularExpression("does not belong to this view"));
+        resetStation();
+        MainWindow window;
+        seedRestyleWindow(window);
+        window.resize(1440, 900);
+        window.show();
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        settle();
+        const QByteArray before = stationDigest();
+        auto *stack = window.findChild<QStackedWidget *>("pageStack");
+        auto *search = window.findChild<QLineEdit *>("searchEdit");
+        auto *videoSearch = window.findChild<QLineEdit *>("searchEdit_video");
+        QVERIFY(stack);
+        QVERIFY(search);
+        QVERIFY(videoSearch);
+        search->setText("свет");
+        QTest::keyClick(&window, Qt::Key_F, Qt::ControlModifier);
+        QCOMPARE(QApplication::focusWidget(), search);
+        QCOMPARE(search->selectedText(), QString("свет"));
+        search->clear();
+
+        QTest::keyClick(&window, Qt::Key_2, Qt::ControlModifier);
+        QCOMPARE(stack->currentIndex(), 1);
+        QVERIFY(button(window, "nav_video")->isChecked());
+        QTest::keyClick(&window, Qt::Key_F, Qt::ControlModifier);
+        QCOMPARE(QApplication::focusWidget(), videoSearch);
+        QTest::keyClick(&window, Qt::Key_Comma, Qt::ControlModifier);
+        QCOMPARE(stack->currentIndex(), 4);
+        // Library shortcuts stay with the media pages.
+        QTest::keyClick(&window, Qt::Key_F, Qt::ControlModifier);
+        QVERIFY(!search->hasFocus());
+        QVERIFY(!videoSearch->hasFocus());
+        QTest::keyClick(&window, Qt::Key_1, Qt::ControlModifier);
+        QCOMPARE(stack->currentIndex(), 0);
+        settle();
+
+        // Arrows switch the day from the timeline; the time field keeps them.
+        auto *panel = window.findChild<SchedulePreviewWidget *>("schedulePanel");
+        QVERIFY(panel);
+        auto *timeline = panel->findChild<QWidget *>("scheduleDocumentTimeline");
+        auto *time = panel->findChild<QTimeEdit *>("previewTime");
+        QVERIFY(timeline);
+        QVERIFY(time);
+        const QDate today = QDate::currentDate();
+        QCOMPARE(panel->previewDateTime().date(), today);
+        timeline->setFocus(Qt::OtherFocusReason);
+        QTest::keyClick(timeline, Qt::Key_Right);
+        QCOMPARE(panel->previewDateTime().date(), today.addDays(1));
+        QTest::keyClick(timeline, Qt::Key_Left);
+        QTest::keyClick(timeline, Qt::Key_Left);
+        QCOMPARE(panel->previewDateTime().date(), today.addDays(-1));
+        time->setFocus(Qt::OtherFocusReason);
+        QTest::keyClick(time, Qt::Key_Right);
+        QCOMPARE(panel->previewDateTime().date(), today.addDays(-1));
+        timeline->setFocus(Qt::OtherFocusReason);
+        QTest::keyClick(timeline, Qt::Key_Home);
+        QCOMPARE(panel->previewDateTime().date(), today);
+
+        // F2, Enter and Del act on the focused list; deleting still asks first.
+        QStringList dialogs;
+        QTimer closer;
+        closer.setInterval(10);
+        connect(&closer, &QTimer::timeout, &window, [&] {
+            for (QWidget *top : QApplication::topLevelWidgets()) {
+                auto *dialog = qobject_cast<QDialog *>(top);
+                if (!dialog || !dialog->isVisible() || !dialog->isModal())
+                    continue;
+                dialogs << (dialog->objectName().isEmpty() ? dialog->windowTitle() : dialog->objectName());
+                dialog->reject();
+            }
+        });
+        auto *channels = window.findChild<QTableView *>("channelList");
+        auto *files = window.findChild<QTreeView *>("mediaTable");
+        QVERIFY(channels);
+        QVERIFY(files);
+        const int channelCount = channels->model()->rowCount();
+        const int fileCount = files->model()->rowCount();
+        files->selectionModel()->setCurrentIndex(files->model()->index(0, 0),
+                QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+        // A closed modal dialog hands activation back asynchronously.
+        const auto press = [&](QWidget *target, Qt::Key key, Qt::KeyboardModifiers modifiers = Qt::NoModifier) {
+            window.activateWindow();
+            if (!QTest::qWaitForWindowActive(&window))
+                return false;
+            target->setFocus(Qt::OtherFocusReason);
+            QTest::keyClick(target, key, modifiers);
+            return true;
+        };
+        closer.start();
+        QVERIFY(press(channels, Qt::Key_F2));
+        QVERIFY(press(channels, Qt::Key_Return));
+        QVERIFY(press(channels, Qt::Key_Delete));
+        QVERIFY(press(files, Qt::Key_Delete));
+        QVERIFY(press(files, Qt::Key_N, Qt::ControlModifier));
+        closer.stop();
+        QCOMPARE(dialogs, QStringList({"channelRuleDialog", "channelRuleDialog", "Удалить канал",
+                                       "Удалить файлы", "channelRuleDialog"}));
+        QCOMPARE(channels->model()->rowCount(), channelCount);
+        QCOMPARE(files->model()->rowCount(), fileCount);
+        QCOMPARE(stationDigest(), before);
+    }
 };
 
 int capture(MainWindow &window, const QString &directory, bool smoke)
 {
     if (!QDir().mkpath(directory))
         return 2;
+    // The roll-out effect would finish after hidePopup() and leave the theme list on later shots.
+    QApplication::setEffectEnabled(Qt::UI_AnimateCombo, false);
     QJsonArray captures;
     auto save = [&](const QString &name) {
         settle();
@@ -711,11 +886,23 @@ int capture(MainWindow &window, const QString &directory, bool smoke)
                         dialog->reject();
             });
             window.findChild<SchedulePreviewWidget *>("schedulePanel")->showConditions();
+            // The theme picker lives in the «Оформление» card, below the fold of the settings page.
+            click("nav_settings");
+            for (QWidget *parent = theme->parentWidget(); parent; parent = parent->parentWidget())
+                if (auto *area = qobject_cast<QScrollArea *>(parent)) {
+                    area->ensureWidgetVisible(theme);
+                    break;
+                }
+            settle();
             theme->showPopup();
             save(prefix + "theme-popup-1440x900");
             theme->hidePopup();
-            window.resize(1366, 768);
-            save(prefix + "music-1366x768");
+            click("nav_music");
+            // 1280×680 is a 1080p screen at 150 %; below 1100 px the layout is compact.
+            for (const QSize size : {QSize(1366, 768), QSize(1280, 680), QSize(1024, 700)}) {
+                window.resize(size);
+                save(prefix + "music-" + QString::number(size.width()) + 'x' + QString::number(size.height()));
+            }
             window.resize(1440, 900);
         }
     }

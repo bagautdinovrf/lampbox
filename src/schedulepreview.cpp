@@ -8,16 +8,19 @@
 #include "restylewidgets.h"
 
 #include <QAbstractItemModel>
+#include <QAbstractItemView>
 #include <QButtonGroup>
 #include <QDateEdit>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QHBoxLayout>
+#include <QKeyEvent>
 #include <QPainter>
 #include <QPersistentModelIndex>
 #include <QPointer>
 #include <QPushButton>
 #include <QScreen>
+#include <QShortcut>
 #include <QSignalBlocker>
 #include <QTextEdit>
 #include <QTimeEdit>
@@ -134,6 +137,8 @@ struct SchedulePreviewWidget::Private {
     QTimeEdit *time;
     QButtonGroup *days;
     QList<QPushButton *> dayButtons;
+    QHBoxLayout *heading;
+    QWidget *dayStrip;
     RestyleLabel *status;
     int selected = -1;
     QString selectedName, selectedId;
@@ -191,8 +196,10 @@ SchedulePreviewWidget::SchedulePreviewWidget(QWidget *parent) : QWidget(parent),
         return button;
     };
     auto *previousDay = dayButton(QStringLiteral("chevron-left"), QStringLiteral("previousDayButton"), tr("Предыдущий день"));
+    previousDay->setToolTip(tr("Предыдущий день (←)"));
     heading->addWidget(previousDay);
     auto *dayStrip = new RestylePanel(panel, QStringLiteral("inset"));
+    dayStrip->setObjectName(QStringLiteral("previewWeek"));
     dayStrip->setFixedSize(298, 32);
     auto *toolbar = new QHBoxLayout(dayStrip);
     toolbar->setSpacing(3);
@@ -210,11 +217,14 @@ SchedulePreviewWidget::SchedulePreviewWidget(QWidget *parent) : QWidget(parent),
         toolbar->addWidget(button);
     }
     heading->addWidget(dayStrip);
+    d->heading = heading;
+    d->dayStrip = dayStrip;
     auto *nextDay = dayButton(QStringLiteral("chevron"), QStringLiteral("nextDayButton"), tr("Следующий день"));
+    nextDay->setToolTip(tr("Следующий день (→)"));
     heading->addWidget(nextDay);
     auto *today = new QPushButton(tr("Сегодня"), panel);
     today->setObjectName(QStringLiteral("todayButton"));
-    today->setToolTip(tr("Вернуться к текущему времени. План обновляется раз в минуту."));
+    today->setToolTip(tr("Вернуться к текущему времени (Home). План обновляется раз в минуту."));
     Restyle::button(today, QStringLiteral("quiet"));
     heading->addWidget(today);
     layout->addLayout(heading);
@@ -224,6 +234,18 @@ SchedulePreviewWidget::SchedulePreviewWidget(QWidget *parent) : QWidget(parent),
     layout->addSpacing(10);
     d->documentPreview = new ScheduleDocumentPreview(panel);
     layout->addWidget(d->documentPreview, 1);
+    // ←/→/Home switch the day anywhere in the panel. The date and time fields
+    // keep their arrows themselves; the event table keeps them via eventFilter.
+    const auto dayKey = [this](Qt::Key key, void (SchedulePreviewWidget::*slot)()) {
+        auto *shortcut = new QShortcut(QKeySequence(key), this);
+        shortcut->setContext(Qt::WidgetWithChildrenShortcut);
+        connect(shortcut, &QShortcut::activated, this, slot);
+    };
+    dayKey(Qt::Key_Left, &SchedulePreviewWidget::showPreviousDay);
+    dayKey(Qt::Key_Right, &SchedulePreviewWidget::showNextDay);
+    dayKey(Qt::Key_Home, &SchedulePreviewWidget::showCurrentTime);
+    for (auto *view : d->documentPreview->findChildren<QAbstractItemView *>())
+        view->installEventFilter(this);
     layout->addSpacing(7);
     d->status = new ScheduleStatus(panel);
     d->status->setObjectName(QStringLiteral("scheduleStatus"));
@@ -363,6 +385,28 @@ void SchedulePreviewWidget::showDay(const QDate &date)
     else
         d->date->setDate(date);
 }
+void SchedulePreviewWidget::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    // A narrow window drops the week strip first: ‹ › and «Сегодня» still switch
+    // days. The page's fixed minimum width would otherwise overlap the heading.
+    const int strip = d->dayStrip->width() + d->heading->spacing();
+    const QMargins margins = d->heading->parentWidget()->layout()->contentsMargins();
+    const int needed = d->heading->minimumSize().width() + margins.left() + margins.right()
+        + (d->dayStrip->isHidden() ? strip : 0);
+    d->dayStrip->setVisible(width() >= needed);
+}
+bool SchedulePreviewWidget::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() == QEvent::ShortcutOverride && qobject_cast<QAbstractItemView *>(watched)) {
+        const int key = static_cast<QKeyEvent *>(event)->key();
+        if (key == Qt::Key_Left || key == Qt::Key_Right || key == Qt::Key_Home) {
+            event->accept();
+            return true;
+        }
+    }
+    return QWidget::eventFilter(watched, event);
+}
 QDateTime SchedulePreviewWidget::previewDateTime() const
 {
     return QDateTime(d->date->date(), d->time->time(), previewZone(d->document));
@@ -484,6 +528,7 @@ void SchedulePreviewWidget::showConditions()
     explanation->setAccessibleName(tr("Объяснение календарных условий и расчёта плана"));
     layout->addWidget(explanation);
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, &dialog);
+    buttons->button(QDialogButtonBox::Close)->setText(tr("Закрыть"));
     connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
     layout->addWidget(buttons);
     dialog.resize(QSize(670, 490).boundedTo(screen()->availableGeometry().size() - QSize(40, 80)));

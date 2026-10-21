@@ -17,6 +17,7 @@ class MediaController;
 class MediaImportService;
 class VideoController;
 class QStackedWidget;
+class QAction;
 class QComboBox;
 class QPushButton;
 class QLabel;
@@ -81,7 +82,9 @@ class MainWindow : public QMainWindow {
         QLabel *planNext = nullptr;
         QLabel *planAd = nullptr;
         QPushButton *addFiles = nullptr;
+        QAction *addFilesAction = nullptr;
         QPushButton *deleteFiles = nullptr;
+        QPushButton *createChannel = nullptr;
         QPushButton *editChannel = nullptr;
         QPushButton *deleteChannel = nullptr;
         QPushButton *addAdvert = nullptr;
@@ -94,6 +97,7 @@ class MainWindow : public QMainWindow {
     };
     QWidget *buildMediaPage(int page);
     void buildShell();
+    void setupShortcuts();
     void adaptLayout(int width);
     void updatePage(int page);
     void updateFileInfo(int page);

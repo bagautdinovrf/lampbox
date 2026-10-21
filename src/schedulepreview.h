@@ -52,6 +52,10 @@ signals:
     void editRequested(int row);
     void snapshotChanged();
 
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
+
 private:
     void showDay(const QDate &date);
     struct Private;

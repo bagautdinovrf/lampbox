@@ -641,9 +641,11 @@ public:
             result.setHeight(qMax(30,result.height()+6));
         } else if (type==CT_HeaderSection) {
             result.setHeight(qMax(30,result.height()));
-            // CE_HeaderLabel pads 8 px per side; keep ResizeToContents headers unelided.
+            // SE_HeaderLabel insets PM_HeaderMargin (8 px) per side and CE_HeaderLabel
+            // another 8 px. elidedText compares fractional advances, which at 125 %
+            // exceed the rounded width: keep 4 px spare so ResizeToContents headers stay whole.
             if (const auto *header=qstyleoption_cast<const QStyleOptionHeader *>(option))
-                result.setWidth(qMax(result.width(),QFontMetrics(Restyle::font(10)).horizontalAdvance(header->text)+24));
+                result.setWidth(qMax(result.width(),QFontMetrics(Restyle::font(10)).horizontalAdvance(header->text)+36));
         }
         return result;
     }

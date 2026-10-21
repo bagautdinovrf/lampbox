@@ -53,8 +53,13 @@ Report::Report(QWidget *parent, Qt::WindowFlags f) : QWidget(parent, f)
     mMonth = new QComboBox(card);
     mMonth->setObjectName(QStringLiteral("cbMonth"));
     const QLocale locale = QLocale::system();
-    for (int month = 1; month <= 12; ++month)
-        mMonth->addItem(locale.monthName(month, QLocale::LongFormat));
+    // The picker names a month on its own («Октябрь»), not in a date («октября»).
+    for (int month = 1; month <= 12; ++month) {
+        QString name = locale.standaloneMonthName(month, QLocale::LongFormat);
+        if (!name.isEmpty())
+            name[0] = name[0].toUpper();
+        mMonth->addItem(name);
+    }
     mMonth->setCurrentIndex(QDate::currentDate().month() - 1);
     mMonth->setFixedHeight(35);
     mMonth->setFixedWidth(140);
