@@ -74,6 +74,19 @@ QList<QVariant> advertRow()
             QDate(2026, 10, 1), QDate(2026, 10, 31), 75};
 }
 
+class WindowShowSpy : public QObject {
+public:
+    QStringList shown;
+protected:
+    bool eventFilter(QObject *object, QEvent *event) override
+    {
+        if (event->type() == QEvent::Show)
+            if (auto *widget = qobject_cast<QWidget *>(object); widget && widget->isWindow())
+                shown << QString::fromLatin1(widget->metaObject()->className()) + QLatin1Char(':') + widget->objectName();
+        return false;
+    }
+};
+
 QList<QVariant> snapshot(QAbstractItemModel &model, int row = 0)
 {
     QList<QVariant> result;
@@ -688,6 +701,25 @@ private slots:
         dialog.findChild<QLineEdit *>(QStringLiteral("advertMinutes"))->setText(QStringLiteral("0,15"));
         dialog.accept();
         QCOMPARE(dialog.result(), int(QDialog::Accepted));
+    }
+
+    void specificHoursAndDaysOpenNoStrayWindow()
+    {
+        WindowShowSpy spy;
+        qApp->installEventFilter(&spy);
+        AdvertRuleValues advert;
+        advert.fileName = QStringLiteral("Ролик.mp3");
+        advert.hours = QStringLiteral("8-22");
+        AdvertRuleDialog advertDialog(advert);
+        ChannelRuleValues channel;
+        channel.days = QStringLiteral("1-15");
+        ChannelRuleDialog channelDialog(channel);
+        qApp->removeEventFilter(&spy);
+        QVERIFY2(spy.shown.isEmpty(), qPrintable(spy.shown.join(QStringLiteral(", "))));
+        auto *hours = advertDialog.findChild<QLineEdit *>(QStringLiteral("advertHours"));
+        QVERIFY(hours && !hours->isWindow() && hours->isVisibleTo(&advertDialog));
+        auto *days = channelDialog.findChild<QLineEdit *>(QStringLiteral("channelDays"));
+        QVERIFY(days && !days->isWindow() && days->isVisibleTo(&channelDialog));
     }
 
     void themeSwitchRetainsDraft()

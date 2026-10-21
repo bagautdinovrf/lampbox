@@ -648,7 +648,6 @@ ChannelRuleDialog::ChannelRuleDialog(const ChannelRuleValues &initial, const QSt
     d->allDays = new QCheckBox(QStringLiteral("Все числа месяца"));
     d->allDays->setObjectName(QStringLiteral("channelAllDays"));
     d->allDays->setChecked(everyDay);
-    d->days->setVisible(!everyDay);
     connect(d->allDays, &QCheckBox::toggled, d->days, [this](bool checked) { d->days->setVisible(!checked); });
     connect(d->allDays, &QCheckBox::clicked, this, [this](bool checked) { if (!checked) d->days->setFocus(); });
     // Entering specific days (also programmatically) selects them instead of "all".
@@ -733,6 +732,8 @@ ChannelRuleDialog::ChannelRuleDialog(const ChannelRuleValues &initial, const QSt
     daysLayout->setSpacing(12);
     daysLayout->addWidget(d->allDays);
     daysLayout->addWidget(d->days, 1);
+    // Only after reparenting: showing a parentless field opens it as a separate window.
+    d->days->setVisible(!everyDay);
     auto *daysField = field(QStringLiteral("Числа месяца"), daysOptions);
     d->days->setAccessibleName(QStringLiteral("Числа месяца"));
     grid->addWidget(daysField, 4, 0, 1, 2);
@@ -838,7 +839,6 @@ AdvertRuleDialog::AdvertRuleDialog(const AdvertRuleValues &initial, QWidget *par
     const bool allDay = initial.hours.trimmed() == QLatin1String("*");
     d->hours = line(allDay ? QString() : compact(initial.hours, 0, 23), QStringLiteral("advertHours"));
     d->hours->setPlaceholderText(QStringLiteral("Например: 8–22 или 8, 12, 18"));
-    d->hours->setVisible(!allDay);
     d->allHours = new QCheckBox(QStringLiteral("Круглосуточно"));
     d->allHours->setObjectName(QStringLiteral("advertAllHours"));
     d->allHours->setChecked(allDay);
@@ -902,6 +902,8 @@ AdvertRuleDialog::AdvertRuleDialog(const AdvertRuleValues &initial, QWidget *par
     hoursLayout->setSpacing(12);
     hoursLayout->addWidget(d->allHours);
     hoursLayout->addWidget(d->hours, 1);
+    // Only after reparenting: showing a parentless field opens it as a separate window.
+    d->hours->setVisible(!allDay);
     grid->addWidget(field(QStringLiteral("Часы выхода"), hoursOptions), 0, 1);
     d->hours->setAccessibleName(QStringLiteral("Часы выхода"));
     grid->addWidget(field(QStringLiteral("Режим выхода"), d->mode), 1, 0);
