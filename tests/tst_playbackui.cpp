@@ -79,6 +79,17 @@ QStringList filesFor(const QString &kind, const QString &channel)
 
 QString token() { return QString(64, QLatin1Char('a')); }
 
+// The schedule compiler starts a generated validity today, so a frozen player
+// clock must not trail the real date. Keep it on the fixture's October 4th:
+// the first channel is active, the January-only second channel is not, and
+// the advert campaign covers that month.
+QDate playbackDay()
+{
+    const QDate today = QDate::currentDate();
+    const QDate day(today.year(), 10, 4);
+    return day < today ? day.addYears(1) : day;
+}
+
 class Backend final : public MediaBox::AudioBackend
 {
 public:
@@ -207,9 +218,10 @@ private slots:
         QDir(fixtureRoot + "/media/music").removeRecursively();
         QDir(fixtureRoot + "/media/video").removeRecursively();
         ProjectRepository::Project project;
+        const int year = playbackDay().year();
         project.advert = {
-            ProjectFixture::advert("Объявление.mp3", "10", "00m,30m", QDate(2026, 10, 1), QDate(2026, 10, 31), 75),
-            ProjectFixture::advert("Кофе.mp3", "10", "3", QDate(2026, 10, 1), QDate(2026, 10, 31), 70, {2, 22, 42})};
+            ProjectFixture::advert("Объявление.mp3", "10", "00m,30m", QDate(year, 10, 1), QDate(year, 10, 31), 75),
+            ProjectFixture::advert("Кофе.mp3", "10", "3", QDate(year, 10, 1), QDate(year, 10, 31), 70, {2, 22, 42})};
         put(fixtureRoot + "/project.json", ProjectRepository::encode(project));
         mediaFile(fixtureRoot + "/media/ads/Объявление.mp3");
         mediaFile(fixtureRoot + "/media/ads/Кофе.mp3");
@@ -256,7 +268,7 @@ private slots:
         QVERIFY(after.value("publicationId") != before.value("publicationId"));
         QCOMPARE(after.value("revision").toInt(), before.value("revision").toInt() + 1);
         Backend backend;
-        const QDateTime now(QDate(2026, 10, 4), QTime(10, 24));
+        const QDateTime now(playbackDay(), QTime(10, 24));
         MediaBox::PlayerEngine engine(&backend, nullptr, [now] { return now; }, ":memory:");
         const auto result = engine.execute({{"command", "loadPublication"}, {"activePath", activePath},
             {"contentRoot", fixtureRoot + "/media"}, {"autoplay", true}});
@@ -472,7 +484,7 @@ private slots:
     {
         QFETCH(QString, order);
         Backend backend;
-        const QDateTime now(QDate(2026, 10, 4), QTime(10, 24));
+        const QDateTime now(playbackDay(), QTime(10, 24));
         MediaBox::PlayerEngine engine(&backend, nullptr, [now] { return now; }, ":memory:");
         QList<QJsonObject> requests;
         MediaBox::ControlServer server([&](const QJsonObject &request) {
@@ -615,7 +627,7 @@ private slots:
     {
         QFETCH(QString, order);
         Backend backend;
-        const QDateTime now(QDate(2026, 10, 4), QTime(10, 24));
+        const QDateTime now(playbackDay(), QTime(10, 24));
         MediaBox::PlayerEngine engine(&backend, nullptr, [now] { return now; }, ":memory:", "video");
         QList<QJsonObject> requests;
         MediaBox::ControlServer server([&](const QJsonObject &request) {
