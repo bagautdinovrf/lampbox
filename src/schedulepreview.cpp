@@ -181,6 +181,17 @@ SchedulePreviewWidget::SchedulePreviewWidget(QWidget *parent) : QWidget(parent),
     Restyle::button(details, QStringLiteral("quiet"));
     heading->addWidget(details);
     heading->addSpacing(8);
+    const auto dayButton = [panel](const QString &icon, const QString &name, const QString &tip) {
+        auto *button = new QPushButton(panel);
+        button->setObjectName(name);
+        button->setIcon(Restyle::icon(icon));
+        button->setToolTip(tip);
+        button->setAccessibleName(tip);
+        Restyle::button(button, QStringLiteral("icon"));
+        return button;
+    };
+    auto *previousDay = dayButton(QStringLiteral("chevron-left"), QStringLiteral("previousDayButton"), tr("Предыдущий день"));
+    heading->addWidget(previousDay);
     auto *dayStrip = new RestylePanel(panel, QStringLiteral("inset"));
     dayStrip->setFixedSize(298, 32);
     auto *toolbar = new QHBoxLayout(dayStrip);
@@ -199,7 +210,17 @@ SchedulePreviewWidget::SchedulePreviewWidget(QWidget *parent) : QWidget(parent),
         toolbar->addWidget(button);
     }
     heading->addWidget(dayStrip);
+    auto *nextDay = dayButton(QStringLiteral("chevron"), QStringLiteral("nextDayButton"), tr("Следующий день"));
+    heading->addWidget(nextDay);
+    auto *today = new QPushButton(tr("Сегодня"), panel);
+    today->setObjectName(QStringLiteral("todayButton"));
+    today->setToolTip(tr("Вернуться к текущему времени. План обновляется раз в минуту."));
+    Restyle::button(today, QStringLiteral("quiet"));
+    heading->addWidget(today);
     layout->addLayout(heading);
+    connect(previousDay, &QPushButton::clicked, this, &SchedulePreviewWidget::showPreviousDay);
+    connect(nextDay, &QPushButton::clicked, this, &SchedulePreviewWidget::showNextDay);
+    connect(today, &QPushButton::clicked, this, &SchedulePreviewWidget::showCurrentTime);
     layout->addSpacing(10);
     d->documentPreview = new ScheduleDocumentPreview(panel);
     layout->addWidget(d->documentPreview, 1);
@@ -217,11 +238,10 @@ SchedulePreviewWidget::SchedulePreviewWidget(QWidget *parent) : QWidget(parent),
     connect(d->date, &QDateEdit::dateChanged, this, editPreviewTime);
     connect(d->time, &QTimeEdit::timeChanged, this, editPreviewTime);
     connect(d->days, &QButtonGroup::idClicked, this, [this](int day) {
-        const QDate date = d->date->date().addDays(day + 1 - d->date->date().dayOfWeek());
-        if (date == QDateTime::currentDateTimeUtc().toTimeZone(previewZone(d->document)).date())
-            showCurrentTime();
-        else
-            d->date->setDate(date);
+        showDay(d->date->date().addDays(day + 1 - d->date->date().dayOfWeek()));
+    });
+    connect(d->documentPreview, &ScheduleDocumentPreview::timeRequested, this, [this](const QTime &time) {
+        setPreviewDateTime(QDateTime(d->date->date(), time, QTimeZone::UTC));
     });
     connect(d->documentPreview, &ScheduleDocumentPreview::playlistSelected, this, [this](const QString &id) {
         const int row = d->channelRow(id);
@@ -332,6 +352,16 @@ void SchedulePreviewWidget::showCurrentTime()
     d->date->setDate(now.date());
     d->time->setTime(now.time());
     refresh();
+}
+void SchedulePreviewWidget::showPreviousDay() { showDay(d->date->date().addDays(-1)); }
+void SchedulePreviewWidget::showNextDay() { showDay(d->date->date().addDays(1)); }
+void SchedulePreviewWidget::showDay(const QDate &date)
+{
+    // Today follows the clock again, like the today button in the week strip.
+    if (date == QDateTime::currentDateTimeUtc().toTimeZone(previewZone(d->document)).date())
+        showCurrentTime();
+    else
+        d->date->setDate(date);
 }
 QDateTime SchedulePreviewWidget::previewDateTime() const
 {

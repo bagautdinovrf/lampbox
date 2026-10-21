@@ -111,7 +111,7 @@ QVariant MediaModel::headerData(int section, Qt::Orientation orientation, int ro
     case TitleColumn: return tr("Название в тегах");
     case ArtistColumn: return tr("Исполнитель");
     case AlbumColumn: return tr("Альбом");
-    case DurationColumn: return tr("Время");
+    case DurationColumn: return tr("Длительность");
     case FormatColumn: return tr("Формат");
     default: return {};
     }

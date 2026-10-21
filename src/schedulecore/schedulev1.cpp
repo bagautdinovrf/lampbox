@@ -226,7 +226,7 @@ public:
     void rule(const QJsonObject &o, const QString &p)
     {
         id(o,p); string(o.value("name"),p + ".name");
-        if (!o.value("enabled").isBool()) fail(p + ".enabled",QStringLiteral("Ожидается boolean"));
+        if (!o.value("enabled").isBool()) fail(p + ".enabled",QStringLiteral("Ожидается true или false"));
         integer(o.value("priority"),p + ".priority",-1000000,1000000); condition(o.value("when"),p + ".when");
     }
     void validate(const QJsonObject &o)
@@ -278,7 +278,8 @@ public:
             const auto coverage = range(a.value("coverage"),"calendars.coverage"); dates(a.value("dates"),"calendars.dates");
             for (const auto &d : a.value("dates").toArray())
                 if (date(d,"calendars.dates") < coverage.first || date(d,"calendars.dates") >= coverage.second)
-                    fail("calendars.dates",QStringLiteral("Дата за пределами coverage"));
+                    fail("calendars.dates",QStringLiteral("Дата %1 вне периода календаря «%2» (coverage)")
+                         .arg(d.toString(),a.value("name").toString()));
             calendars.insert(a.value("id").toString(),a);
         }
         for (const auto &value : array(o.value("dayTemplates"),"dayTemplates")) {
@@ -301,7 +302,7 @@ public:
             noWindowOverlap(windows,"mixRules.windows");
             const auto pattern = array(a.value("pattern"),"mixRules.pattern",2,64); bool additional = false;
             for (const auto &s : pattern) { source(s,"mixRules.pattern",true); additional |= s.toObject().value("type") == "playlist"; }
-            if (pattern.first().toObject().value("type") != "active_base" || !additional) fail("mixRules.pattern",QStringLiteral("Первый слот — active_base; требуется дополнительный плейлист"));
+            if (pattern.first().toObject().value("type") != "active_base" || !additional) fail("mixRules.pattern",QStringLiteral("Чередование начинается с основной программы (active_base) и включает дополнительный плейлист"));
             constant(a.value("emptyAdditionalSource"),"mixRules.emptyAdditionalSource","use_base");
         }
         for (const auto &value : array(o.value("eventRules"),"eventRules")) {
@@ -324,9 +325,12 @@ public:
             if (!found) fail(r.path,QStringLiteral("Отсутствует объект %1").arg(r.id));
         }
         for (const auto &id : usedCalendars) {
-            const auto coverage = range(calendars.value(id).value("coverage"),"calendars.coverage");
+            const auto calendar = calendars.value(id);
+            const auto coverage = range(calendar.value("coverage"),"calendars.coverage");
             if (coverage.first > validity.first || coverage.second < validity.second)
-                fail("calendars.coverage",QStringLiteral("Календарь %1 не покрывает весь validity").arg(id));
+                fail("calendars.coverage",QStringLiteral("Период календаря «%1» должен охватывать весь срок действия расписания (validity): %2 — %3")
+                     .arg(calendar.value("name").toString(id),validity.first.toString("dd.MM.yyyy"),
+                          validity.second.addDays(-1).toString("dd.MM.yyyy")));
         }
         QSet<QString> capabilities;
         for (const auto &v : array(o.value("requiredCapabilities"),"requiredCapabilities",1)) {
@@ -426,7 +430,7 @@ QList<Segment> winners(const QList<Segment> &segments, const QString &group, con
                     return name.isEmpty() ? rule.value("id").toString() : name;
                 };
                 const QString kind = group == QLatin1String("baseRules")
-                        ? QStringLiteral("Базовые правила") : QStringLiteral("Правила чередования");
+                        ? QStringLiteral("Правила основной программы") : QStringLiteral("Правила чередования");
                 const QString from = QDateTime::fromMSecsSinceEpoch(at,zone).toString(QStringLiteral("dd.MM.yyyy HH:mm:ss"));
                 const QString until = QDateTime::fromMSecsSinceEpoch(std::min(other.until,s.until),zone)
                         .toString(QStringLiteral("dd.MM.yyyy HH:mm:ss"));
@@ -621,7 +625,12 @@ Evaluation evaluate(const Document &document, const QDateTime &at)
         }
         const auto localDate = at.toTimeZone(c.zone).date();
         for (const auto &d : c.diagnostics) if (d.date == localDate || d.date == localDate.addDays(-1)) result.diagnostics.append(d.text);
-    } else result.diagnostics.append(QStringLiteral("Расписание вне validity; применяется резервный источник"));
+    } else {
+        // until is exclusive; operators read the last day as included.
+        result.diagnostics.append(QStringLiteral("Расписание действует с %1 по %2. Сейчас вне срока — звучит резервный источник. "
+                                                 "Продлите срок в «Настройках расписания» (Подробные настройки → Общее).")
+                                  .arg(c.fromDate.toString("dd.MM.yyyy"),c.untilDate.addDays(-1).toString("dd.MM.yyyy")));
+    }
     result.silence = source.value("type") == "silence";
     result.playlistId = source.value("playlistId").toString();
     return result;

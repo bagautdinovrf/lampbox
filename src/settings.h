@@ -76,6 +76,9 @@ public:
     // Preserve Qt's opaque saveGeometry() data, including the window state.
     QByteArray mainWindowGeometry() const;
     bool setMainWindowGeometry(const QByteArray &geometry);
+    // Opaque QSplitter::saveState() shared by the music, video and advert pages.
+    QByteArray mainWindowSplitter() const;
+    bool setMainWindowSplitter(const QByteArray &state);
 
     PlayerConnectionSettings playerConnection() const;
     bool setPlayerConnection(const PlayerConnectionSettings &connection);

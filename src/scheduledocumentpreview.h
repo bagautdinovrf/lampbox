@@ -20,6 +20,8 @@ public:
 signals:
     void playlistSelected(const QString &playlistId);
     void playlistEditRequested(const QString &playlistId);
+    // A click on the hour scale above the lanes; local wall time of the shown day.
+    void timeRequested(const QTime &time);
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;

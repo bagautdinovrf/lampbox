@@ -78,6 +78,9 @@ public:
      */
     bool delFile(const QString &fileName);
 
+    // Moves the file to the system recycle bin; false when the volume has none.
+    bool trashFile(const QString &fileName);
+
     /**
      * @brief delFile
      * @param num

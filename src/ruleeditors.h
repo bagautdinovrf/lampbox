@@ -5,6 +5,7 @@
 
 #include <QDate>
 #include <QDialog>
+#include <QIdentityProxyModel>
 #include <QStringList>
 #include <QTime>
 #include <functional>
@@ -60,7 +61,7 @@ private:
 class AdvertRuleDialog final : public QDialog {
 public:
     explicit AdvertRuleDialog(const AdvertRuleValues &initial, QWidget *parent = nullptr,
-                              bool creating = false);
+                              bool creating = false, const QStringList &files = {});
     ~AdvertRuleDialog() override;
     AdvertRuleValues values() const;
     void accept() override;
@@ -75,11 +76,41 @@ private:
 std::optional<ChannelRuleValues> newChannel(QWidget *parent = nullptr,
                                           const QStringList &existingNames = {});
 std::optional<AdvertRuleValues> newAdvert(const QString &fileName, QWidget *parent = nullptr);
+// Lets the operator pick the clip from the advert library; preselected may be empty.
+std::optional<AdvertRuleValues> newAdvert(const QStringList &files, const QString &preselected,
+                                          QWidget *parent = nullptr);
 bool applyChannel(QAbstractItemModel *model, int row, const ChannelRuleValues &values);
 bool applyAdvert(QAbstractItemModel *model, int row, const AdvertRuleValues &values);
 bool editChannel(QAbstractItemModel *model, int row, QWidget *parent = nullptr,
                  const std::function<void()> &deleteAction = {});
 bool editAdvert(QAbstractItemModel *model, int row, QWidget *parent = nullptr);
+
+// Operator-facing wording of stored rule fields ("*", "1,2,3,4,5", "00m,30m").
+// Values that cannot be parsed are returned unchanged.
+QString describeWeekdays(const QString &value);
+QString describeMonthDays(const QString &value);
+QString describeMonths(const QString &value);
+QString describeHours(const QString &value);
+QString describeAdvertTiming(const QString &minutes);
+QString describeCalendar(const QString &weekdays, const QString &days, const QString &months);
+
+// Display-only view of ChannelModel / AdvertModel columns. Edit roles and row
+// numbers stay those of the source model.
+// Adverts get one extra, read-only "Запуск" column from AdvertModel::StartModeRole.
+class RuleTableModel final : public QIdentityProxyModel {
+public:
+    enum Kind { Channels, Adverts };
+    explicit RuleTableModel(Kind kind, QObject *parent = nullptr);
+    int columnCount(const QModelIndex &parent = {}) const override;
+    QModelIndex index(int row, int column, const QModelIndex &parent = {}) const override;
+    QModelIndex sibling(int row, int column, const QModelIndex &index) const override;
+    QModelIndex mapToSource(const QModelIndex &proxyIndex) const override;
+    QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+    QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
+private:
+    int startColumn() const;
+    Kind mKind;
+};
 
 } // namespace RuleEditors
 

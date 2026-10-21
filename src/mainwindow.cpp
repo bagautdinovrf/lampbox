@@ -33,8 +33,10 @@
 #include <QDialogButtonBox>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QButtonGroup>
 #include <QGridLayout>
 #include <QHeaderView>
+#include <QHelpEvent>
 #include <QJsonArray>
 #include <QLabel>
 #include <QLineEdit>
@@ -47,12 +49,14 @@
 #include <QScrollArea>
 #include <QSignalBlocker>
 #include <QSortFilterProxyModel>
+#include <QSplitter>
 #include <QStackedWidget>
 #include <QStyledItemDelegate>
 #include <QTableView>
 #include <QTimeEdit>
 #include <QTreeView>
 #include <QTimer>
+#include <QToolTip>
 #include <QUrl>
 #include <algorithm>
 
@@ -136,25 +140,49 @@ class ChannelDelegate final : public QStyledItemDelegate {
         const auto counts = parent()->property("channelFileCounts").toStringList();
         const auto statuses = parent()->property("channelStatuses").toStringList();
         const auto active = parent()->property("channelActive").toList();
+        // Second line: time window and calendar conditions (the former channel card).
+        const QString window = i.siblingAtColumn(1).data().toString() + "–" + i.siblingAtColumn(2).data().toString();
         p->drawText(o.rect.adjusted(7, 23, -7, -23), Qt::AlignVCenter,
-                    i.siblingAtColumn(1).data().toString() + "–" + i.siblingAtColumn(2).data().toString() +
-                        " · " + counts.value(i.row(), "0") + " файлов");
+                    p->fontMetrics().elidedText(window + " · " + calendar(i), Qt::ElideRight, o.rect.width() - 14));
         const QString status = statuses.value(i.row(), "План не рассчитан");
         const bool now = active.value(i.row()).toBool();
+        const QString files = counts.value(i.row(), "0") + " файлов";
+        const int filesWidth = p->fontMetrics().horizontalAdvance(files);
         QRect badge(o.rect.left() + 7, o.rect.top() + 42,
-                    qMin(o.rect.width() - 14, p->fontMetrics().horizontalAdvance(status) + 10), 14);
+                    qMax(0, qMin(o.rect.width() - 24 - filesWidth, p->fontMetrics().horizontalAdvance(status) + 10)), 14);
         p->setPen(now ? Restyle::tokens().success : Restyle::tokens().line);
         p->setBrush(now ? Restyle::tokens().successBg : Restyle::tokens().surface);
         p->drawRoundedRect(badge, 2, 2);
         p->setPen(now ? Restyle::tokens().success : Restyle::tokens().secondary);
         p->drawText(badge.adjusted(4, 0, -4, 0), Qt::AlignVCenter,
                     p->fontMetrics().elidedText(status, Qt::ElideRight, badge.width() - 8));
+        p->setPen(Restyle::tokens().secondary);
+        p->drawText(QRect(badge.right() + 8, badge.top(), filesWidth + 2, badge.height()), Qt::AlignVCenter, files);
         if (o.state & QStyle::State_HasFocus) {
             p->setPen(QPen(Restyle::tokens().focus, 2));
             p->setBrush(Qt::NoBrush);
             p->drawRoundedRect(r.adjusted(2, 2, -2, -2), 7, 7);
         }
         p->restore();
+    }
+    bool helpEvent(QHelpEvent *event, QAbstractItemView *view, const QStyleOptionViewItem &option,
+                   const QModelIndex &i) override {
+        if (event->type() != QEvent::ToolTip || !i.isValid())
+            return QStyledItemDelegate::helpEvent(event, view, option, i);
+        QToolTip::showText(event->globalPos(),
+                           QStringLiteral("%1\n%2–%3 · %4\nГромкость %5%")
+                               .arg(i.data().toString(), i.siblingAtColumn(1).data().toString(),
+                                    i.siblingAtColumn(2).data().toString(), calendar(i))
+                               .arg(i.siblingAtColumn(6).data(Qt::EditRole).toInt()),
+                           view);
+        return true;
+    }
+
+  private:
+    static QString calendar(const QModelIndex &i) {
+        return RuleEditors::describeCalendar(i.siblingAtColumn(3).data(Qt::EditRole).toString(),
+                                             i.siblingAtColumn(4).data(Qt::EditRole).toString(),
+                                             i.siblingAtColumn(5).data(Qt::EditRole).toString());
     }
 };
 QString known(const QString &s) {
@@ -332,9 +360,19 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     QSize available = screen()->availableGeometry().size();
     adaptLayout(available.width() - 24);
     resize(QSize(1440, 900).boundedTo(available - QSize(24, 48)));
-    if (qApp->property("restylePreviewStation").toString().isEmpty())
+    if (qApp->property("restylePreviewStation").toString().isEmpty()) {
         restoreGeometry(Settings().mainWindowGeometry());
+        const QByteArray splitter = Settings().mainWindowSplitter();
+        for (auto &page : mPages)
+            if (!splitter.isEmpty() && page.splitter)
+                page.splitter->restoreState(splitter);
+    }
     adaptLayout(width());
+    // The advert summary has no date picker: it always shows the current minute.
+    auto *advertClock = new QTimer(this);
+    advertClock->setInterval(60 * 1000);
+    connect(advertClock, &QTimer::timeout, this, [this] { updateSummary(PAGE_ADVERT); });
+    advertClock->start();
     QTimer::singleShot(0, this, &MainWindow::updateScheduleDocumentPreview);
 }
 MainWindow::~MainWindow() {
@@ -364,8 +402,11 @@ void MainWindow::closeEvent(QCloseEvent *event) {
         return;
     }
     QMainWindow::closeEvent(event);
-    if (event->isAccepted() && qApp->property("restylePreviewStation").toString().isEmpty())
+    if (event->isAccepted() && qApp->property("restylePreviewStation").toString().isEmpty()) {
         Settings().setMainWindowGeometry(saveGeometry());
+        if (mPages[mPage].splitter)
+            Settings().setMainWindowSplitter(mPages[mPage].splitter->saveState());
+    }
 }
 
 void MainWindow::buildShell() {
@@ -390,45 +431,14 @@ void MainWindow::buildShell() {
     context->setProperty("compactHide", true);
     h->addWidget(context);
     h->addStretch();
-    h->addWidget(label("Оформление", 11));
-    mAppearance = new QComboBox;
-    mAppearance->setObjectName("appearancePicker");
-    mAppearance->addItem("Оригинал", "tide");
-    mAppearance->addItem("Рельеф", "tide-relief");
-    mAppearance->setFont(Restyle::font(11, QFont::DemiBold));
-    mAppearance->setFixedSize(112, 30);
-    h->addWidget(mAppearance);
-    h->addWidget(label("Тема", 11));
-    mTheme = new QComboBox;
-    mTheme->setObjectName("themePicker");
-    QStringList names = {"Деним", "Сланец", "Хвоя", "Ягодная", "Графит", "Жемчуг", "Тёмная"};
-    QStringList ids = {"denim", "slate", "pine", "berry", "graphite", "pearl", "dark"};
-    for (int i = 0; i < names.size(); ++i)
-        mTheme->addItem(names[i], ids[i]);
-    mTheme->setFont(Restyle::font(11, QFont::DemiBold));
-    mTheme->setFixedSize(105, 30);
-    h->addWidget(mTheme);
-    Settings settings;
-    mAppearance->setCurrentIndex(mAppearance->findData(settings.appearanceId()));
-    mTheme->setCurrentIndex(mTheme->findData(settings.themeId()));
-    auto themeChanged = [this] {
-        Settings settings;
-        settings.setAppearanceId(mAppearance->currentData().toString());
-        settings.setThemeId(mTheme->currentData().toString());
-        Restyle::apply(settings.appearanceId(), settings.themeId());
-    };
-    connect(mAppearance, &QComboBox::currentIndexChanged, this, themeChanged);
-    connect(mTheme, &QComboBox::currentIndexChanged, this, themeChanged);
     auto *station =
         button(StationManager::Instance().type() == STATION_NETWORK ? "Сетевая станция" : "Локальная станция",
-               "chevron", "quiet");
+               "info", "quiet");
     station->setObjectName("stationInfoButton");
-    station->setProperty("compactHide", true);
+    station->setToolTip("Сведения о станции");
+    station->setProperty("fullText", station->text());
     h->addWidget(station);
     connect(station, &QPushButton::clicked, this, &MainWindow::showStationInfo);
-    auto *info = iconButton("info", "Сведения о станции");
-    h->addWidget(info);
-    connect(info, &QPushButton::clicked, this, &MainWindow::showStationInfo);
     layout->addWidget(header);
     auto *nav = new RestylePanel(root, "nav");
     nav->setObjectName("navigation");
@@ -497,10 +507,48 @@ void MainWindow::buildShell() {
             return;
         mMediaController->stop();
     });
-    mOperationState = label("Расчёт плана не подтверждает воспроизведение", 10);
+    // Segmented "Вручную | По расписанию": checked state is the mode the player
+    // confirmed for the current page, a click requests that mode.
+    auto *modes = new RestylePanel(transport, "inset");
+    modes->setObjectName("playbackModes");
+    modes->setFixedHeight(32);
+    auto *m = new QHBoxLayout(modes);
+    m->setContentsMargins(3, 3, 3, 3);
+    m->setSpacing(3);
+    auto *modeGroup = new QButtonGroup(this);
+    modeGroup->setExclusive(false);
+    for (auto **mode : {&mManualMode, &mScheduleMode}) {
+        const bool schedule = mode == &mScheduleMode;
+        *mode = new QPushButton(schedule ? "По расписанию" : "Вручную", modes);
+        (*mode)->setObjectName(schedule ? "scheduleModeButton" : "manualModeButton");
+        (*mode)->setCheckable(true);
+        (*mode)->setFixedHeight(26);
+        Restyle::button(*mode, "day");
+        (*mode)->setFont(Restyle::font(10));
+        (*mode)->setAccessibleName((*mode)->text());
+        modeGroup->addButton(*mode);
+        m->addWidget(*mode);
+    }
+    t->addWidget(modes);
+    connect(mManualMode, &QPushButton::clicked, this, [this] {
+        playSelectedChannel(mPage == PAGE_VIDEO ? PAGE_VIDEO : PAGE_MUSIC);
+        updateModeButtons();
+    });
+    connect(mScheduleMode, &QPushButton::clicked, this, [this] {
+        startScheduledPlayback(mPage == PAGE_VIDEO ? PAGE_VIDEO : PAGE_MUSIC);
+        updateModeButtons();
+    });
+    mOperationState = label({}, 10);
     mOperationState->setMinimumWidth(80);
     mOperationState->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     t->addWidget(mOperationState, 1);
+    mOpenSettings = button("Открыть настройки", "settings", "quiet");
+    mOpenSettings->setObjectName("openSettingsButton");
+    mOpenSettings->setToolTip("Подключение к MediaBoxPlayer настраивается в разделе «Настройки»");
+    mOpenSettings->setFixedHeight(29);
+    mOpenSettings->setFont(Restyle::font(10, QFont::DemiBold));
+    t->addWidget(mOpenSettings);
+    connect(mOpenSettings, &QPushButton::clicked, this, [this] { changePage(4); });
     auto *refresh = button("Обновить состояние", "refresh", "quiet");
     auto *show = button("Аудиоплеер", "eye", "quiet");
     refresh->setObjectName("refreshPlayerButton");
@@ -518,7 +566,7 @@ void MainWindow::buildShell() {
     });
     connect(show, &QPushButton::clicked, this, &MainWindow::showPlayerControls);
     if (!qApp->property("restylePreviewStation").toString().isEmpty())
-        for (auto *b : {mPlay, mStop, refresh, show}) {
+        for (auto *b : {mPlay, mStop, refresh, show, mManualMode, mScheduleMode}) {
             b->setEnabled(false);
             b->setToolTip("Изолированный просмотр: управление плеером отключено");
         }
@@ -535,7 +583,7 @@ QWidget *MainWindow::buildMediaPage(int page) {
     scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     p.root = new QWidget;
     p.root->setObjectName("workspace" + suffix);
-    p.root->setMinimumSize(1000, 654);
+    p.root->setMinimumSize(1000, 600);
     scroll->setWidget(p.root);
     auto *l = column(p.root, 0, 0);
     l->setContentsMargins(22, 16, 22, 0);
@@ -555,13 +603,6 @@ QWidget *MainWindow::buildMediaPage(int page) {
     headingText->addWidget(p.subtitle);
     h->addLayout(headingText);
     h->addStretch();
-    if (!ads) {
-        p.schedulePlayback = button("По расписанию", "calendar", "primary");
-        p.schedulePlayback->setObjectName(page == PAGE_MUSIC ? "audioScheduleButton" : "videoScheduleButton");
-        p.schedulePlayback->setToolTip("Опубликовать расписание и включить его воспроизведение плеером");
-        h->addWidget(p.schedulePlayback);
-        connect(p.schedulePlayback, &QPushButton::clicked, this, [this, page] { startScheduledPlayback(page); });
-    }
     if (page == PAGE_VIDEO) {
         auto *screens = button("Видеоэкраны", "video");
         screens->setObjectName("videoScreensButton");
@@ -570,14 +611,15 @@ QWidget *MainWindow::buildMediaPage(int page) {
         connect(screens, &QPushButton::clicked, this, &MainWindow::showVideoControls);
     }
     if (!ads) {
-        auto *project = button("Настройки расписания", "calendar");
+        auto *project = button("Настройки расписания", "settings");
         project->setObjectName(page == PAGE_MUSIC ? "scheduleProjectButton" : "videoScheduleProjectButton");
         project->setToolTip("Чередование плейлистов, календари и дополнительные правила расписания");
         h->addWidget(project);
         connect(project, &QPushButton::clicked, this, [this, page] { editScheduleProject(page); });
     }
-    auto *all = button("Все параметры", "calendar");
+    auto *all = button("Все параметры", "grid");
     all->setObjectName("allSchedulesButton" + suffix);
+    all->setToolTip(ads ? "Все рекламные правила одной таблицей" : "Все каналы и их условия одной таблицей");
     h->addWidget(all);
     connect(all, &QPushButton::clicked, this, &MainWindow::showAllSchedules);
     auto *create = button(ads ? "Добавить правило" : "Создать канал", "plus", "primary");
@@ -589,116 +631,75 @@ QWidget *MainWindow::buildMediaPage(int page) {
         p.addAdvert = create;
     l->addWidget(heading);
     l->addSpacing(12);
+    // One date picker per page: the schedule panel. Adverts use the current time.
     auto *summary = new RestylePanel(p.root);
     summary->setObjectName("planSummary" + suffix);
-    summary->setFixedHeight(71);
+    summary->setFixedHeight(56);
+    summary->setToolTip(ads ? "Расчёт плана на текущее время по календарным условиям. "
+                              "Фактическое воспроизведение подтверждает плеер."
+                            : "Расчёт плана на дату и время, выбранные в расписании. "
+                              "Фактическое воспроизведение подтверждает плеер.");
     auto *sum = new QHBoxLayout(summary);
     sum->setContentsMargins(14, 8, 14, 8);
     sum->setSpacing(18);
-    auto *dateCol = new QVBoxLayout;
-    dateCol->setSpacing(5);
-    dateCol->addWidget(label("ПРОВЕРКА ПЛАНА", 9, QFont::DemiBold));
-    auto *when = new QDateTimeEdit(QDateTime::currentDateTime());
-    when->setObjectName("planDateTime" + suffix);
-    when->setDisplayFormat("dd.MM.yyyy");
-    when->setCalendarPopup(true);
-    when->setFixedSize(110, 28);
-    when->setFont(Restyle::font(10));
-    auto *time = new QTimeEdit(QTime::currentTime());
-    time->setDisplayFormat("HH:mm");
-    time->setObjectName("planTime" + suffix);
-    time->setFixedSize(66, 28);
-    time->setFont(Restyle::font(10));
-    connect(time, &QTimeEdit::timeChanged, when, &QDateTimeEdit::setTime);
-    auto *dateFields = new QHBoxLayout;
-    dateFields->setSpacing(7);
-    dateFields->addWidget(when);
-    dateFields->addWidget(time);
-    dateCol->addLayout(dateFields);
-    sum->addLayout(dateCol);
-    const QStringList captions = {"ПО РАСПИСАНИЮ", "СЛЕДУЮЩАЯ СМЕНА КАНАЛА",
-                                  "СЛЕДУЮЩИЙ ТОЧНЫЙ ВЫХОД РЕКЛАМЫ"};
+    const QStringList captions = {"По расписанию", "Следующая смена канала", "Следующий точный выход рекламы"};
     QLabel **fields[] = {&p.planNow, &p.planNext, &p.planAd};
     for (int i = 0; i < 3; ++i) {
         auto *col = new QVBoxLayout;
         col->setSpacing(3);
-        col->addWidget(label(captions[i], 9, QFont::DemiBold));
-        *fields[i] = label("Нет данных", 12);
+        col->addWidget(label(captions[i], 10));
+        *fields[i] = label("Нет данных", 12, QFont::DemiBold);
         (*fields[i])->setMinimumWidth(20);
         (*fields[i])->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
         col->addWidget(*fields[i]);
-        col->addWidget(label("По календарным условиям · расчёт плана", 9));
         sum->addLayout(col, 1);
     }
     l->addWidget(summary);
     l->addSpacing(10);
-    auto *grid = new QGridLayout;
-    grid->setContentsMargins(0, 0, 0, 0);
-    grid->setHorizontalSpacing(14);
-    grid->setVerticalSpacing(12);
-    grid->setColumnMinimumWidth(0, 205);
-    grid->setColumnMinimumWidth(2, 275);
-    grid->setColumnStretch(1, 1);
-    grid->setRowMinimumHeight(0, 349);
-    grid->setRowStretch(1, 1);
-    auto *left = new QWidget;
-    left->setObjectName("channelsSidebar" + suffix);
-    left->setFixedWidth(205);
-    left->setFixedHeight(349);
-    auto *leftLayout = column(left, 0, 12);
-    auto *card = new RestylePanel(left, "selection");
-    card->setObjectName("selectedChannel" + suffix);
-    card->setFixedHeight(ads ? 85 : 122);
-    auto *c = column(card, 11, 3);
-    auto *ct = new QHBoxLayout;
-    ct->setSpacing(2);
-    p.channelTitle = label(ads ? "Рекламные правила" : "Канал не выбран", 16, QFont::DemiBold);
-    p.channelTitle->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
-    ct->addWidget(p.channelTitle, 1);
-    p.editChannel = iconButton("edit", ads ? "Редактировать правило" : "Редактировать канал");
-    p.editChannel->setObjectName("editChannelButton" + suffix);
-    ct->addWidget(p.editChannel);
+    // The operator sizes the schedule against the library; all pages share it.
+    p.splitter = new QSplitter(Qt::Vertical);
+    p.splitter->setObjectName("pageSplitter" + suffix);
+    p.splitter->setChildrenCollapsible(false);
+    p.splitter->setHandleWidth(12);
+    auto *top = new QWidget;
+    top->setObjectName("topRow" + suffix);
+    top->setMinimumHeight(250);
+    auto *topLayout = new QHBoxLayout(top);
+    topLayout->setContentsMargins(0, 0, 0, 0);
+    topLayout->setSpacing(14);
     if (!ads) {
+        auto *left = new QWidget;
+        left->setObjectName("channelsSidebar" + suffix);
+        left->setFixedWidth(205);
+        auto *leftLayout = column(left, 0, 0);
+        auto *channelPanel = new RestylePanel(left);
+        channelPanel->setObjectName("channelPanel" + suffix);
+        auto *cl = column(channelPanel, 8, 5);
+        auto *ch = new QHBoxLayout;
+        ch->setContentsMargins(3, 2, 3, 0);
+        ch->setSpacing(2);
+        ch->addWidget(label("Каналы", 13, QFont::DemiBold));
+        ch->addStretch();
+        p.playChannel = iconButton("play", "Играть канал");
+        p.playChannel->setObjectName(page == PAGE_MUSIC ? "playChannelButton" : "playVideoChannelButton");
+        p.playChannel->setToolTip("Играть канал целиком по кругу, без расписания");
+        ch->addWidget(p.playChannel);
+        connect(p.playChannel, &QPushButton::clicked, this, [this, page] { playSelectedChannel(page); });
+        p.editChannel = iconButton("edit", "Редактировать канал");
+        p.editChannel->setObjectName("editChannelButton" + suffix);
+        ch->addWidget(p.editChannel);
+        connect(p.editChannel, &QPushButton::clicked, this, &MainWindow::openChannelEditor);
         p.deleteChannel = iconButton("trash", "Удалить канал");
         p.deleteChannel->setObjectName("deleteChannelButton" + suffix);
-        ct->addWidget(p.deleteChannel);
+        ch->addWidget(p.deleteChannel);
         connect(p.deleteChannel, &QPushButton::clicked, this, &MainWindow::slot_deleteChannel);
-    }
-    c->addLayout(ct);
-    p.channelConditions = label("Календарные условия", 9);
-    c->addWidget(p.channelConditions);
-    p.channelDetail = label("Нет выбранного канала", 9);
-    c->addWidget(p.channelDetail);
-    if (!ads) {
-        p.playChannel = button("Играть канал", "play");
-        p.playChannel->setObjectName(page == PAGE_MUSIC ? "playChannelButton" : "playVideoChannelButton");
-        p.playChannel->setToolTip("Воспроизводить все файлы выбранного канала с повтором, независимо от расписания");
-        c->addWidget(p.playChannel);
-        connect(p.playChannel, &QPushButton::clicked, this, [this, page] { playSelectedChannel(page); });
-    }
-    leftLayout->addWidget(card);
-    connect(p.editChannel, &QPushButton::clicked, this,
-            ads ? &MainWindow::openAdvertEditor : &MainWindow::openChannelEditor);
-    auto *channelPanel = new RestylePanel(left);
-    channelPanel->setObjectName("channelPanel" + suffix);
-    auto *cl = column(channelPanel, 8, 5);
-    auto *ch = new QHBoxLayout;
-    ch->setContentsMargins(3, 2, 3, 0);
-    ch->addWidget(label(ads ? "Правила рекламы" : "Каналы", 13, QFont::DemiBold));
-    ch->addStretch();
-    auto *plus = iconButton("plus", ads ? "Добавить правило" : "Создать канал");
-    plus->setObjectName("sidebarAddButton" + suffix);
-    ch->addWidget(plus);
-    connect(plus, &QPushButton::clicked, this,
-            ads ? &MainWindow::slot_addAdvert : &MainWindow::slot_addChannel);
-    cl->addLayout(ch);
-    p.channels = new QTableView;
-    configureTable(p.channels);
-    p.channels->setObjectName("channelList" + suffix);
-    p.channels->horizontalHeader()->hide();
-    p.channels->setSelectionMode(QAbstractItemView::SingleSelection);
-    p.channels->setMouseTracking(true);
-    if (!ads) {
+        cl->addLayout(ch);
+        p.channels = new QTableView;
+        configureTable(p.channels);
+        p.channels->setObjectName("channelList" + suffix);
+        p.channels->horizontalHeader()->hide();
+        p.channels->setSelectionMode(QAbstractItemView::SingleSelection);
+        p.channels->setMouseTracking(true);
         p.channels->setModel(mChannelModels[page]);
         for (int i = 1; i < 7; ++i)
             p.channels->hideColumn(i);
@@ -708,27 +709,37 @@ QWidget *MainWindow::buildMediaPage(int page) {
         connect(p.channels->selectionModel(), &QItemSelectionModel::currentRowChanged, this,
                 [this, page](const QModelIndex &i) { selectChannel(page, i.row()); });
         connect(p.channels, &QTableView::doubleClicked, this, &MainWindow::openChannelEditor);
-    } else {
-        p.channels->setModel(mAdvertModel);
-        for (int i = 1; i < 7; ++i)
-            p.channels->hideColumn(i);
-        connect(p.channels->selectionModel(), &QItemSelectionModel::currentRowChanged, this,
-                [this](const QModelIndex &i) {
-                    if (mPages[2].adverts && i.isValid())
-                        mPages[2].adverts->selectRow(i.row());
-                    updatePage(2);
-                });
-        connect(p.channels, &QTableView::doubleClicked, this, &MainWindow::openAdvertEditor);
-    }
-    cl->addWidget(p.channels, 1);
-    leftLayout->addWidget(channelPanel, 1);
-    grid->addWidget(left, 0, 0);
-    if (!ads) {
+        p.channels->setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(p.channels, &QWidget::customContextMenuRequested, this, [this, page](const QPoint &position) {
+            auto &pageUi = mPages[page];
+            const QModelIndex index = pageUi.channels->indexAt(position);
+            if (index.isValid())
+                pageUi.channels->selectRow(index.row());
+            QMenu menu(this);
+            if (index.isValid()) {
+                auto *play = menu.addAction(Restyle::icon("play"), "Играть канал");
+                play->setEnabled(pageUi.playChannel->isEnabled());
+                connect(play, &QAction::triggered, this, [this, page] { playSelectedChannel(page); });
+                auto *edit = menu.addAction(Restyle::icon("edit"), "Редактировать…");
+                edit->setEnabled(pageUi.editChannel->isEnabled());
+                connect(edit, &QAction::triggered, this, &MainWindow::openChannelEditor);
+                auto *remove = menu.addAction(Restyle::icon("trash"), "Удалить канал…");
+                remove->setEnabled(pageUi.deleteChannel->isEnabled());
+                connect(remove, &QAction::triggered, this, &MainWindow::slot_deleteChannel);
+                menu.addSeparator();
+            }
+            auto *create = menu.addAction(Restyle::icon("plus"), "Создать канал…");
+            create->setEnabled(!mMediaImport);
+            connect(create, &QAction::triggered, this, &MainWindow::slot_addChannel);
+            menu.exec(pageUi.channels->viewport()->mapToGlobal(position));
+        });
+        cl->addWidget(p.channels, 1);
+        leftLayout->addWidget(channelPanel, 1);
+        topLayout->addWidget(left);
         p.schedule = new SchedulePreviewWidget;
         p.schedule->setObjectName("schedulePanel" + suffix);
-        p.schedule->setFixedHeight(349);
         p.schedule->setModels(mChannelModels[page], mAdvertModel);
-        grid->addWidget(p.schedule, 0, 1, 1, 2);
+        topLayout->addWidget(p.schedule, 1);
         connect(p.schedule, &SchedulePreviewWidget::selectedRowChanged, this, [this, page](int row) {
             if (row >= 0)
                 mPages[page].channels->selectRow(row);
@@ -739,12 +750,10 @@ QWidget *MainWindow::buildMediaPage(int page) {
         });
         connect(p.schedule, &SchedulePreviewWidget::snapshotChanged, this,
                 [this, page] { updateSummary(page); });
-        connect(when, &QDateTimeEdit::dateTimeChanged, p.schedule,
-                &SchedulePreviewWidget::setPreviewDateTime);
     } else {
+        // The rule table is the only list of rules: no duplicate sidebar card.
         auto *rules = new RestylePanel(p.root);
         rules->setObjectName("advertRulesPanel");
-        rules->setFixedHeight(349);
         auto *rl = column(rules, 16, 10);
         auto *rh = new QHBoxLayout;
         rh->addWidget(label("Правила выхода рекламы", 14, QFont::DemiBold));
@@ -762,7 +771,9 @@ QWidget *MainWindow::buildMediaPage(int page) {
         p.adverts = new QTableView;
         configureTable(p.adverts);
         p.adverts->setObjectName("advertTable");
-        p.adverts->setModel(mAdvertModel);
+        auto *advertDisplay = new RuleEditors::RuleTableModel(RuleEditors::RuleTableModel::Adverts, p.adverts);
+        advertDisplay->setSourceModel(mAdvertModel);
+        p.adverts->setModel(advertDisplay);
         p.adverts->setSelectionMode(QAbstractItemView::ExtendedSelection);
         p.adverts->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
         p.adverts->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
@@ -770,9 +781,15 @@ QWidget *MainWindow::buildMediaPage(int page) {
         connect(p.adverts, &QTableView::doubleClicked, this, &MainWindow::openAdvertEditor);
         connect(p.adverts->selectionModel(), &QItemSelectionModel::selectionChanged, this,
                 [this] { updatePage(2); });
-        grid->addWidget(rules, 0, 1, 1, 2);
-        connect(when, &QDateTimeEdit::dateTimeChanged, this, [this] { updateSummary(2); });
+        topLayout->addWidget(rules, 1);
     }
+    p.splitter->addWidget(top);
+    auto *bottom = new QWidget;
+    bottom->setObjectName("libraryRow" + suffix);
+    bottom->setMinimumHeight(190);
+    auto *bottomLayout = new QHBoxLayout(bottom);
+    bottomLayout->setContentsMargins(0, 0, 0, 0);
+    bottomLayout->setSpacing(14);
     auto *library = new RestylePanel(p.root);
     library->setObjectName("libraryPanel" + suffix);
     auto *ll = column(library, 14, 8);
@@ -785,12 +802,26 @@ QWidget *MainWindow::buildMediaPage(int page) {
     lh->addStretch();
     p.addFiles = button("Добавить", "plus", "quiet");
     p.addFiles->setObjectName("addFilesButton" + suffix);
+    p.addFiles->setToolTip("Добавить файлы или целую папку. Можно перетащить файлы в таблицу.");
+    auto *addMenu = new QMenu(p.addFiles);
+    auto *addFilesAction = addMenu->addAction(Restyle::icon("note"), "Файлы…");
+    addFilesAction->setObjectName("addFilesAction" + suffix);
+    connect(addFilesAction, &QAction::triggered, this, &MainWindow::slot_addMediaFiles);
+    auto *addFolderAction = addMenu->addAction(Restyle::icon("folder"), "Все файлы из папки…");
+    addFolderAction->setObjectName("addFolderAction" + suffix);
+    connect(addFolderAction, &QAction::triggered, this, [this] {
+        if (mMediaImport || !mediaManager(mPage))
+            return;
+        QString path = QFileDialog::getExistingDirectory(this, "Добавить все файлы из папки");
+        if (!path.isEmpty())
+            copyFiles({path});
+    });
+    p.addFiles->setMenu(addMenu);
     lh->addWidget(p.addFiles);
-    connect(p.addFiles, &QPushButton::clicked, this, &MainWindow::slot_addMediaFiles);
     if (!ads) {
         p.openFolder = button("Открыть папку", "folder", "quiet");
         p.openFolder->setObjectName("openMediaFolderButton" + suffix);
-        p.openFolder->setToolTip("Открыть папку с файлами выбранного канала");
+        p.openFolder->setToolTip("Показать файлы выбранного канала в Проводнике");
         lh->addWidget(p.openFolder);
         connect(p.openFolder, &QPushButton::clicked, this, [this, page] {
             auto *media = mediaManager(page);
@@ -804,16 +835,6 @@ QWidget *MainWindow::buildMediaPage(int page) {
                 showError("Не удалось открыть папку: " + directory);
         });
     }
-    auto *folder = iconButton("folder", "Добавить файлы из папки");
-    folder->setObjectName("addFolderButton" + suffix);
-    lh->addWidget(folder);
-    connect(folder, &QPushButton::clicked, this, [this] {
-        if (mMediaImport || !mediaManager(mPage))
-            return;
-        QString path = QFileDialog::getExistingDirectory(this, "Добавить файлы из папки");
-        if (!path.isEmpty())
-            copyFiles({path});
-    });
     p.search = new QLineEdit;
     p.search->setObjectName("searchEdit" + suffix);
     p.search->setPlaceholderText("Найти в медиатеке");
@@ -915,7 +936,7 @@ QWidget *MainWindow::buildMediaPage(int page) {
     if (page != 1)
         connect(p.files, &QTreeView::doubleClicked, this, &MainWindow::slot_playTrack);
     connect(p.source, &QAbstractItemModel::modelReset, this, [this, page] { updatePage(page); });
-    grid->addWidget(library, 1, 0, 1, 2);
+    bottomLayout->addWidget(library, 1);
     auto *inspector = new RestylePanel(p.root);
     inspector->setObjectName("fileInspector" + suffix);
     inspector->setFixedWidth(275);
@@ -934,6 +955,10 @@ QWidget *MainWindow::buildMediaPage(int page) {
     auto *inspectorHeading = label("Выбранный файл", 12, QFont::DemiBold);
     inspectorHeading->setFixedHeight(24);
     il->addWidget(inspectorHeading);
+    // Actions sit under the heading so a short library row never clips them.
+    auto *actions = new QHBoxLayout;
+    actions->setSpacing(5);
+    il->addLayout(actions);
     auto *separator = new QFrame;
     separator->setFrameShape(QFrame::HLine);
     separator->setFixedHeight(1);
@@ -948,7 +973,7 @@ QWidget *MainWindow::buildMediaPage(int page) {
     metadata->setContentsMargins(0, 8, 0, 0);
     metadata->setHorizontalSpacing(16);
     metadata->setVerticalSpacing(7);
-    const QStringList metadataNames = {"Альбом", "Жанр", "Год", "Время"};
+    const QStringList metadataNames = {"Альбом", "Жанр", "Год", "Длительность"};
     for (int i = 0; i < 4; ++i) {
         metadata->addWidget(label(metadataNames[i], 9), i / 2 * 2, i % 2);
         p.fileFields[i] = label("—", 11);
@@ -959,8 +984,6 @@ QWidget *MainWindow::buildMediaPage(int page) {
     metadata->setColumnStretch(1, 1);
     il->addLayout(metadata);
     il->addStretch();
-    auto *actions = new QHBoxLayout;
-    actions->setSpacing(5);
     p.preview = button(page == PAGE_VIDEO ? "В плейлист…" : "На плеере…", "play", "quiet");
     p.preview->setToolTip(page == PAGE_VIDEO ? "Добавить выбранные файлы в плейлист выбранного видеоэкрана"
                                            : "Заменить очередь выбранным файлом и воспроизвести");
@@ -970,7 +993,6 @@ QWidget *MainWindow::buildMediaPage(int page) {
     p.fileInfo->setFont(Restyle::font(10, QFont::DemiBold));
     actions->addWidget(p.preview);
     actions->addWidget(p.fileInfo);
-    il->addLayout(actions);
     connect(p.preview, &QPushButton::clicked, this,
             [this, page] {
                 if (page == PAGE_VIDEO)
@@ -979,8 +1001,20 @@ QWidget *MainWindow::buildMediaPage(int page) {
                     slot_playTrack(mPages[page].files->currentIndex());
             });
     connect(p.fileInfo, &QPushButton::clicked, this, &MainWindow::showFileInfo);
-    grid->addWidget(inspector, 1, 2);
-    l->addLayout(grid, 1);
+    bottomLayout->addWidget(inspector);
+    p.splitter->addWidget(bottom);
+    p.splitter->setStretchFactor(0, 0);
+    p.splitter->setStretchFactor(1, 1);
+    p.splitter->setSizes({349, 400});
+    connect(p.splitter, &QSplitter::splitterMoved, this, [this, page] {
+        const QByteArray state = mPages[page].splitter->saveState();
+        for (auto &other : mPages)
+            if (other.splitter && other.splitter != mPages[page].splitter) {
+                const QSignalBlocker blocker(other.splitter);
+                other.splitter->restoreState(state);
+            }
+    });
+    l->addWidget(p.splitter, 1);
     updateSummary(page);
     return scroll;
 }
@@ -1042,9 +1076,6 @@ void MainWindow::updatePage(int page) {
     p.libraryEmpty->setVisible(count == 0);
     p.addFiles->setEnabled(!mMediaImport && manager && (page != 2 || advertWritable()));
     const QString suffix = page == 0 ? QString() : page == 1 ? "_video" : "_advert";
-    p.root->findChild<QPushButton *>("addFolderButton" + suffix)->setEnabled(p.addFiles->isEnabled());
-    p.root->findChild<QPushButton *>("sidebarAddButton" + suffix)
-        ->setEnabled(!mMediaImport && (page != 2 || (advertWritable() && p.files->selectionModel()->hasSelection())));
     p.files->setEnabled(manager);
     if (page < 2) {
         p.root->findChild<QPushButton *>("createChannelButton" + suffix)->setEnabled(!mMediaImport);
@@ -1054,33 +1085,15 @@ void MainWindow::updatePage(int page) {
                                 .arg(mChannelModels[page]->rowCount()));
         p.editChannel->setEnabled(!mMediaImport && selected);
         p.deleteChannel->setEnabled(!mMediaImport && selected);
-        p.channelTitle->setText(selected ? mChannelModels[page]->index(row, 0).data().toString()
-                                         : "Нет каналов");
-        p.channelTitle->setToolTip(p.channelTitle->text());
-        if (selected) {
-            p.channelConditions->setText(
-                "Дни: " + mChannelModels[page]->index(row, 4).data().toString() +
-                " · месяцы: " + mChannelModels[page]->index(row, 5).data().toString());
-            p.channelDetail->setText(QStringLiteral("%1–%2   %3%   %4 файлов")
-                                         .arg(mChannelModels[page]->index(row, 1).data().toString(),
-                                              mChannelModels[page]->index(row, 2).data().toString())
-                                         .arg(mChannelModels[page]->index(row, 6).data().toInt())
-                                         .arg(count));
-        } else {
-            p.channelConditions->setText("Создайте канал для расписания");
-            p.channelDetail->clear();
-        }
     } else {
         bool selected = p.adverts->currentIndex().isValid();
         bool allowed = advertWritable();
-        p.addAdvert->setEnabled(allowed && p.files->selectionModel()->hasSelection());
         p.editAdvert->setEnabled(allowed && selected);
         p.deleteAdvert->setEnabled(allowed && p.adverts->selectionModel()->hasSelection());
-        p.editChannel->setEnabled(allowed && selected);
-        p.channelDetail->setText(
-            QStringLiteral("%1 правил · %2 файлов").arg(mAdvertModel->rowCount()).arg(count));
-        p.channelConditions->setText(allowed ? "Точные минуты или частота"
-                                             : "Сетевая реклама · только просмотр");
+        p.subtitle->setText(QStringLiteral("%1 правил · %2 файлов · %3")
+                                .arg(mAdvertModel->rowCount())
+                                .arg(count)
+                                .arg(allowed ? "точные минуты или частота" : "сетевая реклама, только просмотр"));
     }
     updateFileInfo(page);
     updateSummary(page);
@@ -1090,26 +1103,9 @@ void MainWindow::updateSummary(int page) {
     auto &p = mPages[page];
     if (!p.planNow)
         return;
-    SchedulePreview::Snapshot snapshot;
-    if (p.schedule)
-        snapshot = p.schedule->snapshot();
-    else {
-        auto *when = p.root->findChild<QDateTimeEdit *>("planDateTime_advert");
-        snapshot = SchedulePreview::evaluate(nullptr, mAdvertModel,
-                                             when ? when->dateTime() : QDateTime::currentDateTime());
-    }
-    if (p.schedule) {
-        auto *when = p.root->findChild<QDateTimeEdit *>(page == 0 ? "planDateTime" : "planDateTime_video");
-        if (when) {
-            QSignalBlocker blocker(when);
-            when->setDateTime(p.schedule->previewDateTime());
-            auto *time = p.root->findChild<QTimeEdit *>(page == 0 ? "planTime" : "planTime_video");
-            if (time) {
-                QSignalBlocker timeBlocker(time);
-                time->setTime(p.schedule->previewDateTime().time());
-            }
-        }
-    }
+    const SchedulePreview::Snapshot snapshot = p.schedule
+        ? p.schedule->snapshot()
+        : SchedulePreview::evaluate(nullptr, mAdvertModel, QDateTime::currentDateTime());
     if (page < 2 && p.channels) {
         QStringList statuses, counts;
         QVariantList active;
@@ -1145,8 +1141,14 @@ void MainWindow::updateFileInfo(int page) {
     p.deleteFiles->setEnabled(!mMediaImport && p.files->selectionModel()->hasSelection() && (page != 2 || advertWritable()));
     p.preview->setEnabled(selected && (page == PAGE_VIDEO || playerAvailable()));
     p.fileInfo->setEnabled(selected);
-    if (page == 2)
-        p.addAdvert->setEnabled(advertWritable() && p.files->selectionModel()->hasSelection());
+    if (page == 2) {
+        // The rule editor offers the whole advert library; a selected file is only preselected.
+        const bool files = manager && manager->mediaCount() > 0;
+        p.addAdvert->setEnabled(!mMediaImport && advertWritable() && files);
+        p.addAdvert->setToolTip(!advertWritable() ? "Рекламой сетевой станции управляют централизованно"
+                                : files ? "Новое правило выхода для ролика из рекламной медиатеки"
+                                        : "Сначала добавьте ролики в рекламную медиатеку");
+    }
     if (!selected) {
         p.fileTitle->setText("Файл не выбран");
         p.fileArtist->setText("Выберите файл в медиатеке");
@@ -1191,7 +1193,6 @@ void MainWindow::updatePlayerState() {
             else state = snapshot.playbackRequested ? "Переход к следующему файлу…" : "Остановлено";
             if (snapshot.muted) state += " · звук выключен";
             else state += QStringLiteral(" · %1 %").arg(snapshot.volumePercent);
-            state += snapshot.playbackMode == "schedule" ? " · По расписанию" : " · Вручную";
             if (!snapshot.publicationId.isEmpty()) state += QStringLiteral(" · выпуск %1 принят").arg(snapshot.revision);
             break;
         }
@@ -1201,15 +1202,28 @@ void MainWindow::updatePlayerState() {
                            : ready && !snapshot.error.isEmpty() ? snapshot.error : state);
     QString track = snapshot.currentTrack;
     if (track.isEmpty())
-        track = ready ? "Очередь пуста · загрузите файлы в управлении плеером" : "Настройте подключение в разделе «Настройки»";
+        track = ready ? "Очередь пуста · выберите канал или включите воспроизведение по расписанию"
+                      : "Нет данных о текущем файле";
     else if (!ready)
         track.prepend("Последние данные, связь потеряна: ");
     if (ready && !snapshot.channelName.isEmpty()) track.prepend(snapshot.channelName + " · ");
     if (ready && !snapshot.scheduleError.isEmpty()) track = snapshot.scheduleError;
     mPlayerDetail->setText(track);
     mPlayerDetail->setToolTip(track);
+    const bool preview = !qApp->property("restylePreviewStation").toString().isEmpty();
+    mOpenSettings->setVisible(!ready && !preview);
     mPlay->setEnabled(ready && !snapshot.queue.isEmpty() && !snapshot.playbackRequested);
     mStop->setEnabled(ready && (!snapshot.queue.isEmpty() || snapshot.state == "error" || snapshot.playbackMode == "schedule"));
+    // A disabled control explains why: the reason is the tooltip, the name stays.
+    if (!preview) {
+        mPlay->setToolTip(!ready ? "Продолжить аудиоочередь · нет связи с плеером"
+                          : snapshot.queue.isEmpty() ? "Продолжить аудиоочередь · очередь пуста"
+                          : snapshot.playbackRequested ? "Продолжить аудиоочередь · уже играет"
+                                                       : "Продолжить аудиоочередь MediaBoxPlayer");
+        mStop->setToolTip(!ready ? "Остановить аудио · нет связи с плеером"
+                          : mStop->isEnabled() ? "Остановить аудио MediaBoxPlayer"
+                                               : "Остановить аудио · очередь пуста");
+    }
     findChild<QPushButton *>("refreshPlayerButton")->setEnabled(ready);
     for (int page = 0; page < 3; ++page)
         updateFileInfo(page);
@@ -1342,15 +1356,28 @@ void MainWindow::slot_removeMediaFiles() {
             return;
         }
     }
+    const QString more = names.size() > 8 ? QStringLiteral("\n…и ещё %1").arg(names.size() - 8) : QString();
     if (!confirmDelete(this, "Удалить файлы",
-                       QStringLiteral("Удалить выбранные файлы (%1) из медиатеки?\n%2")
+                       QStringLiteral("Переместить выбранные файлы (%1) в Корзину?\n\n%2%3\n\n"
+                                      "Файлы исчезнут из медиатеки и расписания. "
+                                      "Вернуть их можно из Корзины Windows.")
                            .arg(names.size())
-                           .arg(names.mid(0, 8).join('\n'))))
+                           .arg(names.mid(0, 8).join('\n'), more)))
         return;
-    QStringList failed;
+    QStringList failed, untrashable;
     for (const auto &name : names)
-        if (!manager->delFile(name))
-            failed << name;
+        if (!manager->trashFile(name))
+            untrashable << name;
+    // Some volumes (network shares, removable media) have no recycle bin.
+    if (!untrashable.isEmpty()
+        && confirmDelete(this, "Корзина недоступна",
+                         QStringLiteral("Корзина недоступна для файлов (%1):\n\n%2\n\n"
+                                        "Удалить их безвозвратно? Восстановить их будет нельзя.")
+                             .arg(untrashable.size())
+                             .arg(untrashable.mid(0, 8).join('\n'))))
+        for (const auto &name : std::as_const(untrashable))
+            if (!manager->delFile(name))
+                failed << name;
     manager->collectMediaFiles();
     updatePage(mPage);
     mScheduleUpdateTimer->start();
@@ -1401,7 +1428,8 @@ void MainWindow::slot_deleteChannel() {
     if (!manager->channelCount() || !mPages[mPage].channels->currentIndex().isValid())
         return;
     if (!confirmDelete(this, "Удалить канал",
-                       QStringLiteral("Удалить канал «%1» и все его файлы?")
+                       QStringLiteral("Удалить канал «%1»?\n\nКанал исчезнет из расписания, а его файлы "
+                                      "будут удалены с диска безвозвратно.")
                            .arg(manager->currentChannel().channelName())))
         return;
     mPages[mPage].source->setMediaManager(nullptr);
@@ -1421,18 +1449,25 @@ void MainWindow::slot_addAdvert() {
     if (mPage != 2 || !advertWritable())
         return;
     auto &p = mPages[2];
-    QStringList names;
+    QStringList library, names;
+    for (int row = 0; row < p.source->rowCount(); ++row)
+        library << p.source->index(row, 0).data().toString();
+    if (library.isEmpty())
+        return;
     for (const auto &i : p.files->selectionModel()->selectedRows()) {
         auto source = p.proxy->mapToSource(i);
         if (source.isValid())
             names << source.data().toString();
     }
+    // One editor per selected file; without a selection the editor offers the first clip.
+    if (names.isEmpty())
+        names << QString();
     for (const auto &name : names) {
         if (StationManager::Instance().trial() && mAdvertManager->count() >= 2) {
             TrialMessageBox("Вы можете добавить не больше двух рекламных правил.");
             break;
         }
-        auto values = RuleEditors::newAdvert(name, this);
+        auto values = RuleEditors::newAdvert(library, name, this);
         if (!values)
             continue;
         const QVariantList fields{values->fileName, values->hours, values->minutes, values->weekdays,
@@ -1549,9 +1584,35 @@ void MainWindow::updatePlaybackActions() {
         const bool ready = page == PAGE_MUSIC ? playerAvailable()
             : mVideoController && mVideoController->isReady();
         p.playChannel->setEnabled(!preview && ready && media && media->mediaCount() > 0);
-        p.schedulePlayback->setEnabled(!preview && ready);
         p.openFolder->setEnabled(!preview && media && media->getDirMediaFiles().exists());
     }
+    updateModeButtons();
+}
+
+void MainWindow::updateModeButtons() {
+    if (!mScheduleMode || !qApp->property("restylePreviewStation").toString().isEmpty())
+        return;
+    const bool video = mPage == PAGE_VIDEO;
+    const QString player = video ? "MediaBoxVPlayer" : "MediaBoxPlayer";
+    const bool ready = video ? mVideoController && mVideoController->isReady() : playerAvailable();
+    bool schedule = false;
+    if (ready && video) {
+        for (const auto &window : mVideoController->videoStatus().windows)
+            schedule |= window.playback.playbackMode == QStringLiteral("schedule");
+    } else if (ready) {
+        schedule = mMediaController->status().playbackMode == QStringLiteral("schedule");
+    }
+    auto *media = mediaManager(video ? PAGE_VIDEO : PAGE_MUSIC);
+    const bool hasFiles = media && media->mediaCount() > 0;
+    mScheduleMode->setChecked(ready && schedule);
+    mManualMode->setChecked(ready && !schedule);
+    mScheduleMode->setEnabled(ready);
+    mManualMode->setEnabled(ready && hasFiles);
+    mScheduleMode->setToolTip(!ready ? QStringLiteral("Нет связи с %1").arg(player)
+                              : QStringLiteral("Опубликовать расписание и включить его воспроизведение в %1").arg(player));
+    mManualMode->setToolTip(!ready ? QStringLiteral("Нет связи с %1").arg(player)
+                            : !hasFiles ? QStringLiteral("В выбранном канале нет файлов")
+                            : QStringLiteral("Играть выбранный канал целиком по кругу в %1, без расписания").arg(player));
 }
 
 void MainWindow::updatePlayingMedia() {
@@ -1819,9 +1880,20 @@ void MainWindow::showAllSchedules() {
     l->addWidget(label("Все параметры расписания", 22, QFont::DemiBold));
     auto *table = new QTableView;
     configureTable(table);
-    table->setModel(mPage < 2 ? static_cast<QAbstractItemModel *>(mChannelModels[mPage]) : mAdvertModel);
+    auto *display = new RuleEditors::RuleTableModel(mPage < 2 ? RuleEditors::RuleTableModel::Channels
+                                                              : RuleEditors::RuleTableModel::Adverts, table);
+    display->setSourceModel(mPage < 2 ? static_cast<QAbstractItemModel *>(mChannelModels[mPage]) : mAdvertModel);
+    table->setModel(display);
     table->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    connect(table, &QTableView::doubleClicked, &dialog, [this, &dialog](const QModelIndex &i) {
+        if (mMediaImport || !i.isValid())
+            return;
+        if (mPage < 2)
+            RuleEditors::editChannel(mChannelModels[mPage], i.row(), &dialog);
+        else if (advertWritable())
+            RuleEditors::editAdvert(mAdvertModel, i.row(), &dialog);
+    });
     l->addWidget(table, 1);
     auto *actions = new QHBoxLayout;
     actions->addStretch();
@@ -1849,23 +1921,6 @@ void MainWindow::showAllSchedules() {
 void MainWindow::resizeEvent(QResizeEvent *event) {
     QMainWindow::resizeEvent(event);
     adaptLayout(width());
-    const int topHeight = qBound(270, height() - 551, 349);
-    for (int i = 0; i < 3; ++i) {
-        auto &p = mPages[i];
-        if (!p.root)
-            continue;
-        if (auto *sidebar = p.root->findChild<QWidget *>("channelsSidebar" + (i == 0   ? QString()
-                                                                              : i == 1 ? "_video"
-                                                                                       : "_advert")))
-            sidebar->setFixedHeight(topHeight);
-        if (p.schedule)
-            p.schedule->setFixedHeight(topHeight);
-        if (auto *rules = p.root->findChild<QWidget *>("advertRulesPanel"))
-            rules->setFixedHeight(topHeight);
-        if (auto *grid = qobject_cast<QGridLayout *>(
-                p.root->layout()->itemAt(p.root->layout()->count() - 1)->layout()))
-            grid->setRowMinimumHeight(0, topHeight);
-    }
 }
 
 void MainWindow::adaptLayout(int width) {
@@ -1880,6 +1935,11 @@ void MainWindow::adaptLayout(int width) {
         nav->setMaximumWidth(compact ? 38 : QWIDGETSIZE_MAX);
     }
     mOperationState->setVisible(!compact);
+    if (auto *station = findChild<QPushButton *>("stationInfoButton")) {
+        station->setText(compact ? QString() : station->property("fullText").toString());
+        station->setToolTip(compact ? station->property("fullText").toString() + " · сведения о станции"
+                                    : "Сведения о станции");
+    }
     for (const QString &name : {QStringLiteral("refreshPlayerButton"), QStringLiteral("showPlayerButton")}) {
         auto *control = findChild<QPushButton *>(name);
         if (!control)

@@ -5,6 +5,7 @@
     <file alias="calendar.svg">restyleicons/calendar.svg</file>
     <file alias="check.svg">restyleicons/check.svg</file>
     <file alias="chevron.svg">restyleicons/chevron.svg</file>
+    <file alias="chevron-left.svg">restyleicons/chevron-left.svg</file>
     <file alias="close.svg">restyleicons/close.svg</file>
     <file alias="edit.svg">restyleicons/edit.svg</file>
     <file alias="exit.svg">restyleicons/exit.svg</file>

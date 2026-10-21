@@ -328,7 +328,9 @@ private slots:
         QVERIFY2(error.isEmpty(), qPrintable(error));
         const QString expired = ScheduleDocumentUi::describe(source.object, QDateTime(QDate(2028, 1, 1), QTime(12, 0)));
         QVERIFY(expired.contains(QStringLiteral("Резервный источник")));
-        QVERIFY(expired.contains(QStringLiteral("Тишина")));
+        QVERIFY(expired.contains(QStringLiteral("Звучит: тишина")));
+        QVERIFY(expired.contains(QStringLiteral("Сейчас вне срока")));
+        QVERIFY(!expired.contains(QStringLiteral("validity")));
         ScheduledDocumentDialog dialog(source.object);
         dialog.findChild<QToolButton *>(QStringLiteral("scheduleDocumentDetails"))->setChecked(true);
         auto *section = dialog.findChild<QComboBox *>(QStringLiteral("scheduleDocumentSection"));

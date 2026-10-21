@@ -103,15 +103,26 @@ QString compact(const QString &value, int first, int last)
     return result.join(QStringLiteral(", "));
 }
 
-QString validate(ChannelRuleValues &v, const QStringList &names = {})
+constexpr int channelNameLength = 15;
+
+QString validateName(const QString &value, const QStringList &names)
 {
     static const QRegularExpression name(QStringLiteral("^\\w{1,15}$"),
                                          QRegularExpression::UseUnicodePropertiesOption);
-    if (!name.match(v.name).hasMatch())
+    if (value.isEmpty()) return QStringLiteral("Введите название канала.");
+    if (value.size() > channelNameLength)
+        return QStringLiteral("Название длиннее %1 символов.").arg(channelNameLength);
+    if (!name.match(value).hasMatch())
         return QStringLiteral("Название: от 1 до 15 букв, цифр или знаков подчёркивания, без пробелов.");
-    if (names.contains(v.name, Qt::CaseInsensitive)) return QStringLiteral("Канал с таким названием уже существует.");
+    if (names.contains(value, Qt::CaseInsensitive)) return QStringLiteral("Канал с таким названием уже существует.");
+    return {};
+}
+
+QString validate(ChannelRuleValues &v, const QStringList &names = {})
+{
+    if (const QString error = validateName(v.name, names); !error.isEmpty()) return error;
     if (!expand(v.weekdays, 0, 6, &v.weekdays)) return QStringLiteral("Выберите хотя бы один день недели.");
-    if (!expand(v.days, 1, 31, &v.days)) return QStringLiteral("Укажите дни от 1 до 31: например, 1–15, 20, 25. * — все дни.");
+    if (!expand(v.days, 1, 31, &v.days)) return QStringLiteral("Укажите числа месяца от 1 до 31, например 1–15, 20, 25, или отметьте «Все числа месяца».");
     if (!expand(v.months, 1, 12, &v.months)) return QStringLiteral("Выберите хотя бы один месяц.");
     ScheduleCore::ChannelRule rule;
     rule.name = v.name;
@@ -129,7 +140,7 @@ QString validate(ChannelRuleValues &v, const QStringList &names = {})
 QString validate(AdvertRuleValues &v)
 {
     if (v.fileName.isEmpty()) return QStringLiteral("Сначала выберите рекламный файл.");
-    if (!expand(v.hours, 0, 23, &v.hours, true, false, true)) return QStringLiteral("Укажите часы от 0 до 23: например, 8–22 или 8, 12, 18.");
+    if (!expand(v.hours, 0, 23, &v.hours, true, false, true)) return QStringLiteral("Укажите часы от 0 до 23, например 8–22 или 8, 12, 18, или отметьте «Круглосуточно».");
     if (!expand(v.weekdays, 0, 6, &v.weekdays)) return QStringLiteral("Выберите хотя бы один день недели. Для отключения выхода выберите режим «Никогда».");
     ScheduleCore::AdvertRule rule;
     rule.name = v.fileName;
@@ -463,8 +474,16 @@ void sizeDialog(QDialog *dialog, Form &form, bool channel)
 {
     form.volume->setFixedHeight(Restyle::tokens().relief ? 17 : 26);
     const QSize available = dialog->screen()->availableGeometry().size() - QSize(24, 60);
-    const int targetHeight = (channel ? 713 : 741) + (Restyle::tokens().relief ? 0 : 9);
-    dialog->resize(qMin(600, available.width()), qMin(targetHeight, available.height()));
+    const int width = qMin(channel ? 600 : 760, available.width());
+    int targetHeight = 713 + (Restyle::tokens().relief ? 0 : 9);
+    if (!channel) {
+        // Content height plus margins, heading, error line and actions.
+        auto *content = form.scroll->widget()->layout();
+        content->activate();
+        targetHeight = (content->hasHeightForWidth() ? content->totalHeightForWidth(width - 50)
+                                                     : content->totalSizeHint().height()) + 196;
+    }
+    dialog->resize(width, qMin(targetHeight, available.height()));
     dialog->setMinimumSize(qMin(400, available.width()), qMin(380, available.height()));
     auto p = form.error->palette();
     p.setColor(QPalette::WindowText, Restyle::tokens().error);
@@ -589,12 +608,14 @@ struct ChannelRuleDialog::Private {
     Form form;
     QStringList names;
     QLineEdit *name;
+    QLabel *nameCount;
     QTimeEdit *start;
     QTimeEdit *end;
     QWidget *weekdays;
     QLineEdit *days;
     QWidget *months;
     QComboBox *order;
+    QCheckBox *allDays;
     QCheckBox *fullDay;
     QCheckBox *nextDay;
     QTime savedStart, savedEnd;
@@ -610,12 +631,32 @@ ChannelRuleDialog::ChannelRuleDialog(const ChannelRuleValues &initial, const QSt
     d->names = names;
     d->form = buildForm(this, creating ? QStringLiteral("Новый канал") : QStringLiteral("Расписание канала"), QStringLiteral("Сохранить"));
     d->name = line(initial.name, QStringLiteral("channelName"));
-    d->name->setToolTip(QStringLiteral("От 1 до 15 букв, цифр или знаков подчёркивания, без пробелов."));
+    d->name->setToolTip(QStringLiteral("От 1 до 15 букв, цифр или знаков подчёркивания. Пробелы заменяются на _."));
+    // A longer legacy name stays intact and is reported instead of being cut.
+    d->name->setMaxLength(qMax(channelNameLength, int(initial.name.size())));
+    d->nameCount = new QLabel;
+    d->nameCount->setObjectName(QStringLiteral("channelNameCount"));
+    d->nameCount->setFont(Restyle::font(11));
+    d->nameCount->setForegroundRole(QPalette::PlaceholderText);
+    d->nameCount->setFixedHeight(16);
     d->start = timeEdit(initial.start, QStringLiteral("channelStart"));
     d->end = timeEdit(initial.end, QStringLiteral("channelEnd"));
     d->weekdays = picker(initial.weekdays, false);
-    d->days = line(compact(initial.days, 1, 31), QStringLiteral("channelDays"));
-    d->days->setPlaceholderText(QStringLiteral("1–31 или 1, 5, 10–20"));
+    const bool everyDay = initial.days.trimmed() == QLatin1String("*");
+    d->days = line(everyDay ? QString() : compact(initial.days, 1, 31), QStringLiteral("channelDays"));
+    d->days->setPlaceholderText(QStringLiteral("Например: 1–15, 20, 25"));
+    d->allDays = new QCheckBox(QStringLiteral("Все числа месяца"));
+    d->allDays->setObjectName(QStringLiteral("channelAllDays"));
+    d->allDays->setChecked(everyDay);
+    d->days->setVisible(!everyDay);
+    connect(d->allDays, &QCheckBox::toggled, d->days, [this](bool checked) { d->days->setVisible(!checked); });
+    connect(d->allDays, &QCheckBox::clicked, this, [this](bool checked) { if (!checked) d->days->setFocus(); });
+    // Entering specific days (also programmatically) selects them instead of "all".
+    connect(d->days, &QLineEdit::textChanged, this, [this](const QString &text) {
+        const QString value = text.trimmed();
+        if (!value.isEmpty() && value != QLatin1String("*")) d->allDays->setChecked(false);
+        else if (value == QLatin1String("*")) d->allDays->setChecked(true);
+    });
     d->months = picker(initial.months, true);
     d->order = new QComboBox;
     d->order->setObjectName(QStringLiteral("channelOrder"));
@@ -655,14 +696,46 @@ ChannelRuleDialog::ChannelRuleDialog(const ChannelRuleValues &initial, const QSt
     windowLayout->addStretch();
     windowOptions->setToolTip(QStringLiteral("Календарные условия относятся к дню начала интервала. Окончание исключено."));
     auto *grid = d->form.grid;
-    grid->addWidget(field(QStringLiteral("Название канала"), d->name), 0, 0);
-    grid->addWidget(field(QStringLiteral("Порядок треков"), d->order), 0, 1);
+    auto *nameField = field(QStringLiteral("Название канала"), d->name);
+    auto *nameNote = new QHBoxLayout;
+    nameNote->setContentsMargins(0, 0, 0, 0);
+    auto *spaces = new QLabel(QStringLiteral("Пробелы заменяются на _"));
+    spaces->setFont(Restyle::font(11));
+    spaces->setForegroundRole(QPalette::PlaceholderText);
+    spaces->setFixedHeight(16);
+    nameNote->addWidget(spaces, 1);
+    nameNote->addWidget(d->nameCount);
+    static_cast<QVBoxLayout *>(nameField->layout())->addLayout(nameNote);
+    grid->addWidget(nameField, 0, 0, Qt::AlignTop);
+    grid->addWidget(field(QStringLiteral("Порядок треков"), d->order), 0, 1, Qt::AlignTop);
+    // The player format has no spaces in channel names; typing one keeps the caret in place.
+    connect(d->name, &QLineEdit::textEdited, this, [this](const QString &text) {
+        if (!text.contains(QLatin1Char(' '))) return;
+        const int cursor = d->name->cursorPosition();
+        d->name->setText(QString(text).replace(QLatin1Char(' '), QLatin1Char('_')));
+        d->name->setCursorPosition(cursor);
+    });
+    const auto checkName = [this] {
+        const QString error = validateName(d->name->text(), d->names);
+        d->nameCount->setText(QStringLiteral("%1/%2").arg(d->name->text().size()).arg(channelNameLength));
+        d->form.error->setText(error);
+        if (auto *save = findChild<QPushButton *>(QStringLiteral("saveRule"))) save->setEnabled(error.isEmpty());
+    };
+    connect(d->name, &QLineEdit::textChanged, this, checkName);
+    checkName();
     grid->addWidget(field(QStringLiteral("Начало"), d->start), 1, 0);
     grid->addWidget(field(QStringLiteral("Окончание"), d->end), 1, 1);
     grid->addWidget(windowOptions, 2, 0, 1, 2);
     grid->addWidget(field(QStringLiteral("Дни недели"), d->weekdays), 3, 0, 1, 2);
-    grid->addWidget(field(QStringLiteral("Дни месяца"), d->days,
-                          QStringLiteral("Отдельные дни и диапазоны от 1 до 31. * — все дни.")), 4, 0, 1, 2);
+    auto *daysOptions = new QWidget;
+    auto *daysLayout = new QHBoxLayout(daysOptions);
+    daysLayout->setContentsMargins(0, 0, 0, 0);
+    daysLayout->setSpacing(12);
+    daysLayout->addWidget(d->allDays);
+    daysLayout->addWidget(d->days, 1);
+    auto *daysField = field(QStringLiteral("Числа месяца"), daysOptions);
+    d->days->setAccessibleName(QStringLiteral("Числа месяца"));
+    grid->addWidget(daysField, 4, 0, 1, 2);
     grid->addWidget(field(QStringLiteral("Месяцы"), d->months), 5, 0, 1, 2);
     grid->addWidget(volumeField(d->form, initial.volume), 6, 0, 1, 2);
     sizeDialog(this, d->form, true);
@@ -675,7 +748,8 @@ ChannelRuleValues ChannelRuleDialog::values() const
 {
     return {d->name->text(), d->start->property("invalidOriginal").toBool() ? QTime() : d->start->time(),
             d->end->property("invalidOriginal").toBool() ? QTime() : d->end->time(),
-            pickerValue(d->weekdays), d->days->text(), pickerValue(d->months),
+            pickerValue(d->weekdays), d->allDays->isChecked() ? QStringLiteral("*") : d->days->text(),
+            pickerValue(d->months),
             d->form.volume->property("invalidOriginal").toBool() ? -1 : d->form.volume->value(),
             d->order->currentData().toString(), d->nextDay->isChecked() ? 1 : 0};
 }
@@ -717,7 +791,9 @@ void ChannelRuleDialog::showEvent(QShowEvent *event)
 struct AdvertRuleDialog::Private {
     Form form;
     QString fileName;
+    QComboBox *files = nullptr;
     QLineEdit *hours;
+    QCheckBox *allHours;
     QComboBox *mode;
     QComboBox *startMode;
     QLabel *startHint;
@@ -731,7 +807,8 @@ struct AdvertRuleDialog::Private {
     QString invalidMinutes;
 };
 
-AdvertRuleDialog::AdvertRuleDialog(const AdvertRuleValues &initial, QWidget *parent, bool creating)
+AdvertRuleDialog::AdvertRuleDialog(const AdvertRuleValues &initial, QWidget *parent, bool creating,
+                                   const QStringList &files)
     : QDialog(parent), d(std::make_unique<Private>())
 {
     setObjectName(QStringLiteral("advertRuleDialog"));
@@ -743,10 +820,35 @@ AdvertRuleDialog::AdvertRuleDialog(const AdvertRuleValues &initial, QWidget *par
             d->invalidMinutes = initial.minutes.isEmpty() ? QStringLiteral("invalidm") : initial.minutes;
     }
     d->form = buildForm(this, creating ? QStringLiteral("Добавить в расписание") : QStringLiteral("Рекламный выход"), QStringLiteral("Сохранить выход"));
-    auto *file = line(initial.fileName, QStringLiteral("advertFile"));
-    file->setReadOnly(true);
-    d->hours = line(compact(initial.hours, 0, 23), QStringLiteral("advertHours"));
-    d->hours->setPlaceholderText(QStringLiteral("8–22 или 8, 12, 18"));
+    QWidget *file = nullptr;
+    if (creating && !files.isEmpty()) {
+        d->files = new QComboBox;
+        d->files->setObjectName(QStringLiteral("advertFileChoice"));
+        d->files->setFixedHeight(35);
+        d->files->setFont(Restyle::font(11));
+        d->files->addItems(files);
+        d->files->setCurrentIndex(qMax(0, int(files.indexOf(initial.fileName))));
+        d->files->setToolTip(QStringLiteral("Ролик из рекламной медиатеки"));
+        file = d->files;
+    } else {
+        auto *name = line(initial.fileName, QStringLiteral("advertFile"));
+        name->setReadOnly(true);
+        file = name;
+    }
+    const bool allDay = initial.hours.trimmed() == QLatin1String("*");
+    d->hours = line(allDay ? QString() : compact(initial.hours, 0, 23), QStringLiteral("advertHours"));
+    d->hours->setPlaceholderText(QStringLiteral("Например: 8–22 или 8, 12, 18"));
+    d->hours->setVisible(!allDay);
+    d->allHours = new QCheckBox(QStringLiteral("Круглосуточно"));
+    d->allHours->setObjectName(QStringLiteral("advertAllHours"));
+    d->allHours->setChecked(allDay);
+    connect(d->allHours, &QCheckBox::toggled, d->hours, [this](bool checked) { d->hours->setVisible(!checked); });
+    connect(d->allHours, &QCheckBox::clicked, this, [this](bool checked) { if (!checked) d->hours->setFocus(); });
+    connect(d->hours, &QLineEdit::textChanged, this, [this](const QString &text) {
+        const QString value = text.trimmed();
+        if (!value.isEmpty() && value != QLatin1String("*")) d->allHours->setChecked(false);
+        else if (value == QLatin1String("*")) d->allHours->setChecked(true);
+    });
     d->mode = new QComboBox;
     d->mode->setObjectName(QStringLiteral("advertMode"));
     d->mode->setFixedHeight(35);
@@ -793,17 +895,29 @@ AdvertRuleDialog::AdvertRuleDialog(const AdvertRuleValues &initial, QWidget *par
     d->start = dateEdit(initial.start, QStringLiteral("advertStart"));
     d->end = dateEdit(initial.end, QStringLiteral("advertEnd"));
     auto *grid = d->form.grid;
-    grid->addWidget(field(QStringLiteral("Ролик"), file), 0, 0, 1, 2);
-    grid->addWidget(field(QStringLiteral("Часы выхода"), d->hours,
-                          QStringLiteral("0–23 — круглосуточно. Можно указать отдельные часы и диапазоны.")), 1, 0, 1, 2);
-    grid->addWidget(field(QStringLiteral("Режим выхода"), d->mode), 2, 0);
-    grid->addWidget(d->minuteField, 2, 1);
-    grid->addWidget(d->frequencyField, 2, 1);
-    grid->addWidget(startModeField, 3, 0, 1, 2);
-    grid->addWidget(field(QStringLiteral("Дни недели"), d->weekdays), 4, 0, 1, 2);
-    grid->addWidget(field(QStringLiteral("Дата начала"), d->start), 5, 0);
-    grid->addWidget(field(QStringLiteral("Дата окончания"), d->end), 5, 1);
-    grid->addWidget(volumeField(d->form, initial.volume), 6, 0, 1, 2);
+    grid->addWidget(field(QStringLiteral("Ролик"), file), 0, 0);
+    auto *hoursOptions = new QWidget;
+    auto *hoursLayout = new QHBoxLayout(hoursOptions);
+    hoursLayout->setContentsMargins(0, 0, 0, 0);
+    hoursLayout->setSpacing(12);
+    hoursLayout->addWidget(d->allHours);
+    hoursLayout->addWidget(d->hours, 1);
+    grid->addWidget(field(QStringLiteral("Часы выхода"), hoursOptions), 0, 1);
+    d->hours->setAccessibleName(QStringLiteral("Часы выхода"));
+    grid->addWidget(field(QStringLiteral("Режим выхода"), d->mode), 1, 0);
+    grid->addWidget(d->minuteField, 1, 1);
+    grid->addWidget(d->frequencyField, 1, 1);
+    grid->addWidget(startModeField, 2, 0, 1, 2);
+    grid->addWidget(field(QStringLiteral("Дни недели"), d->weekdays), 3, 0, 1, 2);
+    // Dates and volume share one row so the editor fits 1440×900 without scrolling.
+    auto *period = new QWidget;
+    auto *periodLayout = new QHBoxLayout(period);
+    periodLayout->setContentsMargins(0, 0, 0, 0);
+    periodLayout->setSpacing(12);
+    periodLayout->addWidget(field(QStringLiteral("Дата начала"), d->start), 1);
+    periodLayout->addWidget(field(QStringLiteral("Дата окончания"), d->end), 1);
+    grid->addWidget(period, 4, 0, Qt::AlignTop);
+    grid->addWidget(volumeField(d->form, initial.volume), 4, 1, Qt::AlignTop);
     const auto updateMode = [this] {
         d->minuteField->setVisible(d->mode->currentIndex() == 0);
         d->frequencyField->setVisible(d->mode->currentIndex() == 1);
@@ -816,7 +930,8 @@ AdvertRuleDialog::AdvertRuleDialog(const AdvertRuleValues &initial, QWidget *par
     connect(d->minutes, &QLineEdit::textChanged, this, clearInvalid);
     connect(d->frequency, &QSpinBox::valueChanged, this, clearInvalid);
     sizeDialog(this, d->form, false);
-    d->hours->setFocus();
+    if (allDay) d->allHours->setFocus();
+    else d->hours->setFocus();
 }
 
 AdvertRuleDialog::~AdvertRuleDialog() = default;
@@ -828,7 +943,9 @@ AdvertRuleValues AdvertRuleDialog::values() const
     else if (d->mode->currentIndex() == 2) minutes = QStringLiteral("*");
     else if (d->mode->currentIndex() == 1) minutes = QString::number(d->frequency->value());
     else if (!exactMinutes(d->minutes->text(), &minutes, false)) minutes = QStringLiteral("invalidm");
-    return {d->fileName, d->hours->text(), minutes, pickerValue(d->weekdays),
+    return {d->files ? d->files->currentText() : d->fileName,
+            d->allHours->isChecked() ? QStringLiteral("*") : d->hours->text(), minutes,
+            pickerValue(d->weekdays),
             d->start->property("invalidOriginal").toBool() ? QDate() : d->start->date(),
             d->end->property("invalidOriginal").toBool() ? QDate() : d->end->date(),
             d->form.volume->property("invalidOriginal").toBool() ? -1 : d->form.volume->value(),
@@ -866,9 +983,14 @@ std::optional<ChannelRuleValues> newChannel(QWidget *parent, const QStringList &
 
 std::optional<AdvertRuleValues> newAdvert(const QString &fileName, QWidget *parent)
 {
+    return newAdvert(QStringList{}, fileName, parent);
+}
+
+std::optional<AdvertRuleValues> newAdvert(const QStringList &files, const QString &preselected, QWidget *parent)
+{
     AdvertRuleValues initial;
-    initial.fileName = fileName;
-    AdvertRuleDialog dialog(initial, parent, true);
+    initial.fileName = preselected.isEmpty() ? files.value(0) : preselected;
+    AdvertRuleDialog dialog(initial, parent, true, files);
     if (dialog.exec() != QDialog::Accepted) return std::nullopt;
     auto values = dialog.values();
     if (!validate(values).isEmpty()) return std::nullopt;
@@ -929,6 +1051,197 @@ bool editAdvert(QAbstractItemModel *model, int row, QWidget *parent)
     if (target.isValid() && applyAdvert(model, target.row(), dialog.values())) return true;
     QMessageBox::warning(parent, QStringLiteral("Рекламный выход"), saveError(model, QStringLiteral("Не удалось сохранить рекламный выход. Проверьте доступность станции и права редактирования.")));
     return false;
+}
+
+namespace {
+// Joins consecutive positions of `order` into "A–C, E" runs of `names`.
+QString runs(const QList<int> &order, const QSet<int> &selected, const QStringList &names)
+{
+    QStringList parts;
+    for (int i = 0; i < order.size(); ++i) {
+        if (!selected.contains(order[i])) continue;
+        int last = i;
+        while (last + 1 < order.size() && selected.contains(order[last + 1])) ++last;
+        if (last - i >= 2) parts << names[i] + QStringLiteral("–") + names[last];
+        else for (int j = i; j <= last; ++j) parts << names[j];
+        i = last;
+    }
+    return parts.join(QStringLiteral(", "));
+}
+
+QSet<int> selection(const QString &value, int first, int last, bool *all, bool wrap = false)
+{
+    QString normalized;
+    if (!expand(value, first, last, &normalized, true, false, wrap)) return {};
+    QSet<int> result;
+    if (normalized == QLatin1String("*")) {
+        for (int i = first; i <= last; ++i) result.insert(i);
+    } else {
+        for (const QString &item : normalized.split(QLatin1Char(','))) result.insert(item.toInt());
+    }
+    *all = result.size() == last - first + 1;
+    return result;
+}
+}
+
+QString describeWeekdays(const QString &value)
+{
+    bool all = false;
+    const QSet<int> days = selection(value, 0, 6, &all);
+    if (days.isEmpty()) return value;
+    if (all) return QStringLiteral("Каждый день");
+    return runs({1, 2, 3, 4, 5, 6, 0}, days,
+                {QStringLiteral("Пн"), QStringLiteral("Вт"), QStringLiteral("Ср"), QStringLiteral("Чт"),
+                 QStringLiteral("Пт"), QStringLiteral("Сб"), QStringLiteral("Вс")});
+}
+
+QString describeMonthDays(const QString &value)
+{
+    bool all = false;
+    if (selection(value, 1, 31, &all).isEmpty()) return value;
+    return all ? QStringLiteral("Все числа") : compact(value, 1, 31) + QStringLiteral(" числа");
+}
+
+QString describeMonths(const QString &value)
+{
+    bool all = false;
+    const QSet<int> months = selection(value, 1, 12, &all);
+    if (months.isEmpty()) return value;
+    if (all) return QStringLiteral("Весь год");
+    return runs({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, months,
+                {QStringLiteral("Янв"), QStringLiteral("Фев"), QStringLiteral("Мар"), QStringLiteral("Апр"),
+                 QStringLiteral("Май"), QStringLiteral("Июн"), QStringLiteral("Июл"), QStringLiteral("Авг"),
+                 QStringLiteral("Сен"), QStringLiteral("Окт"), QStringLiteral("Ноя"), QStringLiteral("Дек")});
+}
+
+QString describeHours(const QString &value)
+{
+    bool all = false;
+    if (selection(value, 0, 23, &all, true).isEmpty()) return value;
+    if (all) return QStringLiteral("Круглосуточно");
+    QString normalized;
+    expand(value, 0, 23, &normalized, true, false, true);
+    return compact(normalized, 0, 23) + QStringLiteral(" ч");
+}
+
+QString describeAdvertTiming(const QString &minutes)
+{
+    if (minutes == QLatin1String("*")) return QStringLiteral("Не выходит");
+    bool frequencyOk = false;
+    const int frequency = minutes.toInt(&frequencyOk);
+    if (frequencyOk && frequency >= 1 && frequency <= 5)
+        return QStringLiteral("%1 %2 в час").arg(frequency)
+            .arg(frequency >= 2 && frequency <= 4 ? QStringLiteral("раза") : QStringLiteral("раз"));
+    QString normalized;
+    if (!exactMinutes(minutes, &normalized, true)) return minutes;
+    QStringList marks;
+    for (QString item : normalized.split(QLatin1Char(','))) marks << QLatin1Char(':') + item.remove(QLatin1Char('m'));
+    if (marks.size() == 1) return QStringLiteral("В ") + marks.first();
+    const QString lastMark = marks.takeLast();
+    return QStringLiteral("В %1 и %2").arg(marks.join(QStringLiteral(", ")), lastMark);
+}
+
+QString describeCalendar(const QString &weekdays, const QString &days, const QString &months)
+{
+    QStringList parts{describeWeekdays(weekdays)};
+    bool allDays = false;
+    if (!selection(days, 1, 31, &allDays).isEmpty() && !allDays) parts << describeMonthDays(days);
+    else if (!allDays) parts << days;
+    const QString year = describeMonths(months);
+    parts << (year == QStringLiteral("Весь год") ? QStringLiteral("весь год") : year);
+    return parts.join(QStringLiteral(" · "));
+}
+
+RuleTableModel::RuleTableModel(Kind kind, QObject *parent) : QIdentityProxyModel(parent), mKind(kind)
+{
+    if (mKind != Adverts) return;
+    // The start mode lives on the source row; repaint its column with the row.
+    connect(this, &QAbstractItemModel::dataChanged, this,
+            [this](const QModelIndex &topLeft, const QModelIndex &bottomRight) {
+        const int column = startColumn();
+        if (column < 0 || topLeft.column() == column) return;
+        emit dataChanged(index(topLeft.row(), column), index(bottomRight.row(), column));
+    });
+}
+
+int RuleTableModel::startColumn() const
+{
+    const int columns = sourceModel() ? sourceModel()->columnCount() : 0;
+    return mKind == Adverts && columns > 0 ? columns : -1;
+}
+
+int RuleTableModel::columnCount(const QModelIndex &parent) const
+{
+    const int columns = QIdentityProxyModel::columnCount(parent);
+    return !parent.isValid() && startColumn() >= 0 ? columns + 1 : columns;
+}
+
+QModelIndex RuleTableModel::index(int row, int column, const QModelIndex &parent) const
+{
+    if (!parent.isValid() && column >= 0 && column == startColumn())
+        return row >= 0 && row < rowCount() ? createIndex(row, column) : QModelIndex();
+    return QIdentityProxyModel::index(row, column, parent);
+}
+
+QModelIndex RuleTableModel::sibling(int row, int column, const QModelIndex &index) const
+{
+    return mKind == Adverts ? this->index(row, column, index.parent()) : QIdentityProxyModel::sibling(row, column, index);
+}
+
+QModelIndex RuleTableModel::mapToSource(const QModelIndex &proxyIndex) const
+{
+    // The extra column reads and selects through the rule's first source cell.
+    if (proxyIndex.isValid() && proxyIndex.model() == this && proxyIndex.column() == startColumn())
+        return sourceModel()->index(proxyIndex.row(), 0);
+    return QIdentityProxyModel::mapToSource(proxyIndex);
+}
+
+QVariant RuleTableModel::data(const QModelIndex &index, int role) const
+{
+    if (index.isValid() && index.column() == startColumn()) {
+        if (role != Qt::DisplayRole && role != Qt::ToolTipRole) return {};
+        const QString mode = QIdentityProxyModel::data(index, AdvertModel::StartModeRole).toString();
+        if (role == Qt::ToolTipRole)
+            return mode == QLatin1String("after_track") ? QStringLiteral("Текущий трек доиграет, затем реклама")
+                                                         : QStringLiteral("Реклама прерывает трек, затем музыка продолжится");
+        return mode == QLatin1String("after_track") ? QStringLiteral("После трека") : QStringLiteral("Прерывает трек");
+    }
+    if (role != Qt::DisplayRole || !index.isValid()) return QIdentityProxyModel::data(index, role);
+    const QVariant value = QIdentityProxyModel::data(index, Qt::EditRole);
+    const QString text = value.toString();
+    if (mKind == Channels) {
+        switch (index.column()) {
+        case 2: return QIdentityProxyModel::data(index, role);
+        case 3: return describeWeekdays(text);
+        case 4: return describeMonthDays(text);
+        case 5: return describeMonths(text);
+        case 6: return QStringLiteral("%1%").arg(value.toInt());
+        default: return QIdentityProxyModel::data(index, role);
+        }
+    }
+    switch (index.column()) {
+    case 1: return describeHours(text);
+    case 2: return describeAdvertTiming(text);
+    case 3: return describeWeekdays(text);
+    case 4: case 5: return value.toDate().isValid() ? value.toDate().toString(QStringLiteral("dd.MM.yyyy")) : QStringLiteral("—");
+    case 6: return QStringLiteral("%1%").arg(value.toInt());
+    default: return QIdentityProxyModel::data(index, role);
+    }
+}
+
+QVariant RuleTableModel::headerData(int section, Qt::Orientation orientation, int role) const
+{
+    if (orientation != Qt::Horizontal || role != Qt::DisplayRole)
+        return QIdentityProxyModel::headerData(section, orientation, role);
+    const QStringList channels{QStringLiteral("Канал"), QStringLiteral("Начало"), QStringLiteral("Окончание"),
+                               QStringLiteral("Дни недели"), QStringLiteral("Числа"), QStringLiteral("Месяцы"),
+                               QStringLiteral("Громкость")};
+    const QStringList adverts{QStringLiteral("Ролик"), QStringLiteral("Часы"), QStringLiteral("Когда в часе"),
+                              QStringLiteral("Дни недели"), QStringLiteral("С"), QStringLiteral("По"),
+                              QStringLiteral("Громкость"), QStringLiteral("Запуск")};
+    const QStringList &names = mKind == Channels ? channels : adverts;
+    return section >= 0 && section < names.size() ? QVariant(names[section])
+                                                  : QIdentityProxyModel::headerData(section, orientation, role);
 }
 
 } // namespace RuleEditors

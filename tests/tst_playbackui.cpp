@@ -515,7 +515,7 @@ private slots:
         QVERIFY(capture(window, "music-channel"));
 
         const int beforeSchedule = requests.size();
-        auto *scheduled = window.findChild<QPushButton *>("audioScheduleButton");
+        auto *scheduled = window.findChild<QPushButton *>("scheduleModeButton");
         QVERIFY(scheduled && scheduled->isEnabled());
         QVERIFY2(window.publishMusicSchedule(true, &error), qPrintable(error));
         QTRY_COMPARE(window.mMediaController->status().playbackMode, QStringLiteral("schedule"));

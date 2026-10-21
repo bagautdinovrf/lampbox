@@ -92,11 +92,13 @@ private slots:
         QCOMPARE(audio->currentItem(), item);
         QCOMPARE(item->checkState(), Qt::Checked);
         QVERIFY(Settings().fileFormatsAudio().value(item->text()));
-        auto *summary = page.findChild<QLabel *>(QStringLiteral("appearanceSummary"));
-        QVERIFY(summary);
-        QCOMPARE(summary->text(), QStringLiteral("Сейчас: Оригинал · Тёмная"));
+        auto *appearance = page.findChild<QComboBox *>(QStringLiteral("appearancePicker"));
+        auto *theme = page.findChild<QComboBox *>(QStringLiteral("themePicker"));
+        QVERIFY(appearance && theme);
+        QCOMPARE(appearance->currentText(), QStringLiteral("Оригинал"));
+        QCOMPARE(theme->currentText(), QStringLiteral("Тёмная"));
         Restyle::apply(QStringLiteral("tide-relief"), QStringLiteral("dark"));
-        QCOMPARE(summary->text(), QStringLiteral("Сейчас: Рельеф · Тёмная"));
+        QCOMPARE(appearance->currentText(), QStringLiteral("Рельеф"));
         Restyle::apply(QStringLiteral("tide-relief"), QStringLiteral("denim"));
     }
 

@@ -176,6 +176,22 @@ bool Settings::setMainWindowGeometry(const QByteArray &geometry)
     return syncSettings(settings);
 }
 
+QByteArray Settings::mainWindowSplitter() const
+{
+    QSettings settings(mConfigFile, QSettings::IniFormat);
+    return settings.value("MainWindow/Splitter").toByteArray();
+}
+
+bool Settings::setMainWindowSplitter(const QByteArray &state)
+{
+    QSettings settings(mConfigFile, QSettings::IniFormat);
+    if (state.isEmpty())
+        settings.remove("MainWindow/Splitter");
+    else
+        settings.setValue("MainWindow/Splitter", state);
+    return syncSettings(settings);
+}
+
 PlayerConnectionSettings Settings::playerConnection() const
 {
     QSettings settings(mConfigFile, QSettings::IniFormat);

@@ -43,6 +43,8 @@ public:
 public slots:
     void refresh();
     void showCurrentTime();
+    void showPreviousDay();
+    void showNextDay();
     void showConditions();
 
 signals:
@@ -51,6 +53,7 @@ signals:
     void snapshotChanged();
 
 private:
+    void showDay(const QDate &date);
     struct Private;
     Private *d;
 };

@@ -5,6 +5,7 @@
 #include "mediaimportservice.h"
 #include "settings.h"
 #include "boxlog.h"
+#include <QFile>
 
 
 MediaManager::MediaManager(CHANNEL_TYPE type) :
@@ -111,6 +112,15 @@ bool MediaManager::delFile(const QString &fileName)
 {
     if( !mDirMediaFiles.remove( fileName ) ) {
         BoxLog() << "cannot remove file: " << fileName << "!";
+        return false;
+    }
+    return true;
+}
+
+bool MediaManager::trashFile(const QString &fileName)
+{
+    if (!QFile::moveToTrash(mDirMediaFiles.filePath(fileName))) {
+        BoxLog() << "cannot move file to trash: " << fileName << "!";
         return false;
     }
     return true;

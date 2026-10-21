@@ -113,6 +113,7 @@ public:
     QString selectedPlaylist;
     bool planValid = false;
     std::function<void(int, const QString &)> rowSelected, rowEditRequested;
+    std::function<void(const QTime &)> timeRequested;
 
     void setChannels(const QList<QPair<QString, QString>> &channels)
     {
@@ -223,13 +224,7 @@ protected:
                 const auto &row = mModel->rows.at(rowIndex);
                 const auto r = rowRect(row, laneIndex);
                 const bool intervalSelected = rowIndex == selected && (laneSelected || selectedPlaylist.isEmpty());
-                if (row.event) {
-                    const qreal x = r.center().x(), y = r.center().y();
-                    p.setPen(QPen(t.accentText, 1));
-                    p.setBrush(intervalSelected ? t.accentSoft : t.surface);
-                    p.drawPolygon(QPolygonF{QPointF(x, y - 7), QPointF(x + 5, y), QPointF(x, y + 7), QPointF(x - 5, y)});
-                    continue;
-                }
+                if (row.event) continue;
                 // Match the original channel grid: raised, pale intervals and
                 // a quiet selection tint. Plan activity belongs in the status,
                 // rather than turning the selected channel into a green block.
@@ -249,6 +244,20 @@ protected:
                 }
                 p.setPen(highlighted ? t.accentLine : t.line);
                 p.drawRoundedRect(interval, t.intervalRadius, t.intervalRadius);
+            }
+            for (const auto &mark : eventMarks(laneIndex)) {
+                const bool markSelected = mark.rows.contains(selected) && (laneSelected || selectedPlaylist.isEmpty());
+                p.setPen(QPen(t.accentText, 1));
+                p.setBrush(markSelected ? t.accentSoft : t.surface);
+                if (mark.rows.size() == 1) {
+                    const qreal x = mark.rect.center().x(), y = mark.rect.center().y();
+                    p.drawPolygon(QPolygonF{QPointF(x, y - 7), QPointF(x + 5, y), QPointF(x, y + 7), QPointF(x - 5, y)});
+                    continue;
+                }
+                const QRectF pill = mark.rect.adjusted(0, 4, 0, -4);
+                p.drawRoundedRect(pill, pill.height() / 2, pill.height() / 2);
+                p.setFont(Restyle::font(9, QFont::DemiBold));
+                p.drawText(pill, Qt::AlignCenter, QStringLiteral("×%1").arg(mark.rows.size()));
             }
             // Paint conflict marks after all bars, including when several
             // rules share a playlist and therefore the same lane.
@@ -297,8 +306,28 @@ protected:
             p.fillRect(QRectF(x - 2, top - 2, 4, 4), t.error);
         }
     }
+    void mouseMoveEvent(QMouseEvent *event) override
+    {
+        const bool scale = onScale(event->position());
+        if (scale != (cursor().shape() == Qt::PointingHandCursor))
+            scale ? setCursor(Qt::PointingHandCursor) : unsetCursor();
+        QWidget::mouseMoveEvent(event);
+    }
+    void leaveEvent(QEvent *event) override
+    {
+        unsetCursor();
+        QWidget::leaveEvent(event);
+    }
     void mousePressEvent(QMouseEvent *event) override
     {
+        if (event->button() == Qt::LeftButton && onScale(event->position()) && timeRequested) {
+            const qreal share = qBound(qreal(0), (event->position().x() - trackLeft()) / trackWidth(), qreal(1));
+            const QDateTime time = from.addMSecs(qint64(share * from.msecsTo(until)));
+            // The end of the day maps to its last minute instead of the next day.
+            timeRequested(time.date() == from.date() ? QTime(time.time().hour(), time.time().minute()) : QTime(23, 59));
+            event->accept();
+            return;
+        }
         const int lane = laneAt(event->position());
         if (event->button() == Qt::LeftButton && lane >= 0 && rowSelected) {
             const QString playlistId = mLanes.at(lane).playlistId;
@@ -324,13 +353,25 @@ protected:
         if (event->type() == QEvent::ToolTip) {
             const auto *help = static_cast<QHelpEvent *>(event);
             QStringList hits;
+            if (onScale(help->pos())) hits << QStringLiteral("Щёлкните по шкале, чтобы посмотреть план на это время");
             const int lane = laneAt(help->pos());
             if (lane >= 0) {
                 const auto &track = mLanes.at(lane);
                 hits << track.title;
+                for (const auto &mark : eventMarks(lane)) {
+                    if (!mark.rect.contains(help->pos())) continue;
+                    if (mark.rows.size() == 1) { hits << mModel->rows.at(mark.rows.first()).tooltip; continue; }
+                    QStringList lines{QStringLiteral("Вставок рядом: %1").arg(mark.rows.size())};
+                    for (int i = 0; i < qMin(qsizetype(10), mark.rows.size()); ++i) {
+                        const auto &row = mModel->rows.at(mark.rows.at(i));
+                        lines << QStringLiteral("%1 · %2 · %3").arg(row.time, row.source, row.rule);
+                    }
+                    if (mark.rows.size() > 10) lines << QStringLiteral("…ещё %1").arg(mark.rows.size() - 10);
+                    hits << lines.join(QLatin1Char('\n'));
+                }
                 for (const auto rowIndex : track.rows) {
                     const auto &row = mModel->rows.at(rowIndex);
-                    if (rowRect(row, lane).contains(help->pos())) hits << row.tooltip;
+                    if (!row.event && rowRect(row, lane).contains(help->pos())) hits << row.tooltip;
                 }
             }
             if (hits.isEmpty()) QToolTip::hideText();
@@ -341,14 +382,46 @@ protected:
     }
 
 private:
+    bool onScale(const QPointF &point) const
+    {
+        return point.y() < top && point.x() >= trackLeft() - 4 && from.isValid() && until.isValid() && from < until;
+    }
     int laneAt(const QPointF &point) const
     {
         if (point.y() < top) return -1;
         const int lane = int(point.y() - top) / laneHeight;
         return lane < mLanes.size() ? lane : -1;
     }
+    struct EventMark { QList<int> rows; QRectF rect; };
+    // Insertions closer than 12 px would overlap: they merge into one "×N"
+    // mark spanning the first to the last insertion of the group.
+    QList<EventMark> eventMarks(int lane) const
+    {
+        QList<EventMark> marks;
+        const qreal y = top + lane * laneHeight;
+        const QFontMetricsF metrics(Restyle::font(9, QFont::DemiBold));
+        for (const int rowIndex : mLanes.at(lane).rows) {
+            const auto &row = mModel->rows.at(rowIndex);
+            if (!row.event) continue;
+            const qreal x = position(row.from);
+            if (marks.isEmpty() || x - 6 >= marks.last().rect.right()) {
+                marks.append({{rowIndex}, QRectF(x - 6, y + 1, 12, trackHeight - 2)});
+                continue;
+            }
+            auto &mark = marks.last();
+            mark.rows << rowIndex;
+            const qreal first = position(mModel->rows.at(mark.rows.first()).from);
+            const qreal width = qMax(x - first + 12,
+                                     metrics.horizontalAdvance(QStringLiteral("×%1").arg(mark.rows.size())) + 12);
+            mark.rect = QRectF((first + x - width) / 2, y + 1, width, trackHeight - 2);
+        }
+        return marks;
+    }
     int rowAt(const QPointF &point, int lane) const
     {
+        // A click on a merged mark selects its first insertion.
+        for (const auto &mark : eventMarks(lane))
+            if (mark.rect.contains(point)) return mark.rows.first();
         const auto &rows = mLanes.at(lane).rows;
         for (auto i = rows.crbegin(); i != rows.crend(); ++i)
             if (rowRect(mModel->rows.at(*i), lane).contains(point)) return *i;
@@ -461,6 +534,7 @@ ScheduleDocumentPreview::ScheduleDocumentPreview(QWidget *parent) : QWidget(pare
         }
         if (!playlistId.isEmpty()) emit playlistSelected(playlistId);
     };
+    d->timeline->timeRequested = [this](const QTime &time) { emit timeRequested(time); };
     d->timeline->rowEditRequested = [this](int row, const QString &playlistId) {
         d->timeline->rowSelected(row, playlistId);
         if (!playlistId.isEmpty()) emit playlistEditRequested(playlistId);

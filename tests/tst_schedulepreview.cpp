@@ -251,7 +251,7 @@ void SchedulePreviewTests::documentShowsRulesAndEvents()
     QVERIFY(text.contains(QStringLiteral("после трека"), Qt::CaseInsensitive));
     QVERIFY(text.contains(QStringLiteral("Рекламная вставка")));
     QVERIFY(!text.contains(QStringLiteral("Посторонний канал")));
-    QVERIFY(!text.contains(QStringLiteral("Базовое правило:")));
+    QVERIFY(!text.contains(QStringLiteral("Правило программы:")));
     QVERIFY(widget.findChildren<QTextEdit *>().isEmpty());
 
     QSignalSpy edits(&widget, &SchedulePreviewWidget::editRequested);
@@ -275,7 +275,7 @@ void SchedulePreviewTests::documentShowsRulesAndEvents()
         }
     });
     details->click();
-    QVERIFY(description.contains(QStringLiteral("Базовое правило:")));
+    QVERIFY(description.contains(QStringLiteral("Правило программы:")));
     QVERIFY(description.contains(QStringLiteral("Это расчёт плана")));
 }
 
@@ -638,7 +638,7 @@ void SchedulePreviewTests::externalDocumentErrorClearsPlanAndRecovers()
     widget.showConditions();
     QVERIFY(description.contains(error));
     QVERIFY(!description.contains(QStringLiteral("Правила проекта проверены")));
-    QVERIFY(!description.contains(QStringLiteral("Базовое правило:")));
+    QVERIFY(!description.contains(QStringLiteral("Правило программы:")));
 
     // The stored JSON has not changed, so recovery must invalidate the decode cache.
     widget.setDocument(document);

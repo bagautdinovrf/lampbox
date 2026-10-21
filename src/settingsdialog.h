@@ -6,6 +6,7 @@
 #include <QDialog>
 
 
+class QComboBox;
 class QListWidgetItem;
 class QLineEdit;
 class QSpinBox;
@@ -41,9 +42,16 @@ private:
     void changeAudioTypesCheckState( Qt::CheckState state);
     void changeVideoTypesCheckState( Qt::CheckState state);
 
+    void syncAppearancePickers();
+
+protected:
+    void changeEvent(QEvent *event) override;
+
 private slots:
-    void savePlayerConnection();
-    void saveVideoPlayerConnection();
+    // Saves every edited connection; with no edits, both are saved and reconnected.
+    void saveConnections();
+    bool savePlayerConnection();
+    bool saveVideoPlayerConnection();
 
     /**
      * @brief checkItem             - Выбор типов файлов
@@ -86,6 +94,10 @@ private:
     QSpinBox *mVideoPlayerPort = nullptr;
     QLineEdit *mVideoPlayerToken = nullptr;
     RestyleLabel *mVideoPlayerConnectionMessage = nullptr;
+    QComboBox *mAppearance = nullptr;
+    QComboBox *mTheme = nullptr;
+    bool mPlayerEdited = false;
+    bool mVideoPlayerEdited = false;
 
 };
 

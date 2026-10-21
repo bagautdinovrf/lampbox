@@ -133,7 +133,7 @@ private slots:
         auto *host = dialog.findChild<QLineEdit *>("playerHost");
         auto *port = dialog.findChild<QSpinBox *>("playerPort");
         auto *secret = dialog.findChild<QLineEdit *>("playerToken");
-        auto *save = dialog.findChild<QPushButton *>("savePlayerConnection");
+        auto *save = dialog.findChild<QPushButton *>("saveConnections");
         auto *message = dialog.findChild<QLabel *>("playerConnectionMessage");
         QVERIFY(host && port && secret && save && message);
         QSignalSpy changed(&dialog, &SettingsDialog::playerConnectionChanged);
@@ -183,7 +183,7 @@ private slots:
     {
         SettingsDialog dialog(nullptr);
         auto *secret = dialog.findChild<QLineEdit *>("playerToken");
-        auto *save = dialog.findChild<QPushButton *>("savePlayerConnection");
+        auto *save = dialog.findChild<QPushButton *>("saveConnections");
         auto *message = dialog.findChild<QLabel *>("playerConnectionMessage");
         QVERIFY(secret && save && message);
         secret->setText(token());

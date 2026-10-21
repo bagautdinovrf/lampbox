@@ -4,6 +4,8 @@
 #include "restylewidgets.h"
 
 #include <QApplication>
+#include <QComboBox>
+#include <QEvent>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLineEdit>
@@ -113,40 +115,6 @@ protected:
     }
 };
 
-class AppearanceSummary final : public RestyleLabel
-{
-public:
-    explicit AppearanceSummary(QWidget *parent) : RestyleLabel({}, 12, QFont::Normal, parent)
-    {
-        setObjectName(QStringLiteral("appearanceSummary"));
-        setColorRole(QStringLiteral("muted"));
-        setWordWrap(true);
-        refresh();
-    }
-protected:
-    bool event(QEvent *event) override
-    {
-        const bool handled = RestyleLabel::event(event);
-        if (event->type() == QEvent::ApplicationPaletteChange)
-            refresh();
-        return handled;
-    }
-    void changeEvent(QEvent *event) override
-    {
-        RestyleLabel::changeEvent(event);
-        if (event->type() == QEvent::ApplicationPaletteChange || event->type() == QEvent::PaletteChange
-                || event->type() == QEvent::StyleChange)
-            refresh();
-    }
-private:
-    void refresh()
-    {
-        setText(QObject::tr("Сейчас: %1 · %2")
-                .arg(Restyle::appearanceName(Restyle::appearanceId()),
-                     Restyle::themeName(Restyle::themeId())));
-    }
-};
-
 RestyleLabel *caption(const QString &text, QWidget *parent)
 {
     auto *label = new RestyleLabel(text, 11, QFont::Normal, parent);
@@ -242,12 +210,6 @@ SettingsDialog::SettingsDialog(QWidget *parent, Qt::WindowFlags f) :
     mPlayerConnectionMessage->setTextFormat(Qt::PlainText);
     mPlayerConnectionMessage->hide();
     playerLayout->addWidget(mPlayerConnectionMessage);
-    auto *saveConnection = new QPushButton(tr("Сохранить подключение"), player);
-    saveConnection->setObjectName(QStringLiteral("savePlayerConnection"));
-    Restyle::button(saveConnection, QStringLiteral("primary"));
-    saveConnection->setAutoDefault(false);
-    saveConnection->setFixedHeight(32);
-    playerLayout->addWidget(saveConnection, 0, Qt::AlignLeft);
     page->addWidget(player);
     page->addSpacing(16);
 
@@ -310,12 +272,6 @@ SettingsDialog::SettingsDialog(QWidget *parent, Qt::WindowFlags f) :
     mVideoPlayerConnectionMessage->setTextFormat(Qt::PlainText);
     mVideoPlayerConnectionMessage->hide();
     videoPlayerLayout->addWidget(mVideoPlayerConnectionMessage);
-    auto *saveVideoConnection = new QPushButton(tr("Сохранить подключение"), videoPlayer);
-    saveVideoConnection->setObjectName(QStringLiteral("saveVideoPlayerConnection"));
-    Restyle::button(saveVideoConnection, QStringLiteral("primary"));
-    saveVideoConnection->setAutoDefault(false);
-    saveVideoConnection->setFixedHeight(32);
-    videoPlayerLayout->addWidget(saveVideoConnection, 0, Qt::AlignLeft);
     auto *videoScreens = new QPushButton(tr("Настроить видеоэкраны и плейлисты"), videoPlayer);
     videoScreens->setObjectName(QStringLiteral("configureVideoScreens"));
     Restyle::button(videoScreens);
@@ -324,6 +280,18 @@ SettingsDialog::SettingsDialog(QWidget *parent, Qt::WindowFlags f) :
     videoPlayerLayout->addWidget(videoScreens, 0, Qt::AlignLeft);
     connect(videoScreens, &QPushButton::clicked, this, &SettingsDialog::videoScreensRequested);
     page->addWidget(videoPlayer);
+    page->addSpacing(12);
+    auto *saveRow = new QHBoxLayout;
+    saveRow->setSpacing(12);
+    auto *saveConnections = new QPushButton(tr("Сохранить подключения"), body);
+    saveConnections->setObjectName(QStringLiteral("saveConnections"));
+    saveConnections->setToolTip(tr("Сохранить адреса и токены обоих плееров и переподключиться"));
+    Restyle::button(saveConnections, QStringLiteral("primary"));
+    saveConnections->setAutoDefault(false);
+    saveConnections->setFixedHeight(32);
+    saveRow->addWidget(saveConnections);
+    saveRow->addWidget(caption(tr("Enter в любом поле тоже сохраняет."), body), 1);
+    page->addLayout(saveRow);
     page->addSpacing(16);
 
     auto *card = new RestylePanel(body);
@@ -386,9 +354,35 @@ SettingsDialog::SettingsDialog(QWidget *parent, Qt::WindowFlags f) :
     comfortLayout->setContentsMargins(21, 20, 21, 21);
     comfortLayout->setSpacing(12);
     comfortLayout->addWidget(new RestyleLabel(tr("Оформление"), 20, QFont::DemiBold, comfort));
-    comfortLayout->addWidget(new AppearanceSummary(comfort));
-    comfortLayout->addWidget(caption(tr("Оформление и тема выбираются в шапке окна. Изменения сохраняются автоматически."), comfort));
-    comfortLayout->addWidget(caption(tr("Смена оформления сохраняет открытый раздел, выделение и введённые данные."), comfort));
+    comfortLayout->addWidget(caption(tr("Применяется сразу и сохраняется автоматически. "
+                                        "Открытый раздел, выделение и введённые данные не сбрасываются."), comfort));
+    auto *pickers = new QHBoxLayout;
+    pickers->setSpacing(10);
+    mAppearance = new QComboBox(comfort);
+    mAppearance->setObjectName(QStringLiteral("appearancePicker"));
+    mAppearance->setAccessibleName(tr("Оформление"));
+    for (const QString &id : Restyle::appearanceIds())
+        mAppearance->addItem(Restyle::appearanceName(id), id);
+    mAppearance->setFixedSize(150, 32);
+    mTheme = new QComboBox(comfort);
+    mTheme->setObjectName(QStringLiteral("themePicker"));
+    mTheme->setAccessibleName(tr("Тема"));
+    for (const QString &id : Restyle::themeIds())
+        mTheme->addItem(Restyle::themeName(id), id);
+    mTheme->setFixedSize(150, 32);
+    auto *appearanceLabel = caption(tr("Оформление"), comfort);
+    appearanceLabel->setWordWrap(false);
+    appearanceLabel->setBuddy(mAppearance);
+    auto *themeLabel = caption(tr("Тема"), comfort);
+    themeLabel->setWordWrap(false);
+    themeLabel->setBuddy(mTheme);
+    pickers->addWidget(appearanceLabel);
+    pickers->addWidget(mAppearance);
+    pickers->addSpacing(12);
+    pickers->addWidget(themeLabel);
+    pickers->addWidget(mTheme);
+    pickers->addStretch();
+    comfortLayout->addLayout(pickers);
     page->addWidget(comfort);
     page->addSpacing(16);
     auto *done = new QPushButton(tr("Готово"), body);
@@ -403,28 +397,36 @@ SettingsDialog::SettingsDialog(QWidget *parent, Qt::WindowFlags f) :
     outer->addWidget(scroll);
 
     init();
-    connect(saveConnection, &QPushButton::clicked, this, &SettingsDialog::savePlayerConnection);
-    connect(mPlayerHost, &QLineEdit::returnPressed, this, &SettingsDialog::savePlayerConnection);
-    connect(mPlayerToken, &QLineEdit::returnPressed, this, &SettingsDialog::savePlayerConnection);
+    syncAppearancePickers();
+    const auto appearanceChosen = [this] {
+        Settings settings;
+        settings.setAppearanceId(mAppearance->currentData().toString());
+        settings.setThemeId(mTheme->currentData().toString());
+        Restyle::apply(settings.appearanceId(), settings.themeId());
+    };
+    connect(mAppearance, &QComboBox::currentIndexChanged, this, appearanceChosen);
+    connect(mTheme, &QComboBox::currentIndexChanged, this, appearanceChosen);
+    connect(saveConnections, &QPushButton::clicked, this, &SettingsDialog::saveConnections);
+    for (auto *field : {mPlayerHost, mPlayerToken, mVideoPlayerHost, mVideoPlayerToken})
+        connect(field, &QLineEdit::returnPressed, this, &SettingsDialog::saveConnections);
     const auto connectionEdited = [this] {
+        mPlayerEdited = true;
         mPlayerConnectionMessage->setColorRole(QStringLiteral("muted"));
         mPlayerConnectionMessage->setText(tr("Изменения ещё не сохранены."));
         mPlayerConnectionMessage->show();
     };
-    connect(mPlayerHost, &QLineEdit::textEdited, this, connectionEdited);
+    connect(mPlayerHost, &QLineEdit::textChanged, this, connectionEdited);
     connect(mPlayerPort, &QSpinBox::valueChanged, this, connectionEdited);
-    connect(mPlayerToken, &QLineEdit::textEdited, this, connectionEdited);
-    connect(saveVideoConnection, &QPushButton::clicked, this, &SettingsDialog::saveVideoPlayerConnection);
-    connect(mVideoPlayerHost, &QLineEdit::returnPressed, this, &SettingsDialog::saveVideoPlayerConnection);
-    connect(mVideoPlayerToken, &QLineEdit::returnPressed, this, &SettingsDialog::saveVideoPlayerConnection);
+    connect(mPlayerToken, &QLineEdit::textChanged, this, connectionEdited);
     const auto videoConnectionEdited = [this] {
+        mVideoPlayerEdited = true;
         mVideoPlayerConnectionMessage->setColorRole(QStringLiteral("muted"));
         mVideoPlayerConnectionMessage->setText(tr("Изменения ещё не сохранены."));
         mVideoPlayerConnectionMessage->show();
     };
-    connect(mVideoPlayerHost, &QLineEdit::textEdited, this, videoConnectionEdited);
+    connect(mVideoPlayerHost, &QLineEdit::textChanged, this, videoConnectionEdited);
     connect(mVideoPlayerPort, &QSpinBox::valueChanged, this, videoConnectionEdited);
-    connect(mVideoPlayerToken, &QLineEdit::textEdited, this, videoConnectionEdited);
+    connect(mVideoPlayerToken, &QLineEdit::textChanged, this, videoConnectionEdited);
     connect(none, &QPushButton::clicked, this, &SettingsDialog::deselectAllFileFormats);
     connect(all, &QPushButton::clicked, this, &SettingsDialog::selectAllFileFormats);
     connect(done, &QPushButton::clicked, this, [this] {
@@ -462,7 +464,32 @@ void SettingsDialog::init()
     connect(mVideoFormats, &QListWidget::itemChanged, this, &SettingsDialog::checkVideoItem);
 }
 
-void SettingsDialog::savePlayerConnection()
+void SettingsDialog::syncAppearancePickers()
+{
+    if (!mAppearance || !mTheme) return;
+    const QSignalBlocker appearanceBlocker(mAppearance), themeBlocker(mTheme);
+    mAppearance->setCurrentIndex(mAppearance->findData(Restyle::appearanceId()));
+    mTheme->setCurrentIndex(mTheme->findData(Restyle::themeId()));
+}
+
+void SettingsDialog::changeEvent(QEvent *event)
+{
+    QDialog::changeEvent(event);
+    // Restyle::apply may also come from elsewhere; keep the pickers truthful.
+    if (event->type() == QEvent::ApplicationPaletteChange || event->type() == QEvent::PaletteChange)
+        syncAppearancePickers();
+}
+
+void SettingsDialog::saveConnections()
+{
+    const bool both = !mPlayerEdited && !mVideoPlayerEdited;
+    if (both || mPlayerEdited)
+        mPlayerEdited = !savePlayerConnection();
+    if (both || mVideoPlayerEdited)
+        mVideoPlayerEdited = !saveVideoPlayerConnection();
+}
+
+bool SettingsDialog::savePlayerConnection()
 {
     const auto showError = [this](const QString &message, QWidget *field) {
         mPlayerConnectionMessage->setColorRole(QStringLiteral("error"));
@@ -475,11 +502,11 @@ void SettingsDialog::savePlayerConnection()
     connection.host = mPlayerHost->text().trimmed();
     if (connection.host.isEmpty()) {
         showError(tr("Укажите адрес машины плеера. Для этого компьютера — 127.0.0.1."), mPlayerHost);
-        return;
+        return false;
     }
     if (!mPlayerPort->hasAcceptableInput()) {
         showError(tr("Укажите TCP-порт от 1 до 65535."), mPlayerPort);
-        return;
+        return false;
     }
     connection.port = static_cast<quint16>(mPlayerPort->value());
     connection.token = mPlayerToken->text().trimmed();
@@ -488,11 +515,11 @@ void SettingsDialog::savePlayerConnection()
                                      && connection.token.isEmpty() && MediaController::isLocalHost(connection.host);
     if (!automaticLocalToken && !tokenPattern.match(connection.token).hasMatch()) {
         showError(tr("Токен должен содержать 64 символа: цифры 0–9 и строчные буквы a–f."), mPlayerToken);
-        return;
+        return false;
     }
     if (!Settings().setPlayerConnection(connection)) {
         showError(tr("Не удалось сохранить подключение. Проверьте доступ к файлу настроек."), nullptr);
-        return;
+        return false;
     }
     mPlayerHost->setText(connection.host);
     mPlayerToken->setText(connection.token);
@@ -500,9 +527,10 @@ void SettingsDialog::savePlayerConnection()
     mPlayerConnectionMessage->setText(tr("Подключение сохранено."));
     mPlayerConnectionMessage->show();
     emit playerConnectionChanged();
+    return true;
 }
 
-void SettingsDialog::saveVideoPlayerConnection()
+bool SettingsDialog::saveVideoPlayerConnection()
 {
     const auto showError = [this](const QString &message, QWidget *field) {
         mVideoPlayerConnectionMessage->setColorRole(QStringLiteral("error"));
@@ -515,11 +543,11 @@ void SettingsDialog::saveVideoPlayerConnection()
     connection.host = mVideoPlayerHost->text().trimmed();
     if (connection.host.isEmpty()) {
         showError(tr("Укажите адрес машины видеоплеера. Для этого компьютера — 127.0.0.1."), mVideoPlayerHost);
-        return;
+        return false;
     }
     if (!mVideoPlayerPort->hasAcceptableInput()) {
         showError(tr("Укажите TCP-порт от 1 до 65535."), mVideoPlayerPort);
-        return;
+        return false;
     }
     connection.port = static_cast<quint16>(mVideoPlayerPort->value());
     connection.token = mVideoPlayerToken->text().trimmed();
@@ -528,11 +556,11 @@ void SettingsDialog::saveVideoPlayerConnection()
                                      && connection.token.isEmpty() && MediaController::isLocalHost(connection.host);
     if (!automaticLocalToken && !tokenPattern.match(connection.token).hasMatch()) {
         showError(tr("Токен должен содержать 64 символа: цифры 0–9 и строчные буквы a–f."), mVideoPlayerToken);
-        return;
+        return false;
     }
     if (!Settings().setVideoPlayerConnection(connection)) {
         showError(tr("Не удалось сохранить подключение. Проверьте доступ к файлу настроек."), nullptr);
-        return;
+        return false;
     }
     mVideoPlayerHost->setText(connection.host);
     mVideoPlayerToken->setText(connection.token);
@@ -540,6 +568,7 @@ void SettingsDialog::saveVideoPlayerConnection()
     mVideoPlayerConnectionMessage->setText(tr("Подключение сохранено."));
     mVideoPlayerConnectionMessage->show();
     emit videoPlayerConnectionChanged();
+    return true;
 }
 
 void SettingsDialog::checkAudioItem(QListWidgetItem *item)

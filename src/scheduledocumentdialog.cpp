@@ -79,23 +79,27 @@ QString ScheduleDocumentUi::describe(const ScheduleV1::Document &document, const
     if (!local.isValid() || local.date() != at.date() || local.time() != at.time())
         return QStringLiteral("Выбранное местное время отсутствует при переводе часов.");
     const auto plan = ScheduleV1::evaluate(document, local);
-    QStringList lines{QStringLiteral("%1 · %2").arg(local.toString("dd.MM.yyyy HH:mm:ss"), QString::fromUtf8(zone.id()))};
-    if (!plan.withinValidity)
-        lines << QStringLiteral("Вне срока действия расписания. Применяется резервный источник.");
-    lines << (plan.usingFallback ? QStringLiteral("Резервный источник")
-              : QStringLiteral("Базовое правило: ") + entityName(object, "baseRules", plan.baseRuleId));
-    lines << (plan.silence ? QStringLiteral("Тишина")
-              : QStringLiteral("Плейлист: ") + entityName(object, "playlists", plan.playlistId));
-    lines << QStringLiteral("Громкость: %1%").arg(plan.volumePercent);
+    const auto clock = [](const QDateTime &time, const QString &dateFormat) {
+        return time.toString(dateFormat + (time.time().second() ? QStringLiteral(" HH:mm:ss") : QStringLiteral(" HH:mm")));
+    };
+    QStringList lines{QStringLiteral("План на %1 (%2)").arg(clock(local, QStringLiteral("dd.MM.yyyy")), QString::fromUtf8(zone.id()))};
+    lines << (plan.silence ? QStringLiteral("Звучит: тишина")
+              : QStringLiteral("Звучит: «%1» · громкость %2%")
+                    .arg(entityName(object, "playlists", plan.playlistId)).arg(plan.volumePercent));
+    if (!plan.usingFallback)
+        lines << QStringLiteral("Правило программы: «%1»").arg(entityName(object, "baseRules", plan.baseRuleId));
+    else if (plan.withinValidity)
+        lines << QStringLiteral("Резервный источник — в это время не действует ни одно правило программы.");
+    else lines << QStringLiteral("Резервный источник — расписание вне срока действия.");
     if (!plan.mixRuleId.isEmpty()) {
-        lines << QStringLiteral("Подмешивание: ") + entityName(object, "mixRules", plan.mixRuleId);
         QStringList pattern;
         for (const auto value : plan.pattern) {
             const auto source = value.toObject();
-            pattern << (source.value("type") == "active_base" ? QStringLiteral("Основной")
-                         : entityName(object, "playlists", source.value("playlistId").toString()));
+            pattern << (source.value("type") == "active_base" ? QStringLiteral("основной")
+                         : QStringLiteral("«%1»").arg(entityName(object, "playlists", source.value("playlistId").toString())));
         }
-        lines << QStringLiteral("Чередование: ") + pattern.join(QStringLiteral(" → "));
+        lines << QStringLiteral("Чередование «%1»: %2").arg(entityName(object, "mixRules", plan.mixRuleId),
+                                                           pattern.join(QStringLiteral(" → ")));
     }
     auto events = ScheduleV1::events(document, local, local.addDays(1));
     std::sort(events.begin(), events.end(), [](const auto &left, const auto &right) {
@@ -103,12 +107,13 @@ QString ScheduleDocumentUi::describe(const ScheduleV1::Document &document, const
         if (left.priority != right.priority) return left.priority > right.priority;
         return left.ruleId < right.ruleId;
     });
-    if (events.isEmpty()) lines << QStringLiteral("В ближайшие сутки отдельных вставок не запланировано.");
+    if (events.isEmpty()) lines << QStringLiteral("Вставок в ближайшие сутки нет.");
     else {
-        lines << QStringLiteral("Ближайшие вставки по времени:");
+        lines << QStringLiteral("Вставки в ближайшие сутки:");
         for (qsizetype i = 0; i < qMin(qsizetype(8), events.size()); ++i)
-            lines << QStringLiteral("%1 · %2").arg(events.at(i).scheduledUtc.toTimeZone(zone).toString("dd.MM HH:mm:ss"),
+            lines << QStringLiteral("  %1 · «%2»").arg(clock(events.at(i).scheduledUtc.toTimeZone(zone), QStringLiteral("dd.MM")),
                         entityName(object, "eventRules", events.at(i).ruleId));
+        if (events.size() > 8) lines << QStringLiteral("  …ещё %1").arg(events.size() - 8);
     }
     lines << plan.diagnostics;
     lines << QStringLiteral("Это расчёт плана. Фактическое воспроизведение подтверждает плеер.");
@@ -270,14 +275,20 @@ struct ScheduledDocumentDialog::Private {
         else for (const auto value : object.value(sectionKeys[index]).toArray()) items->addItem(titleFor(value.toObject()));
         add->setEnabled(index > 0);
         static const QStringList hints{
-            QStringLiteral("Часовой пояс timeZone, срок validity [from, until), резерв fallback. ID и ревизию выпуска обновляет публикация."),
-            QStringLiteral("Медиафайлы: относительный путь path от медиакаталога станции. Ссылки из плейлистов и событий используют id."),
-            QStringLiteral("Плейлисты: order — sequential или shuffle_cycle. Каждый элемент entries имеет собственный id и assetId."),
-            QStringLiteral("Календарь: dates — конкретные даты YYYY-MM-DD. coverage должен охватывать весь срок расписания и соседний день для ночных правил."),
-            QStringLiteral("Шаблоны дня: slots задают время, источник и громкость. Полные сутки: 00:00:00 → 00:00:00, untilDayOffset: 1."),
-            QStringLiteral("Базовые правила: when.select — all, weekdays, dates, calendar или annual_filter. Побеждает больший priority; равные приоритеты конфликтуют."),
-            QStringLiteral("Подмешивание: pattern — последовательность active_base и playlist. Для чередования через один оставьте два элемента. Окна windows относятся к дню начала."),
-            QStringLiteral("События: times — точное местное время. delivery.start — after_track или interrupt; maxLateSeconds задаёт допустимую задержку.")};
+            QStringLiteral("Часовой пояс станции (timeZone), срок действия расписания (validity: from — первый день, until — день после последнего) "
+                           "и что звучит вне срока (fallback). Номер выпуска и ревизию заполняет публикация."),
+            QStringLiteral("Медиафайлы: путь к файлу относительно медиапапки станции (path). Плейлисты и вставки ссылаются на файл по его id."),
+            QStringLiteral("Плейлисты: порядок треков (order) — по имени файла (sequential) или случайный круг без повторов (shuffle_cycle). "
+                           "Каждый трек в списке (entries) ссылается на медиафайл (assetId)."),
+            QStringLiteral("Календарь — список отдельных дат, например праздников (dates, ГГГГ-ММ-ДД). Период календаря (coverage) должен "
+                           "охватывать весь срок расписания и день до него, если есть ночные правила."),
+            QStringLiteral("Шаблон дня — интервалы времени (slots) с источником и громкостью. Целые сутки: с 00:00:00 до 00:00:00 следующего дня (untilDayOffset: 1)."),
+            QStringLiteral("Основная программа: в какие дни (when.select: all — каждый день, weekdays — дни недели, dates — даты, calendar — календарь, "
+                           "annual_filter — месяцы и числа) действует шаблон дня. При совпадении побеждает больший приоритет (priority); равные приоритеты — конфликт."),
+            QStringLiteral("Чередование: порядок источников (pattern) — основная программа (active_base) и дополнительный плейлист (playlist). "
+                           "Для «через один» оставьте два элемента. Интервалы времени (windows) отсчитываются от дня начала."),
+            QStringLiteral("Вставки: точное местное время (times). Запуск (delivery.start): после трека (after_track) или с прерыванием трека (interrupt); "
+                           "допустимое опоздание в секундах (maxLateSeconds).")};
         help->setText(hints.value(index));
         const int nextRow = items->count() ? 0 : -1;
         items->setCurrentRow(nextRow);
@@ -385,14 +396,18 @@ ScheduledDocumentDialog::ScheduledDocumentDialog(const QJsonObject &document, QW
         date->setCalendarPopup(true);
         date->setDate(initialDate);
     }
-    auto *fromLabel = new QLabel(QStringLiteral("С"));
-    fromLabel->setBuddy(d->holidayFrom);
-    auto *untilLabel = new QLabel(QStringLiteral("По включительно"));
-    untilLabel->setBuddy(d->holidayUntil);
-    holidayForm->addWidget(fromLabel, 1, 0);
-    holidayForm->addWidget(d->holidayFrom, 1, 1);
-    holidayForm->addWidget(untilLabel, 1, 2);
-    holidayForm->addWidget(d->holidayUntil, 1, 3);
+    d->holidayFrom->setAccessibleName(QStringLiteral("Первый день чередования"));
+    d->holidayUntil->setAccessibleName(QStringLiteral("Последний день чередования, включительно"));
+    auto *periodLabel = new QLabel(QStringLiteral("Период"));
+    periodLabel->setBuddy(d->holidayFrom);
+    auto *period = new QHBoxLayout;
+    period->addWidget(d->holidayFrom);
+    period->addWidget(new QLabel(QStringLiteral("—")));
+    period->addWidget(d->holidayUntil);
+    period->addWidget(new QLabel(QStringLiteral("включительно")));
+    period->addStretch();
+    holidayForm->addWidget(periodLabel, 1, 0);
+    holidayForm->addLayout(period, 1, 1, 1, 3);
     holidayForm->setColumnStretch(1, 1);
     holidayForm->setColumnStretch(3, 1);
     holidayLayout->addLayout(holidayForm);
@@ -428,8 +443,8 @@ ScheduledDocumentDialog::ScheduledDocumentDialog(const QJsonObject &document, QW
     d->section = new QComboBox;
     d->section->setObjectName(QStringLiteral("scheduleDocumentSection"));
     d->section->addItems({QStringLiteral("Общее"), QStringLiteral("Медиафайлы"), QStringLiteral("Плейлисты"),
-         QStringLiteral("Календари"), QStringLiteral("Шаблоны дня"), QStringLiteral("Базовые правила"),
-         QStringLiteral("Подмешивание"), QStringLiteral("События")});
+         QStringLiteral("Календари"), QStringLiteral("Шаблоны дня"), QStringLiteral("Основная программа"),
+         QStringLiteral("Чередование"), QStringLiteral("Вставки")});
     toolbar->addWidget(d->section, 1); toolbar->addWidget(importButton); toolbar->addWidget(exportButton);
     detailsLayout->addLayout(toolbar);
     d->help = new QLabel;
@@ -459,7 +474,13 @@ ScheduledDocumentDialog::ScheduledDocumentDialog(const QJsonObject &document, QW
     detailsLayout->addWidget(split, 1);
     layout->addWidget(detailsPanel, 2);
     detailsPanel->hide();
-    connect(details, &QToolButton::toggled, this, [this, details, detailsPanel](bool expanded) {
+    // The form opens at its content size; the JSON editor gets room only on demand.
+    const auto fitToContent = [this, layout](bool expanded) {
+        layout->activate();
+        const QSize minimum = expanded ? QSize(1040, 820) : QSize(820, 0);
+        resize(sizeHint().expandedTo(minimum).boundedTo(screen()->availableGeometry().size() - QSize(48, 64)));
+    };
+    connect(details, &QToolButton::toggled, this, [this, details, detailsPanel, fitToContent](bool expanded) {
         if (!expanded && !d->commit()) {
             const QSignalBlocker blocker(details);
             details->setChecked(true);
@@ -468,18 +489,21 @@ ScheduledDocumentDialog::ScheduledDocumentDialog(const QJsonObject &document, QW
         if (!expanded) d->refreshHolidayRules();
         detailsPanel->setVisible(expanded);
         details->setArrowType(expanded ? Qt::DownArrow : Qt::RightArrow);
-        resize((expanded ? QSize(1040, 900) : QSize(980, 660))
-            .boundedTo(screen()->availableGeometry().size() - QSize(48, 64)));
+        fitToContent(expanded);
     });
     auto *previewBar = new QHBoxLayout;
-    previewBar->addWidget(new QLabel(QStringLiteral("Проверить план на дату:")));
-    d->at = new QDateTimeEdit(QDateTime::currentDateTime());
+    auto *atLabel = new QLabel(QStringLiteral("Проверить план на"));
+    previewBar->addWidget(atLabel);
+    const auto now = QDateTime::currentDateTime();
+    d->at = new QDateTimeEdit(QDateTime(now.date(), QTime(now.time().hour(), now.time().minute())));
     d->at->setObjectName(QStringLiteral("scheduleDocumentAt"));
-    d->at->setDisplayFormat(QStringLiteral("dd.MM.yyyy HH:mm:ss"));
+    d->at->setDisplayFormat(QStringLiteral("dd.MM.yyyy HH:mm"));
     d->at->setCalendarPopup(true);
-    d->at->setMinimumWidth(180);
+    d->at->setMinimumWidth(150);
+    atLabel->setBuddy(d->at);
     previewBar->addWidget(d->at);
-    auto *check = new QPushButton(QStringLiteral("Проверить и рассчитать"));
+    auto *check = new QPushButton(QStringLiteral("Проверить"));
+    check->setToolTip(QStringLiteral("Проверить настройки и показать, что звучит в выбранный момент"));
     check->setObjectName(QStringLiteral("scheduleDocumentCheck"));
     previewBar->addWidget(check); previewBar->addStretch();
     layout->addLayout(previewBar);
@@ -579,7 +603,7 @@ ScheduledDocumentDialog::ScheduledDocumentDialog(const QJsonObject &document, QW
     const QString initialError = ScheduleV1::decode(document, &d->compiled);
     d->preview->setPlainText(initialError.isEmpty() ? ScheduleDocumentUi::describe(d->compiled, d->at->dateTime())
                                                    : QStringLiteral("Расписание требует исправления:\n") + initialError);
-    resize(QSize(980, 660).boundedTo(screen()->availableGeometry().size() - QSize(48, 64)));
+    fitToContent(false);
 }
 
 ScheduledDocumentDialog::~ScheduledDocumentDialog() = default;

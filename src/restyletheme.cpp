@@ -7,6 +7,7 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDialog>
+#include <QDialogButtonBox>
 #include <QEvent>
 #include <QFile>
 #include <QFontDatabase>
@@ -608,6 +609,9 @@ public:
         case SH_ScrollBar_Transient: return false;
         case SH_EtchDisabledText: return false;
         case SH_DialogButtonBox_ButtonsHaveIcons: return false;
+        // One order in every dialog: cancel on the left, the action rightmost,
+        // matching the hand-built rule editors.
+        case SH_DialogButtonLayout: return QDialogButtonBox::MacLayout;
         default:return QProxyStyle::styleHint(hint,option,widget,ret);
         }
     }
@@ -625,7 +629,8 @@ public:
                 const int gap=button->icon.isNull() || button->text.isEmpty()?0:(role=="nav"?9:6);
                 const int iconWidth=button->icon.isNull()?0:button->iconSize.width();
                 const int padding=role=="day"?8:22;
-                result.setWidth(textWidth+iconWidth+gap+padding);
+                const int menu=button->features&QStyleOptionButton::HasMenu?16:0;
+                result.setWidth(textWidth+iconWidth+gap+padding+menu);
             } else result.setWidth(qMax(result.width(),size.width()+22));
             if (role=="icon") result=QSize(29,29);
             if (role=="play") result=QSize(34,34);
@@ -636,6 +641,9 @@ public:
             result.setHeight(qMax(30,result.height()+6));
         } else if (type==CT_HeaderSection) {
             result.setHeight(qMax(30,result.height()));
+            // CE_HeaderLabel pads 8 px per side; keep ResizeToContents headers unelided.
+            if (const auto *header=qstyleoption_cast<const QStyleOptionHeader *>(option))
+                result.setWidth(qMax(result.width(),QFontMetrics(Restyle::font(10)).horizontalAdvance(header->text)+24));
         }
         return result;
     }
@@ -742,6 +750,12 @@ public:
             paintButton(*p,option->rect,role,option->state);
             QStyleOptionButton label=*button;
             label.rect=subElementRect(SE_PushButtonContents,option,widget);
+            if (button->features&QStyleOptionButton::HasMenu) {
+                QStyleOption arrow=*option;
+                arrow.rect=QRect(label.rect.right()-10,label.rect.center().y()-5,10,10);
+                drawPrimitive(PE_IndicatorArrowDown,&arrow,p,widget);
+                label.rect.setRight(label.rect.right()-14);
+            }
             drawControl(CE_PushButtonLabel,&label,p,widget); break;
         }
         case CE_PushButtonLabel: case CE_ToolButtonLabel: {

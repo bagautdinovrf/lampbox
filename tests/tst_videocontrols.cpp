@@ -129,7 +129,7 @@ private slots:
         auto *host = dialog.findChild<QLineEdit *>("videoPlayerHost");
         auto *port = dialog.findChild<QSpinBox *>("videoPlayerPort");
         auto *secret = dialog.findChild<QLineEdit *>("videoPlayerToken");
-        auto *save = dialog.findChild<QPushButton *>("saveVideoPlayerConnection");
+        auto *save = dialog.findChild<QPushButton *>("saveConnections");
         QVERIFY(host && port && secret && save);
         QCOMPARE(port->value(), 17656);
         QCOMPARE(secret->echoMode(), QLineEdit::Password);
@@ -139,7 +139,10 @@ private slots:
         QCOMPARE(changed.size(), 1);
         QVERIFY(Settings().videoPlayerConnection().token.isEmpty());
         QCOMPARE(Settings().playerConnection().token, audio.token);
+        // Without edits the single button saves and reconnects both players.
+        QCOMPARE(audioChanged.size(), 1);
         changed.clear();
+        audioChanged.clear();
         host->setText("video.local");
         save->click();
         QCOMPARE(changed.size(), 0);

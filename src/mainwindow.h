@@ -25,6 +25,7 @@ class QTableView;
 class QSortFilterProxyModel;
 class QLineEdit;
 class QTimer;
+class QSplitter;
 class SchedulePreviewWidget;
 
 class MainWindow : public QMainWindow {
@@ -69,10 +70,8 @@ class MainWindow : public QMainWindow {
         MediaModel *source = nullptr;
         SchedulePreviewWidget *schedule = nullptr;
         QLineEdit *search = nullptr;
+        QSplitter *splitter = nullptr;
         QLabel *subtitle = nullptr;
-        QLabel *channelTitle = nullptr;
-        QLabel *channelDetail = nullptr;
-        QLabel *channelConditions = nullptr;
         QLabel *fileTitle = nullptr;
         QLabel *fileArtist = nullptr;
         std::array<QLabel *, 4> fileFields{};
@@ -91,7 +90,6 @@ class MainWindow : public QMainWindow {
         QPushButton *preview = nullptr;
         QPushButton *fileInfo = nullptr;
         QPushButton *playChannel = nullptr;
-        QPushButton *schedulePlayback = nullptr;
         QPushButton *openFolder = nullptr;
     };
     QWidget *buildMediaPage(int page);
@@ -113,6 +111,7 @@ class MainWindow : public QMainWindow {
     QJsonObject playbackSchedule(int page, QString *error) const;
     void refreshPlaybackSchedules();
     void updatePlaybackActions();
+    void updateModeButtons();
     void updatePlayingMedia();
     bool updateVideoPlaybackContext(QString *error = nullptr);
     void showAllSchedules();
@@ -133,11 +132,13 @@ class MainWindow : public QMainWindow {
     QString mImportTargetDirectory;
     bool mCloseAfterImport = false;
     QStackedWidget *mStack = nullptr;
-    QComboBox *mAppearance = nullptr;
-    QComboBox *mTheme = nullptr;
     std::array<QPushButton *, 6> mNavigation{};
     QPushButton *mPlay = nullptr;
     QPushButton *mStop = nullptr;
+    // Confirmed player mode of the current page; a click requests the other mode.
+    QPushButton *mManualMode = nullptr;
+    QPushButton *mScheduleMode = nullptr;
+    QPushButton *mOpenSettings = nullptr;
     QLabel *mPlayerState = nullptr;
     QLabel *mPlayerDetail = nullptr;
     QLabel *mOperationState = nullptr;
